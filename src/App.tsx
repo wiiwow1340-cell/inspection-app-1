@@ -118,7 +118,7 @@ const DEFAULT_PROCESSES: Process[] = [
 
 const supabaseUrl = "https://eapcckymxitmcaicutwu.supabase.co";
 const supabaseKey =
-  "sb_publishable_egnpnbJaBPTby2vzZeTj2g_L8b1RAqr";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
