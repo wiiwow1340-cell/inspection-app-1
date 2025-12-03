@@ -62,7 +62,10 @@ const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
-  <div className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`} {...props} />
+  <div
+    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+    {...props}
+  />
 );
 
 // =============================
@@ -82,8 +85,7 @@ type Report = {
   model: string;
   process: string;
   images: Record<string, string>;
-  // 每一筆報告自己記住當時「應該要拍哪幾張」
-  expected_items: string[];
+  expected_items: string[]; // 報告當下應該要拍的項目清單
 };
 
 type ConfirmTarget =
@@ -121,13 +123,48 @@ const supabaseKey =
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // =============================
-//  Supabase Helper
+//  共用工具
 // =============================
 
 // 把中文項目名轉成安全檔名 item1 / item2 / ...
 function getSafeItemName(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
   return index >= 0 ? `item${index + 1}` : "item";
+}
+
+// 將圖片壓縮到最大邊 1600px，輸出 JPEG blob
+async function compressImage(file: File): Promise<Blob> {
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(file);
+
+  await new Promise((resolve) => {
+    img.onload = () => resolve(null);
+  });
+
+  const maxW = 1600;
+  const maxH = 1600;
+  let { width, height } = img;
+
+  if (width > height && width > maxW) {
+    height = (height * maxW) / width;
+    width = maxW;
+  } else if (height >= width && height > maxH) {
+    width = (width * maxH) / height;
+    height = maxH;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return file; // fallback：直接用原檔
+  }
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.85);
+  });
 }
 
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
@@ -140,19 +177,18 @@ async function uploadImage(
 ): Promise<string> {
   if (!file) return "";
 
+  // 先壓縮
+  const compressed = await compressImage(file);
+
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
-  const ext =
-    file.name.split(".").pop()?.toLowerCase() ||
-    file.type.split("/").pop() ||
-    "jpg";
-  const fileName = `${safeItem}.${ext}`;
+  const fileName = `${safeItem}.jpg`;
   const filePath = `${processCode}/${model}/${serial}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
       .from("photos")
-      .upload(filePath, file, { upsert: true });
+      .upload(filePath, compressed, { upsert: true });
 
     if (error) {
       console.error("上傳圖片失敗（Storage）:", error.message);
@@ -170,7 +206,6 @@ async function uploadImage(
 async function saveReportToDB(report: Report): Promise<boolean> {
   const { error } = await supabase.from("reports").insert({
     ...report,
-    // expected_items 存成 JSON 字串
     expected_items: JSON.stringify(report.expected_items ?? []),
   });
 
@@ -284,7 +319,6 @@ export default function App() {
     if (queryFilters.process && r.process !== queryFilters.process) return false;
     if (queryFilters.model && r.model !== queryFilters.model) return false;
 
-    // 狀態判斷完全依照報告自身的 expected_items
     const expected = r.expected_items || [];
 
     if (queryFilters.status === "done") {
@@ -364,23 +398,29 @@ export default function App() {
     );
     const processCode = proc?.code || selectedProcess;
 
-    const uploadedImages: Record<string, string> = {};
     const expectedItems = proc?.items ?? [];
+    let uploadedImages: Record<string, string> = {};
 
     if (proc) {
-      for (const item of proc.items) {
+      // 並行上傳所有有選檔案的項目
+      const uploads = expectedItems.map(async (item) => {
         const file = newImageFiles[item];
-        if (file) {
-          const url = await uploadImage(
-            processCode,
-            selectedModel,
-            serial,
-            { item, procItems: proc.items },
-            file
-          );
-          if (url) uploadedImages[item] = url;
-        }
-      }
+        if (!file) return { item, url: "" };
+
+        const url = await uploadImage(
+          processCode,
+          selectedModel,
+          serial,
+          { item, procItems: expectedItems },
+          file
+        );
+        return { item, url };
+      });
+
+      const results = await Promise.all(uploads);
+      results.forEach(({ item, url }) => {
+        if (url) uploadedImages[item] = url;
+      });
     }
 
     const newReport: Report = {
@@ -414,7 +454,7 @@ export default function App() {
     alert(`已建立報告：${id}`);
   };
 
-  // 新增檢驗：拍照 / 上傳
+  // 新增檢驗：拍照 / 上傳（預覽 + 記錄 File）
   const handleCapture = (item: string, file: File | undefined) => {
     if (!file) return;
 
@@ -428,7 +468,7 @@ export default function App() {
     setNewImageFiles((prev) => ({ ...prev, [item]: file }));
   };
 
-  // 編輯報告：拍照 / 上傳
+  // 編輯報告：拍照 / 上傳（預覽 + 記錄 File）
   const handleEditCapture = (item: string, file: File | undefined) => {
     if (!file) return;
 
@@ -582,7 +622,9 @@ export default function App() {
                 onChange={(e) => setSerial(e.target.value)}
                 className={serial ? "" : "border-red-500"}
               />
-              {!serial && <p className="text-red-500 text-sm">此欄位為必填</p>}
+              {!serial && (
+                <p className="text-red-500 text-sm">此欄位為必填</p>
+              )}
             </div>
 
             {/* 產品型號 */}
@@ -628,7 +670,10 @@ export default function App() {
               >
                 <option value="">請選擇製程</option>
                 {filteredProcesses.map((p) => (
-                  <option key={`${p.name}-${p.model}`} value={p.name}>
+                  <option
+                    key={`${p.name}-${p.model}`}
+                    value={p.name}
+                  >
                     {p.name} ({p.code})
                   </option>
                 ))}
@@ -678,7 +723,7 @@ export default function App() {
                       className="hidden"
                       id={`capture-${idx}`}
                       onChange={(e) =>
-                        handleCapture(item, e.target.files?.[0])
+                        handleCapture(item, e.target.files?.[0] || undefined)
                       }
                     />
 
@@ -688,7 +733,7 @@ export default function App() {
                       className="hidden"
                       id={`upload-${idx}`}
                       onChange={(e) =>
-                        handleCapture(item, e.target.files?.[0])
+                        handleCapture(item, e.target.files?.[0] || undefined)
                       }
                     />
 
@@ -831,7 +876,7 @@ export default function App() {
                               onChange={(e) =>
                                 handleEditCapture(
                                   item,
-                                  e.target.files?.[0]
+                                  e.target.files?.[0] || undefined
                                 )
                               }
                             />
@@ -844,7 +889,7 @@ export default function App() {
                               onChange={(e) =>
                                 handleEditCapture(
                                   item,
-                                  e.target.files?.[0]
+                                  e.target.files?.[0] || undefined
                                 )
                               }
                             />
@@ -990,9 +1035,7 @@ export default function App() {
                   variant="destructive"
                   size="sm"
                   type="button"
-                  onClick={() =>
-                    setConfirmTarget({ type: "item", index: idx })
-                  }
+                  onClick={() => setConfirmTarget({ type: "item", index: idx })}
                 >
                   刪除
                 </Button>
@@ -1072,7 +1115,9 @@ export default function App() {
             {(() => {
               const items = selectedProcObj?.items || [];
               if (items.length === 0) {
-                return <p className="text-sm text-gray-500">目前沒有檢驗項目</p>;
+                return (
+                  <p className="text-sm text-gray-500">目前沒有檢驗項目</p>
+                );
               }
 
               const safeIndex = Math.min(previewIndex, items.length - 1);
@@ -1221,6 +1266,7 @@ export default function App() {
                     ...report.images,
                   };
 
+                  // 依 expected_items 決定要檢查哪些項目
                   for (const item of expectedItems) {
                     const file = editImageFiles[item];
                     if (file) {
@@ -1235,7 +1281,6 @@ export default function App() {
                     }
                   }
 
-                  // 更新資料庫
                   const { error } = await supabase
                     .from("reports")
                     .update({ images: updatedImages })
@@ -1267,57 +1312,33 @@ export default function App() {
       {/* 刪除確認 Modal */}
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-4">
-            {confirmTarget.type === "item" ? (
-              <>
-                <p className="font-bold">確認刪除此檢驗項目？</p>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setConfirmTarget(null)}
-                  >
-                    取消
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      if (
-                        confirmTarget.type === "item" &&
-                        confirmTarget.index !== undefined
-                      ) {
-                        removeItem(confirmTarget.index);
-                      }
-                      setConfirmTarget(null);
-                    }}
-                  >
-                    刪除
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="font-bold">確認刪除此製程？</p>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setConfirmTarget(null)}
-                  >
-                    取消
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={async () => {
-                      if (confirmTarget.type === "process") {
-                        await removeProcess(confirmTarget.proc);
-                      }
-                      setConfirmTarget(null);
-                    }}
-                  >
-                    刪除
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="bg-white p-4 rounded shadow w-72 space-y-4">
+            <p className="text-lg font-bold">⚠ 確定要刪除？</p>
+            <p className="text-sm text-gray-600">此動作無法復原。</p>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                variant="secondary"
+                onClick={() => setConfirmTarget(null)}
+              >
+                取消
+              </Button>
+              <Button
+                className="flex-1"
+                variant="destructive"
+                onClick={async () => {
+                  if (confirmTarget?.type === "item") {
+                    removeItem(confirmTarget.index);
+                  }
+                  if (confirmTarget?.type === "process") {
+                    await removeProcess(confirmTarget.proc);
+                  }
+                  setConfirmTarget(null);
+                }}
+              >
+                刪除
+              </Button>
+            </div>
           </div>
         </div>
       )}
