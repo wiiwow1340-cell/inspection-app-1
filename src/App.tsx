@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// 簡易 UI 元件：Button / Input / Card（內建，避免額外 import 問題）
+// =============================
+//  簡易 UI 元件：Button / Input / Card
+// =============================
+
 type ButtonVariant = "default" | "secondary" | "destructive";
 type ButtonSize = "default" | "sm";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  // 放寬型別，避免 TS 推論錯誤
   variant?: ButtonVariant | string;
   size?: ButtonSize;
 }
@@ -35,7 +37,6 @@ const Button: React.FC<ButtonProps> = ({
     sm: "h-8 px-3 text-xs",
   };
 
-  // 確保當 variant 被當成 string 傳入時，仍能 fallback 到 default
   const resolvedVariant: ButtonVariant =
     variant === "secondary" || variant === "destructive"
       ? (variant as ButtonVariant)
@@ -61,13 +62,13 @@ const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
-  <div
-    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
-    {...props}
-  />
+  <div className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`} {...props} />
 );
 
-// 型別定義
+// =============================
+//  型別定義
+// =============================
+
 type Process = {
   name: string;
   code: string;
@@ -80,7 +81,9 @@ type Report = {
   serial: string;
   model: string;
   process: string;
-  images: Record<string, string>; // { 項目名稱: 圖片 URL }
+  images: Record<string, string>;
+  // 每一筆報告自己記住當時「應該要拍哪幾張」
+  expected_items: string[];
 };
 
 type ConfirmTarget =
@@ -88,15 +91,40 @@ type ConfirmTarget =
   | { type: "process"; proc: Process }
   | null;
 
-// === Supabase 連線設定 ===
+// =============================
+//  預設製程
+// =============================
+
+const DEFAULT_PROCESSES: Process[] = [
+  {
+    name: "性能測試",
+    code: "PT",
+    model: "TC1288",
+    items: ["測試照片1", "測試照片2"],
+  },
+  {
+    name: "外觀檢驗",
+    code: "PR",
+    model: "TC588",
+    items: ["外觀正面", "外觀側面"],
+  },
+];
+
+// =============================
+//  Supabase 連線設定
+// =============================
+
 const supabaseUrl = "https://eapcckymxitmcaicutwu.supabase.co";
 const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ===== Supabase Helper：全部錯誤只記 log，不再 throw =====
+// =============================
+//  Supabase Helper
+// =============================
 
-// 將 item 名稱轉成 item1、item2、item3…（按照製程順序）
+// 把中文項目名轉成安全檔名 item1 / item2 / ...
 function getSafeItemName(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
   return index >= 0 ? `item${index + 1}` : "item";
@@ -110,15 +138,7 @@ async function uploadImage(
   info: { item: string; procItems: string[] },
   file: File
 ): Promise<string> {
-  if (!file) {
-    console.warn("uploadImage 收到空的 file", {
-      processCode,
-      model,
-      serial,
-      info,
-    });
-    return "";
-  }
+  if (!file) return "";
 
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
@@ -132,9 +152,7 @@ async function uploadImage(
   try {
     const { error } = await supabase.storage
       .from("photos")
-      .upload(filePath, file, {
-        upsert: true,
-      });
+      .upload(filePath, file, { upsert: true });
 
     if (error) {
       console.error("上傳圖片失敗（Storage）:", error.message);
@@ -148,15 +166,14 @@ async function uploadImage(
   }
 }
 
-// 儲存報告 JSON 至資料庫（失敗不 throw，回傳 boolean）
-async function saveReportToDB(report: {
-  id: string;
-  serial: string;
-  model: string;
-  process: string;
-  images: Record<string, string>;
-}): Promise<boolean> {
-  const { error } = await supabase.from("reports").insert(report);
+// 儲存報告 JSON 至資料庫
+async function saveReportToDB(report: Report): Promise<boolean> {
+  const { error } = await supabase.from("reports").insert({
+    ...report,
+    // expected_items 存成 JSON 字串
+    expected_items: JSON.stringify(report.expected_items ?? []),
+  });
+
   if (error) {
     console.error("寫入 reports 失敗：", error.message);
     return false;
@@ -182,10 +199,16 @@ async function fetchReportsFromDB(): Promise<Report[]> {
     model: row.model,
     process: row.process,
     images: row.images || {},
+    expected_items: row.expected_items
+      ? JSON.parse(row.expected_items)
+      : [],
   }));
 }
 
-// 檢驗 APP 主程式
+// =============================
+//  主程式
+// =============================
+
 export default function App() {
   const [page, setPage] = useState<"home" | "reports" | "manage">("home");
 
@@ -193,29 +216,13 @@ export default function App() {
   const [serial, setSerial] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedProcess, setSelectedProcess] = useState("");
-  // 新增頁：預覽用 URL（objectURL）
-  const [images, setImages] = useState<Record<string, string>>({});
-  // 新增頁：實際要上傳的 File
+  const [images, setImages] = useState<Record<string, string>>({}); // 新增頁預覽用
   const [newImageFiles, setNewImageFiles] = useState<
     Record<string, File | undefined>
-  >({});
+  >({}); // 新增頁實際上傳用
 
   // 製程 / 報告資料
-  const [processes, setProcesses] = useState<Process[]>([
-    {
-      name: "性能測試",
-      code: "PT",
-      model: "TC1288",
-      items: ["測試照片1", "測試照片2"],
-    },
-    {
-      name: "外觀檢驗",
-      code: "PR",
-      model: "TC588",
-      items: ["外觀正面", "外觀側面"],
-    },
-  ]);
-
+  const [processes, setProcesses] = useState<Process[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
 
   // 查看報告：查詢後才顯示
@@ -231,9 +238,7 @@ export default function App() {
 
   // 查看報告：就地編輯照片
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
-  // 編輯預覽用 URL（包含原本的 URL 或新拍的 objectURL）
   const [editImages, setEditImages] = useState<Record<string, string>>({});
-  // 編輯頁：實際要上傳的 File
   const [editImageFiles, setEditImageFiles] = useState<
     Record<string, File | undefined>
   >({});
@@ -271,37 +276,71 @@ export default function App() {
     : processes;
 
   const selectedProcObj =
-    processes.find((p) => p.name === selectedProcess) || null;
+    processes.find(
+      (p) => p.name === selectedProcess && p.model === selectedModel
+    ) || null;
 
   const filteredReports = reports.filter((r) => {
     if (queryFilters.process && r.process !== queryFilters.process) return false;
     if (queryFilters.model && r.model !== queryFilters.model) return false;
 
+    // 狀態判斷完全依照報告自身的 expected_items
+    const expected = r.expected_items || [];
+
     if (queryFilters.status === "done") {
-      const proc = processes.find((p) => p.name === r.process);
-      if (!proc) return false;
-      if (!proc.items.every((item) => r.images[item])) return false;
+      if (!expected.every((item) => r.images[item])) return false;
     }
 
     if (queryFilters.status === "not") {
-      const proc = processes.find((p) => p.name === r.process);
-      if (!proc) return false;
-      if (!proc.items.some((item) => !r.images[item])) return false;
+      if (!expected.some((item) => !r.images[item])) return false;
     }
 
     return true;
   });
 
-  // 一進 APP 就從 Supabase 把 reports 撈回來
+  // 一進 APP：先載入 processes（如果是第一次就寫入預設值），再載入 reports
   useEffect(() => {
-    const load = async () => {
+    const init = async () => {
+      // 1) 先載製程
+      const { data: procData, error: procErr } = await supabase
+        .from("processes")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (procErr) {
+        console.error("讀取 processes 失敗：", procErr.message);
+        setProcesses(DEFAULT_PROCESSES);
+      } else if (procData && procData.length > 0) {
+        setProcesses(
+          procData.map((p: any) => ({
+            name: p.name,
+            code: p.code,
+            model: p.model,
+            items: p.items ? JSON.parse(p.items) : [],
+          }))
+        );
+      } else {
+        // 第一次啟動：寫入預設流程
+        for (const dp of DEFAULT_PROCESSES) {
+          await supabase.from("processes").insert({
+            name: dp.name,
+            code: dp.code,
+            model: dp.model,
+            items: JSON.stringify(dp.items),
+          });
+        }
+        setProcesses(DEFAULT_PROCESSES);
+      }
+
+      // 2) 再載報告
       const data = await fetchReportsFromDB();
       setReports(data);
     };
-    load();
+
+    init();
   }, []);
 
-  // 工具：產生表單編號 PT-YYYYMMDDXXX（沿用你原本的規則）
+  // 工具：產生表單編號 PT-YYYYMMDDXXX
   const genFormId = (procName: string) => {
     const prefix = processes.find((p) => p.name === procName)?.code || "XX";
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -309,7 +348,10 @@ export default function App() {
     return `${prefix}-${date}${num}`;
   };
 
-  // 新增 / 更新報告（整合 Supabase）
+  // =============================
+  //  新增報告：整合 Supabase
+  // =============================
+
   const saveReport = async () => {
     if (!serial || !selectedModel || !selectedProcess) {
       alert("請先輸入序號、選擇型號與製程");
@@ -317,10 +359,13 @@ export default function App() {
     }
 
     const id = genFormId(selectedProcess);
-    const proc = processes.find((p) => p.name === selectedProcess);
+    const proc = processes.find(
+      (p) => p.name === selectedProcess && p.model === selectedModel
+    );
     const processCode = proc?.code || selectedProcess;
 
     const uploadedImages: Record<string, string> = {};
+    const expectedItems = proc?.items ?? [];
 
     if (proc) {
       for (const item of proc.items) {
@@ -344,27 +389,21 @@ export default function App() {
       model: selectedModel,
       process: selectedProcess,
       images: uploadedImages,
+      expected_items: expectedItems,
     };
 
-    // 先更新前端，讓使用者有感
+    // 先更新前端
     setReports((prev) => [...prev, newReport]);
 
-    // 再寫入 Supabase Database（失敗只提示，不 throw）
-    const ok = await saveReportToDB({
-      id,
-      serial,
-      model: selectedModel,
-      process: selectedProcess,
-      images: uploadedImages,
-    });
-
+    // 再寫入 Supabase
+    const ok = await saveReportToDB(newReport);
     if (!ok) {
       alert(
         `本機已建立報告：${id}，但寫入雲端失敗，請稍後再試或通知工程幫忙檢查。`
       );
     }
 
-    // 清空表單（順便清掉 file map）
+    // 清空表單
     setSerial("");
     setSelectedModel("");
     setSelectedProcess("");
@@ -375,13 +414,13 @@ export default function App() {
     alert(`已建立報告：${id}`);
   };
 
-  // 新增檢驗：拍照 / 上傳（直接用 File，上傳時再丟給 Supabase）
+  // 新增檢驗：拍照 / 上傳
   const handleCapture = (item: string, file: File | undefined) => {
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = () => {
-      const previewUrl = reader.result as string; // Base64 URL
+      const previewUrl = reader.result as string;
       setImages((prev) => ({ ...prev, [item]: previewUrl }));
     };
     reader.readAsDataURL(file);
@@ -389,7 +428,7 @@ export default function App() {
     setNewImageFiles((prev) => ({ ...prev, [item]: file }));
   };
 
-  // 編輯報告：拍照 / 上傳（更新 editImages + editImageFiles）
+  // 編輯報告：拍照 / 上傳
   const handleEditCapture = (item: string, file: File | undefined) => {
     if (!file) return;
 
@@ -403,7 +442,7 @@ export default function App() {
     setEditImageFiles((prev) => ({ ...prev, [item]: file }));
   };
 
-  // 管理製程：新增 / 移除項目（仍然只存在前端，不進 DB）
+  // 管理製程：新增 / 移除項目
   const addItem = () => {
     if (!newItem.trim()) return;
     setItems((prev) => [...prev, newItem.trim()]);
@@ -414,13 +453,37 @@ export default function App() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const addProcess = (proc: Process) => setProcesses((prev) => [...prev, proc]);
+  const addProcess = async (proc: Process) => {
+    const { error } = await supabase.from("processes").insert({
+      name: proc.name,
+      code: proc.code,
+      model: proc.model,
+      items: JSON.stringify(proc.items),
+    });
+    if (error) {
+      console.error("新增製程失敗：", error.message);
+      alert("新增製程失敗，請稍後再試");
+      return;
+    }
+    setProcesses((prev) => [...prev, proc]);
+  };
 
-  const removeProcess = (proc: Process) => {
+  const removeProcess = async (proc: Process) => {
+    const { error } = await supabase
+      .from("processes")
+      .delete()
+      .match({ name: proc.name, code: proc.code, model: proc.model });
+
+    if (error) {
+      console.error("刪除製程失敗：", error.message);
+      alert("刪除製程失敗，請稍後再試");
+      return;
+    }
+
     setProcesses((prev) => prev.filter((p) => p !== proc));
   };
 
-  const saveProcess = () => {
+  const saveProcess = async () => {
     if (!newProcName.trim() || !newProcCode.trim() || !newProcModel.trim()) {
       alert("請輸入製程名稱、代號與產品型號");
       return;
@@ -434,6 +497,27 @@ export default function App() {
     };
 
     if (editingIndex !== null) {
+      const original = processes[editingIndex];
+      const { error } = await supabase
+        .from("processes")
+        .update({
+          name: updatedProcess.name,
+          code: updatedProcess.code,
+          model: updatedProcess.model,
+          items: JSON.stringify(updatedProcess.items),
+        })
+        .match({
+          name: original.name,
+          code: original.code,
+          model: original.model,
+        });
+
+      if (error) {
+        console.error("更新製程失敗：", error.message);
+        alert("更新製程失敗，請稍後再試");
+        return;
+      }
+
       setProcesses((prev) => {
         const copy = [...prev];
         copy[editingIndex] = updatedProcess;
@@ -441,7 +525,7 @@ export default function App() {
       });
       setEditingIndex(null);
     } else {
-      addProcess(updatedProcess);
+      await addProcess(updatedProcess);
     }
 
     setNewProcName("");
@@ -459,7 +543,9 @@ export default function App() {
     setEditingIndex(index);
   };
 
-  // ===== UI =====
+  // =============================
+  //  UI
+  // =============================
 
   return (
     <div className="p-4 max-w-xl mx-auto space-y-4">
@@ -496,9 +582,7 @@ export default function App() {
                 onChange={(e) => setSerial(e.target.value)}
                 className={serial ? "" : "border-red-500"}
               />
-              {!serial && (
-                <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
+              {!serial && <p className="text-red-500 text-sm">此欄位為必填</p>}
             </div>
 
             {/* 產品型號 */}
@@ -544,7 +628,7 @@ export default function App() {
               >
                 <option value="">請選擇製程</option>
                 {filteredProcesses.map((p) => (
-                  <option key={p.name} value={p.name}>
+                  <option key={`${p.name}-${p.model}`} value={p.name}>
                     {p.name} ({p.code})
                   </option>
                 ))}
@@ -636,7 +720,7 @@ export default function App() {
             <span>報告列表</span>
             <Button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 setQueryFilters({
                   process: selectedProcessFilter,
                   model: selectedModelFilter,
@@ -698,6 +782,7 @@ export default function App() {
               {filteredReports.map((r) => (
                 <Card key={r.id} className="p-2 border space-y-2">
                   {editingReportId === r.id ? (
+                    // ================= 編輯模式 =================
                     <>
                       <p className="font-bold">編輯：{r.id}</p>
                       <p>序號：{r.serial}</p>
@@ -706,10 +791,7 @@ export default function App() {
 
                       {/* 應拍項目清單 + 拍照/上傳 */}
                       {(() => {
-                        const proc = processes.find(
-                          (p) => p.name === r.process
-                        );
-                        const allItems = proc ? proc.items : [];
+                        const allItems = r.expected_items || [];
                         return allItems.map((item, idx) => (
                           <div key={item} className="flex items-center gap-2">
                             <span className="flex-1">{item}</span>
@@ -747,7 +829,10 @@ export default function App() {
                               className="hidden"
                               id={`edit-capture-${r.id}-${idx}`}
                               onChange={(e) =>
-                                handleEditCapture(item, e.target.files?.[0])
+                                handleEditCapture(
+                                  item,
+                                  e.target.files?.[0]
+                                )
                               }
                             />
 
@@ -757,7 +842,10 @@ export default function App() {
                               className="hidden"
                               id={`edit-upload-${r.id}-${idx}`}
                               onChange={(e) =>
-                                handleEditCapture(item, e.target.files?.[0])
+                                handleEditCapture(
+                                  item,
+                                  e.target.files?.[0]
+                                )
                               }
                             />
 
@@ -801,6 +889,7 @@ export default function App() {
                       </div>
                     </>
                   ) : (
+                    // ================= 檢視模式 =================
                     <>
                       <p>表單編號：{r.id}</p>
                       <p>序號：{r.serial}</p>
@@ -808,10 +897,7 @@ export default function App() {
                       <p>製程：{r.process}</p>
 
                       {(() => {
-                        const proc = processes.find(
-                          (p) => p.name === r.process
-                        );
-                        const allItems = proc ? proc.items : [];
+                        const allItems = r.expected_items || [];
                         return allItems.map((item) => (
                           <div key={item} className="flex items-center gap-2">
                             <span>{item}</span>
@@ -848,7 +934,7 @@ export default function App() {
         </Card>
       )}
 
-      {/* 管理製程頁（仍然只存在前端，不進 DB） */}
+      {/* 管理製程頁 */}
       {page === "manage" && (
         <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">管理製程</h2>
@@ -940,9 +1026,7 @@ export default function App() {
             {processes.map((p, idx) => (
               <div key={idx} className="border p-2 rounded space-y-1">
                 <div className="flex justify-between items-center">
-                  <span>{`${p.name} (${p.code}) - ${
-                    p.model || "無型號"
-                  }`}</span>
+                  <span>{`${p.name} (${p.code}) - ${p.model || "無型號"}`}</span>
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -988,9 +1072,7 @@ export default function App() {
             {(() => {
               const items = selectedProcObj?.items || [];
               if (items.length === 0) {
-                return (
-                  <p className="text-sm text-gray-500">目前沒有檢驗項目</p>
-                );
+                return <p className="text-sm text-gray-500">目前沒有檢驗項目</p>;
               }
 
               const safeIndex = Math.min(previewIndex, items.length - 1);
@@ -1065,9 +1147,8 @@ export default function App() {
             <p className="text-lg font-bold">📷 編輯照片預覽</p>
             {(() => {
               const report = reports.find((r) => r.id === editingReportId);
-              const proc = processes.find((p) => p.name === report?.process);
-              const items = proc?.items || [];
-              if (items.length === 0 || !report) {
+              const items = report?.expected_items || [];
+              if (!report || items.length === 0) {
                 return (
                   <p className="text-sm text-gray-500">沒有可預覽的項目</p>
                 );
@@ -1120,55 +1201,59 @@ export default function App() {
               <Button
                 className="flex-1"
                 onClick={async () => {
-                  const report = reports.find((r) => r.id === editingReportId);
+                  const report = reports.find(
+                    (r) => r.id === editingReportId
+                  );
                   if (!report) {
                     setShowEditPreview(false);
                     setEditingReportId(null);
                     return;
                   }
+
                   const proc = processes.find(
-                    (p) => p.name === report.process
+                    (p) =>
+                      p.name === report.process && p.model === report.model
                   );
                   const processCode = proc?.code || report.process;
 
+                  const expectedItems = report.expected_items || [];
                   const updatedImages: Record<string, string> = {
                     ...report.images,
                   };
 
-                  if (proc) {
-                    for (const item of proc.items) {
-                      const file = editImageFiles[item];
-                      if (file) {
-                        const url = await uploadImage(
-                          processCode,
-                          report.model,
-                          report.serial,
-                          { item, procItems: proc.items },
-                          file
-                        );
-                        if (url) updatedImages[item] = url;
-                      }
+                  for (const item of expectedItems) {
+                    const file = editImageFiles[item];
+                    if (file) {
+                      const url = await uploadImage(
+                        processCode,
+                        report.model,
+                        report.serial,
+                        { item, procItems: expectedItems },
+                        file
+                      );
+                      if (url) updatedImages[item] = url;
                     }
                   }
 
-                  // 更新前端
-                  setReports((prev) =>
-                    prev.map((rep) =>
-                      rep.id === report.id
-                        ? { ...rep, images: updatedImages }
-                        : rep
-                    )
-                  );
-
                   // 更新資料庫
-                  await supabase
+                  const { error } = await supabase
                     .from("reports")
                     .update({ images: updatedImages })
                     .eq("id", report.id);
 
+                  if (error) {
+                    console.error("更新報告失敗：", error.message);
+                    alert("更新報告失敗，請稍後再試");
+                  } else {
+                    setReports((prev) =>
+                      prev.map((r) =>
+                        r.id === report.id ? { ...r, images: updatedImages } : r
+                      )
+                    );
+                  }
+
                   setShowEditPreview(false);
                   setEditingReportId(null);
-                  setEditImages({});
                   setEditImageFiles({});
                 }}
               >
@@ -1179,34 +1264,60 @@ export default function App() {
         </div>
       )}
 
-      {/* 刪除確認 Modal（目前只處理製程/項目，不刪雲端報告） */}
+      {/* 刪除確認 Modal */}
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow w-72 space-y-4">
-            <p className="text-lg font-bold">⚠ 確定要刪除？</p>
-            <p className="text-sm text-gray-600">此動作無法復原。</p>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                variant="secondary"
-                onClick={() => setConfirmTarget(null)}
-              >
-                取消
-              </Button>
-              <Button
-                className="flex-1"
-                variant="destructive"
-                onClick={() => {
-                  if (confirmTarget?.type === "item")
-                    removeItem(confirmTarget.index);
-                  if (confirmTarget?.type === "process")
-                    removeProcess(confirmTarget.proc);
-                  setConfirmTarget(null);
-                }}
-              >
-                刪除
-              </Button>
-            </div>
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-4">
+            {confirmTarget.type === "item" ? (
+              <>
+                <p className="font-bold">確認刪除此檢驗項目？</p>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirmTarget(null)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (
+                        confirmTarget.type === "item" &&
+                        confirmTarget.index !== undefined
+                      ) {
+                        removeItem(confirmTarget.index);
+                      }
+                      setConfirmTarget(null);
+                    }}
+                  >
+                    刪除
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-bold">確認刪除此製程？</p>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirmTarget(null)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (confirmTarget.type === "process") {
+                        await removeProcess(confirmTarget.proc);
+                      }
+                      setConfirmTarget(null);
+                    }}
+                  >
+                    刪除
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
