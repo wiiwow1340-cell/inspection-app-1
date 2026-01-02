@@ -464,18 +464,31 @@ useEffect(() => {
   }
 
   const rawImg =
-    editImages[item] ||
-    report.images?.[item];
+  editImages[item] ||
+  report.images?.[item];
 
-  if (!rawImg) {
-    setSignedImg("");
-    return;
-  }
+if (!rawImg) {
+  setSignedImg("");
+  return;
+}
 
-  (async () => {
-    const signed = await getSignedImageUrl(rawImg);
-    setSignedImg(signed);
-  })();
+// ✅ 新上傳的（data/blob/http）直接顯示，不要做 signed
+if (
+  rawImg.startsWith("data:") ||
+  rawImg.startsWith("blob:") ||
+  rawImg.startsWith("http://") ||
+  rawImg.startsWith("https://")
+) {
+  setSignedImg(rawImg);
+  return;
+}
+
+// ✅ 舊照片（storage path）才去轉 signed URL
+(async () => {
+  const signed = await getSignedImageUrl(rawImg);
+  setSignedImg(signed);
+})();
+
 }, [
   showEditPreview,
   editingReportId,
