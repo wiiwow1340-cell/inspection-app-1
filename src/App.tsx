@@ -158,45 +158,6 @@ async function getSignedImageUrl(input?: string): Promise<string> {
   }
 }
 
-
-// =============================
-//  Signed URL helpers
-// =============================
-function extractPhotoPath(value: string): string {
-  // 本地預覽用 blob: 不要處理
-  if (!value) return value;
-  if (value.startsWith("blob:")) return value;
-
-  try {
-    if (value.startsWith("http")) {
-      const u = new URL(value);
-
-      // 你目前回存的是 /storage/v1/object/public/photos/<path>
-      const marker = "/storage/v1/object/public/photos/";
-      const idx = u.pathname.indexOf(marker);
-      if (idx >= 0) return u.pathname.slice(idx + marker.length);
-
-      const alt = "/object/public/photos/";
-      const idx2 = u.pathname.indexOf(alt);
-      if (idx2 >= 0) return u.pathname.slice(idx2 + alt.length);
-    }
-  } catch {}
-
-  // 已經是 path 就原樣回傳，例如 PT/TC1288/25002/item1.jpg
-  return value;
-}
-
-async function getSignedPhotoUrl(raw: string, expiresIn = 300): Promise<string> {
-  const path = extractPhotoPath(raw);
-
-  const { data, error } = await supabase.storage
-    .from("photos")
-    .createSignedUrl(path, expiresIn);
-
-  if (error || !data?.signedUrl) return "";
-  return data.signedUrl;
-}
-
 // =============================
 //  共用工具函式
 // =============================
@@ -1157,9 +1118,11 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                           className="flex-1"
                           type="button"
                           onClick={() => {
+                            setSignedImg("");          // ✅ 先清掉上一張的 signed，避免切換時短暫顯示錯圖
                             setEditPreviewIndex(0);
                             setShowEditPreview(true);
                           }}
+
                         >
                           儲存
                         </Button>
@@ -1169,10 +1132,11 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                           type="button"
                           variant="secondary"
                           onClick={() => {
-                            setEditingReportId(null);
-                            setEditImages(r.images || {});
-                            setEditImageFiles({});
-                          }}
+                          setEditingReportId(null);
+                          setEditImages({});
+                         setEditImageFiles({});
+                              }}
+
                         >
                           取消
                         </Button>
@@ -1209,7 +1173,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                         type="button"
                         onClick={() => {
                           setEditingReportId(r.id);
-                          setEditImages(r.images || {});
+                          setEditImages({}); 
                           setEditImageFiles({});
                         }}
                       >
@@ -1444,16 +1408,16 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               }
               const safeIndex = Math.min(editPreviewIndex, itemsList.length - 1);
               const item = itemsList[safeIndex];
-              const rawImg = editImages[item] || report.images[item];
           
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {rawImg ? (
-  <img src={rawImg} className="w-full rounded border" />
+                  {signedImg ? (
+  <img src={signedImg} className="w-full rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
 )}
+
 
 
                   <div className="flex justify-between pt-2">
