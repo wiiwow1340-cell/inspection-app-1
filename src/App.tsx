@@ -434,6 +434,7 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [signedImg, setSignedImg] = useState<string>("");
 
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
@@ -1382,15 +1383,37 @@ export default function App() {
               }
               const safeIndex = Math.min(editPreviewIndex, itemsList.length - 1);
               const item = itemsList[safeIndex];
-              const img = editImages[item] || report.images[item];
+              const rawImg = editImages[item] || report.images[item];
+
+              useEffect(() => {
+              let cancelled = false;
+
+              (async () => {
+              if (!rawImg) {
+              setSignedImg("");
+              return;
+            }
+
+            const signed = await getSignedImageUrl(rawImg);
+            if (!cancelled) {
+              setSignedImg(signed);
+            }
+          })();
+
+          return () => {
+            cancelled = true;
+          };
+        }, [rawImg]);
+
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {img ? (
-                    <img src={img} className="w-full rounded border" />
-                  ) : (
-                    <p className="text-red-500">尚未拍攝</p>
-                  )}
+                  {signedImg ? (
+  <img src={signedImg} className="w-full rounded border" />
+) : (
+  <p className="text-red-500">尚未拍攝</p>
+)}
+
                   <div className="flex justify-between pt-2">
                     <Button
                       type="button"
