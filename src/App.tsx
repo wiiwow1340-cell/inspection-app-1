@@ -121,6 +121,43 @@ const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+// =============================
+//  Signed URL helpers
+// =============================
+function extractPhotoPath(value: string): string {
+  // 本地預覽用 blob: 不要處理
+  if (!value) return value;
+  if (value.startsWith("blob:")) return value;
+
+  try {
+    if (value.startsWith("http")) {
+      const u = new URL(value);
+
+      // 你目前回存的是 /storage/v1/object/public/photos/<path>
+      const marker = "/storage/v1/object/public/photos/";
+      const idx = u.pathname.indexOf(marker);
+      if (idx >= 0) return u.pathname.slice(idx + marker.length);
+
+      const alt = "/object/public/photos/";
+      const idx2 = u.pathname.indexOf(alt);
+      if (idx2 >= 0) return u.pathname.slice(idx2 + alt.length);
+    }
+  } catch {}
+
+  // 已經是 path 就原樣回傳，例如 PT/TC1288/25002/item1.jpg
+  return value;
+}
+
+async function getSignedPhotoUrl(raw: string, expiresIn = 300): Promise<string> {
+  const path = extractPhotoPath(raw);
+
+  const { data, error } = await supabase.storage
+    .from("photos")
+    .createSignedUrl(path, expiresIn);
+
+  if (error || !data?.signedUrl) return "";
+  return data.signedUrl;
+}
 
 // =============================
 //  共用工具函式
