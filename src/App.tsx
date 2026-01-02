@@ -1436,11 +1436,12 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {signedImg ? (
-  <img src={signedImg} className="w-full rounded border" />
+                  {rawImg ? (
+  <img src={rawImg} className="w-full rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
 )}
+
 
                   <div className="flex justify-between pt-2">
                     <Button
