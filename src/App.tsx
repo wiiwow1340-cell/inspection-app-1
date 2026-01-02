@@ -674,19 +674,18 @@ useEffect(() => {
     setNewImageFiles((prev) => ({ ...prev, [item]: file }));
   };
 
-  // 編輯報告：拍照 / 上傳（預覽 + 記錄 File）
-  const handleEditCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  // 編輯報告：拍照 / 上傳（本機預覽 + 記錄 File）
+const handleEditCapture = (item: string, file: File | undefined) => {
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const previewUrl = reader.result as string;
-      setEditImages((prev) => ({ ...prev, [item]: previewUrl }));
-    };
-    reader.readAsDataURL(file);
+  // 1) 用 blob URL 做預覽（穩、快、不會受 base64/reader 影響）
+  const previewUrl = URL.createObjectURL(file);
+  setEditImages((prev) => ({ ...prev, [item]: previewUrl }));
 
-    setEditImageFiles((prev) => ({ ...prev, [item]: file }));
-  };
+  // 2) 把檔案記起來，等你按「確認儲存」時才真的上傳到 Supabase
+  setEditImageFiles((prev) => ({ ...prev, [item]: file }));
+};
+
 
   // 管理製程：新增 / 移除項目
   const addItem = () => {
