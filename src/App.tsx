@@ -122,17 +122,26 @@ const supabaseKey =
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 // 將 Storage URL 轉為 signed URL（30 分鐘有效）
-async function getSignedImageUrl(url?: string): Promise<string> {
-  if (!url) return "";
+// 將 Storage 路徑或 URL 轉為 signed URL（30 分鐘有效）
+// 支援兩種輸入：
+// 1) filePath: "PT/TC1288/PT-20260102002/item1.jpg"
+// 2) public URL: "https://xxx.supabase.co/storage/v1/object/public/photos/....jpg"
+async function getSignedImageUrl(input?: string): Promise<string> {
+  if (!input) return "";
 
   try {
-    // 從 public URL 拆出 bucket 與 path
-    const match = url.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
-    if (!match) return url; // 不是 storage URL 就原樣回傳
+    let bucket = "photos";
+    let path = input;
 
-    const bucket = match[1];
-    const path = match[2];
+    // 情況 A：input 是完整的 public URL
+    if (input.startsWith("http")) {
+      const match = input.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if (!match) return ""; // 不是我們預期的 Storage public URL，直接當作不可用
+      bucket = match[1];
+      path = match[2];
+    }
 
+    // 情況 B：input 是 filePath（不含 http），bucket 預設 photos
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(path, 60 * 30); // 30 分鐘
@@ -148,6 +157,7 @@ async function getSignedImageUrl(url?: string): Promise<string> {
     return "";
   }
 }
+
 
 // =============================
 //  Signed URL helpers
