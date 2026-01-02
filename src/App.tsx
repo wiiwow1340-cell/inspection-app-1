@@ -121,6 +121,42 @@ const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+// 將 Storage URL 轉為 signed URL（30 分鐘有效）
+// 將 Storage 路徑或 URL 轉為 signed URL（30 分鐘有效）
+// 支援兩種輸入：
+// 1) filePath: "PT/TC1288/PT-20260102002/item1.jpg"
+// 2) public URL: "https://xxx.supabase.co/storage/v1/object/public/photos/....jpg"
+async function getSignedImageUrl(input?: string): Promise<string> {
+  if (!input) return "";
+
+  try {
+    let bucket = "photos";
+    let path = input;
+
+    // 情況 A：input 是完整的 public URL
+    if (input.startsWith("http")) {
+      const match = input.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if (!match) return ""; // 不是我們預期的 Storage public URL，直接當作不可用
+      bucket = match[1];
+      path = match[2];
+    }
+
+    // 情況 B：input 是 filePath（不含 http），bucket 預設 photos
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 30); // 30 分鐘
+
+    if (error || !data?.signedUrl) {
+      console.warn("signed url 失敗", error);
+      return "";
+    }
+
+    return data.signedUrl;
+  } catch (e) {
+    console.error("signed url 例外", e);
+    return "";
+  }
+}
 
 // =============================
 //  共用工具函式
@@ -194,7 +230,7 @@ async function uploadImage(
       return "";
     }
 
-    return `${supabaseUrl}/storage/v1/object/public/photos/${filePath}`;
+    return filePath;
   } catch (e: any) {
     console.error("上傳圖片失敗（例外）:", e?.message || e);
     return "";
@@ -369,6 +405,59 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [signedImg, setSignedImg] = useState<string>("");
+
+useEffect(() => {
+  if (!showEditPreview || !editingReportId) {
+    return;
+  }
+
+  const report = reports.find((r) => r.id === editingReportId);
+  if (!report) {
+    setSignedImg("");
+    return;
+  }
+
+  const item = report.expected_items?.[editPreviewIndex];
+  if (!item) {
+    setSignedImg("");
+    return;
+  }
+
+  const rawImg =
+  editImages[item] ||
+  report.images?.[item];
+
+if (!rawImg) {
+  setSignedImg("");
+  return;
+}
+
+// ✅ 新上傳的（data/blob/http）直接顯示，不要做 signed
+if (
+  rawImg.startsWith("data:") ||
+  rawImg.startsWith("blob:") ||
+  rawImg.startsWith("http://") ||
+  rawImg.startsWith("https://")
+) {
+  setSignedImg(rawImg);
+  return;
+}
+
+// ✅ 舊照片（storage path）才去轉 signed URL
+(async () => {
+  const signed = await getSignedImageUrl(rawImg);
+  setSignedImg(signed);
+})();
+
+}, [
+  showEditPreview,
+  editingReportId,
+  editPreviewIndex,
+  reports,
+  editImages,
+]);
+
 
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
@@ -559,19 +648,18 @@ export default function App() {
     setNewImageFiles((prev) => ({ ...prev, [item]: file }));
   };
 
-  // 編輯報告：拍照 / 上傳（預覽 + 記錄 File）
-  const handleEditCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  // 編輯報告：拍照 / 上傳（本機預覽 + 記錄 File）
+const handleEditCapture = (item: string, file: File | undefined) => {
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const previewUrl = reader.result as string;
-      setEditImages((prev) => ({ ...prev, [item]: previewUrl }));
-    };
-    reader.readAsDataURL(file);
+  // 1) 用 blob URL 做預覽（穩、快、不會受 base64/reader 影響）
+  const previewUrl = URL.createObjectURL(file);
+  setEditImages((prev) => ({ ...prev, [item]: previewUrl }));
 
-    setEditImageFiles((prev) => ({ ...prev, [item]: file }));
-  };
+  // 2) 把檔案記起來，等你按「確認儲存」時才真的上傳到 Supabase
+  setEditImageFiles((prev) => ({ ...prev, [item]: file }));
+};
+
 
   // 管理製程：新增 / 移除項目
   const addItem = () => {
@@ -1030,9 +1118,11 @@ export default function App() {
                           className="flex-1"
                           type="button"
                           onClick={() => {
+                            setSignedImg("");          // ✅ 先清掉上一張的 signed，避免切換時短暫顯示錯圖
                             setEditPreviewIndex(0);
                             setShowEditPreview(true);
                           }}
+
                         >
                           儲存
                         </Button>
@@ -1042,10 +1132,11 @@ export default function App() {
                           type="button"
                           variant="secondary"
                           onClick={() => {
-                            setEditingReportId(null);
-                            setEditImages(r.images || {});
-                            setEditImageFiles({});
-                          }}
+                          setEditingReportId(null);
+                          setEditImages({});
+                         setEditImageFiles({});
+                              }}
+
                         >
                           取消
                         </Button>
@@ -1082,7 +1173,7 @@ export default function App() {
                         type="button"
                         onClick={() => {
                           setEditingReportId(r.id);
-                          setEditImages(r.images || {});
+                          setEditImages({}); 
                           setEditImageFiles({});
                         }}
                       >
@@ -1317,15 +1408,18 @@ export default function App() {
               }
               const safeIndex = Math.min(editPreviewIndex, itemsList.length - 1);
               const item = itemsList[safeIndex];
-              const img = editImages[item] || report.images[item];
+          
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {img ? (
-                    <img src={img} className="w-full rounded border" />
-                  ) : (
-                    <p className="text-red-500">尚未拍攝</p>
-                  )}
+                  {signedImg ? (
+  <img src={signedImg} className="w-full rounded border" />
+) : (
+  <p className="text-red-500">尚未拍攝</p>
+)}
+
+
+
                   <div className="flex justify-between pt-2">
                     <Button
                       type="button"
