@@ -231,7 +231,7 @@ async function uploadImage(
       return "";
     }
 
-    return `${supabaseUrl}/storage/v1/object/public/photos/${filePath}`;
+    return filePath;
   } catch (e: any) {
     console.error("上傳圖片失敗（例外）:", e?.message || e);
     return "";
