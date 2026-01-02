@@ -1384,27 +1384,7 @@ export default function App() {
               const safeIndex = Math.min(editPreviewIndex, itemsList.length - 1);
               const item = itemsList[safeIndex];
               const rawImg = editImages[item] || report.images[item];
-
-              useEffect(() => {
-              let cancelled = false;
-
-              (async () => {
-              if (!rawImg) {
-              setSignedImg("");
-              return;
-            }
-
-            const signed = await getSignedImageUrl(rawImg);
-            if (!cancelled) {
-              setSignedImg(signed);
-            }
-          })();
-
-          return () => {
-            cancelled = true;
-          };
-        }, [rawImg]);
-
+          
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
