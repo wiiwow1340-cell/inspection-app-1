@@ -436,6 +436,46 @@ export default function App() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [signedImg, setSignedImg] = useState<string>("");
 
+useEffect(() => {
+  if (!showEditPreview || !editingReportId) {
+    setSignedImg("");
+    return;
+  }
+
+  const report = reports.find((r) => r.id === editingReportId);
+  if (!report) {
+    setSignedImg("");
+    return;
+  }
+
+  const item = report.expected_items?.[editPreviewIndex];
+  if (!item) {
+    setSignedImg("");
+    return;
+  }
+
+  const rawImg =
+    editImages[item] ||
+    report.images?.[item];
+
+  if (!rawImg) {
+    setSignedImg("");
+    return;
+  }
+
+  (async () => {
+    const signed = await getSignedImageUrl(rawImg);
+    setSignedImg(signed);
+  })();
+}, [
+  showEditPreview,
+  editingReportId,
+  editPreviewIndex,
+  reports,
+  editImages,
+]);
+
+
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
     const initAuth = async () => {
