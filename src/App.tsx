@@ -121,6 +121,34 @@ const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+// 將 Storage URL 轉為 signed URL（30 分鐘有效）
+async function getSignedImageUrl(url?: string): Promise<string> {
+  if (!url) return "";
+
+  try {
+    // 從 public URL 拆出 bucket 與 path
+    const match = url.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+    if (!match) return url; // 不是 storage URL 就原樣回傳
+
+    const bucket = match[1];
+    const path = match[2];
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 30); // 30 分鐘
+
+    if (error || !data?.signedUrl) {
+      console.warn("signed url 失敗", error);
+      return "";
+    }
+
+    return data.signedUrl;
+  } catch (e) {
+    console.error("signed url 例外", e);
+    return "";
+  }
+}
+
 // =============================
 //  Signed URL helpers
 // =============================
