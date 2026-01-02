@@ -438,7 +438,6 @@ export default function App() {
 
 useEffect(() => {
   if (!showEditPreview || !editingReportId) {
-    setSignedImg("");
     return;
   }
 
