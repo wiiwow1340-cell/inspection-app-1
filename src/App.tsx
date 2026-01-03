@@ -116,7 +116,7 @@ const DEFAULT_PROCESSES: Process[] = [
 //  Supabase 連線設定
 // =============================
 
-cconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
