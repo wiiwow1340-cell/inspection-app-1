@@ -348,11 +348,6 @@ export default function App() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // ===== 權限（Admin 才能管理製程）=====
-  const [authUsername, setAuthUsername] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
-
   // ===== 頁面與表單狀態 =====
   const [page, setPage] = useState<"home" | "reports" | "manage">("home");
 
@@ -380,11 +375,6 @@ export default function App() {
   const [insertAfter, setInsertAfter] = useState<string>("last"); // 新增項目插入位置（last 或 index）
   const [items, setItems] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
-  // 管理製程：編輯「檢驗項目名稱」
-  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const [editingItemValue, setEditingItemValue] = useState<string>("");
-
 
   // 查看報告：就地編輯照片
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
@@ -469,42 +459,19 @@ if (
 ]);
 
 
-  // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
-  const computeIsAdmin = (u: string) => {
-    return u === "admin";
-
-  };
-
-  const refreshUserRole = async () => {
-    const { data } = await supabase.auth.getUser();
-    const email = data.user?.email || "";
-    const u = email.includes("@") ? email.split("@")[0] : "";
-    setAuthUsername(u);
-    setIsAdmin(computeIsAdmin(u));
-  };
-
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
     const initAuth = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setIsLoggedIn(true);
-        await refreshUserRole();
-      }
+      if (data.session) setIsLoggedIn(true);
       setSessionChecked(true);
     };
 
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setIsLoggedIn(!!session);
-        if (session) {
-          await refreshUserRole();
-        } else {
-          setAuthUsername("");
-          setIsAdmin(false);
-        }
       }
     );
 
@@ -740,29 +707,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 管理製程：編輯檢驗項目名稱
-  const startEditingItem = (idx: number) => {
-    setEditingItemIndex(idx);
-    setEditingItemValue(items[idx] || "");
-  };
-
-  const cancelEditingItem = () => {
-    setEditingItemIndex(null);
-    setEditingItemValue("");
-  };
-
-  const saveEditingItem = () => {
-    if (editingItemIndex === null) return;
-    const val = editingItemValue.trim();
-    if (!val) return;
-
-    setItems((prev) => prev.map((x, i) => (i === editingItemIndex ? val : x)));
-
-    setEditingItemIndex(null);
-    setEditingItemValue("");
-  };
-
-
   const addProcess = async (proc: Process) => {
     const { error } = await supabase.from("processes").insert({
       name: proc.name,
@@ -876,7 +820,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
         <div className="flex space-x-2">
           <Button onClick={() => setPage("home")}>➕ 新增檢驗資料</Button>
           <Button onClick={() => setPage("reports")}>📑 查看報告</Button>
-          <Button onClick={() => setPage("manage")} disabled={!isAdmin} title={!isAdmin ? "僅限管理員帳號使用" : ""}>⚙️ 管理製程</Button>
+          <Button onClick={() => setPage("manage")}>⚙️ 管理製程</Button>
         </div>
         <Button
           variant="secondary"
@@ -884,8 +828,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
           onClick={async () => {
             await supabase.auth.signOut();
             setIsLoggedIn(false);
-            setAuthUsername("");
-            setIsAdmin(false);
           }}
         >
           登出
@@ -1283,13 +1225,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
 
       {/* 管理製程頁 */}
       {page === "manage" && (
-        !isAdmin ? (
-          <Card className="p-4 space-y-3">
-          <h2 className="text-xl font-bold">管理製程</h2>
-          <p className="text-red-600">此頁僅限管理員帳號使用。</p>
-          <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
-        </Card>
-        ) : (
         <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">管理製程</h2>
 
@@ -1359,41 +1294,9 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 key={idx}
                 className="border p-2 rounded flex justify-between items-center"
               >
-                {editingItemIndex === idx ? (
-                  <div className="flex-1 flex gap-2 items-center">
-                    <Input
-                      value={editingItemValue}
-                      onChange={(e) => setEditingItemValue(e.target.value)}
-                      className="h-9"
-                    />
-                    <Button type="button" size="sm" onClick={saveEditingItem}>
-                      儲存
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={cancelEditingItem}
-                    >
-                      取消
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="flex-1">{i}</span>
-                )}
+                <span className="flex-1">{i}</span>
 
                 <div className="flex gap-2">
-                  {editingItemIndex === idx ? null : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => startEditingItem(idx)}
-                      title="編輯名稱"
-                    >
-                      編輯
-                    </Button>
-                  )}
                   <Button
                     type="button"
                     size="sm"
@@ -1484,7 +1387,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             ))}
           </div>
         </Card>
-        )
       )}
 
       {/* 新增儲存前預覽 Modal */}
