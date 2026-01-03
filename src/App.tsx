@@ -1311,7 +1311,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
       {/* 新增儲存前預覽 Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-4">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             <p className="text-lg font-bold">📷 照片預覽</p>
             <p className="text-sm text-gray-600">
               可左右切換照片（依檢驗項目順序顯示）
@@ -1334,7 +1335,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   <p className="font-medium">{currentItem}</p>
 
                   {currentImg ? (
-                    <img src={currentImg} className="w-full rounded border" />
+                    <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
                   )}
@@ -1370,7 +1371,9 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               );
             })()}
 
-            <div className="flex gap-2 pt-2">
+            </div>
+
+            <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
                 className="flex-1"
                 variant="secondary"
@@ -1395,7 +1398,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
       {/* 編輯儲存前預覽 Modal */}
       {showEditPreview && editingReportId && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-4">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             <p className="text-lg font-bold">📷 編輯照片預覽</p>
             {(() => {
               const report = reports.find((rr) => rr.id === editingReportId);
@@ -1412,7 +1416,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
                   {signedImg ? (
-  <img src={signedImg} className="w-full rounded border" />
+  <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
 )}
@@ -1447,7 +1451,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 </div>
               );
             })()}
-            <div className="flex gap-2 pt-2">
+            </div>
+            <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
                 className="flex-1"
                 variant="secondary"
