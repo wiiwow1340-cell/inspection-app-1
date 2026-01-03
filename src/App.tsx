@@ -372,6 +372,7 @@ export default function App() {
   const [newProcCode, setNewProcCode] = useState("");
   const [newProcModel, setNewProcModel] = useState("");
   const [newItem, setNewItem] = useState("");
+  const [insertAfter, setInsertAfter] = useState<string>("last"); // 新增項目插入位置（last 或 index）
   const [items, setItems] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -662,9 +663,44 @@ const handleEditCapture = (item: string, file: File | undefined) => {
 
   // 管理製程：新增 / 移除項目
   const addItem = () => {
-    if (!newItem.trim()) return;
-    setItems((prev) => [...prev, newItem.trim()]);
+    const val = newItem.trim();
+    if (!val) return;
+
+    setItems((prev) => {
+      const next = [...prev];
+
+      // insertAfter: "last" 或 0..n-1（代表插在該 index 後面）
+      if (insertAfter === "last" || next.length === 0) {
+        next.push(val);
+      } else {
+        const parsed = Number(insertAfter);
+        const idx = Number.isFinite(parsed) ? parsed : next.length - 1;
+        const safeIdx = Math.max(0, Math.min(idx, next.length - 1));
+        next.splice(safeIdx + 1, 0, val);
+      }
+
+      return next;
+    });
+
     setNewItem("");
+  };
+
+  const moveItemUp = (index: number) => {
+    if (index <= 0) return;
+    setItems((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  };
+
+  const moveItemDown = (index: number) => {
+    setItems((prev) => {
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
   };
 
   const removeItem = (index: number) => {
@@ -1220,16 +1256,36 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               />
             </div>
 
-            {/* 檢驗照片項目新增區 */}
-            <div className="flex gap-2">
-              <Input
-                value={newItem}
-                placeholder="新增檢驗照片項目"
-                onChange={(e) => setNewItem(e.target.value)}
-              />
-              <Button type="button" onClick={addItem}>
-                加入
-              </Button>
+            {/* 檢驗照片項目新增區（支援插入位置） */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={newItem}
+                  placeholder="新增檢驗照片項目"
+                  onChange={(e) => setNewItem(e.target.value)}
+                />
+                <Button type="button" onClick={addItem}>
+                  加入
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 whitespace-nowrap">
+                  插入在
+                </span>
+                <select
+                  value={insertAfter}
+                  onChange={(e) => setInsertAfter(e.target.value)}
+                  className="border p-2 rounded flex-1 h-9"
+                >
+                  <option value="last">最後</option>
+                  {items.map((it, idx) => (
+                    <option key={`${it}-${idx}`} value={String(idx)}>
+                      在「{it}」後
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* 項目列表（可刪除） */}
@@ -1238,15 +1294,40 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 key={idx}
                 className="border p-2 rounded flex justify-between items-center"
               >
-                <span>{i}</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  type="button"
-                  onClick={() => setConfirmTarget({ type: "item", index: idx })}
-                >
-                  刪除
-                </Button>
+                <span className="flex-1">{i}</span>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => moveItemUp(idx)}
+                    disabled={idx === 0}
+                    title="上移"
+                  >
+                    ↑
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => moveItemDown(idx)}
+                    disabled={idx === items.length - 1}
+                    title="下移"
+                  >
+                    ↓
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    type="button"
+                    onClick={() => setConfirmTarget({ type: "item", index: idx })}
+                  >
+                    刪除
+                  </Button>
+                </div>
               </div>
             ))}
 
