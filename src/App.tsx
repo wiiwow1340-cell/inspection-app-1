@@ -116,9 +116,8 @@ const DEFAULT_PROCESSES: Process[] = [
 //  Supabase 連線設定
 // =============================
 
-const supabaseUrl = "https://eapcckymxitmcaicutwu.supabase.co";
-const supabaseKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcGNja3lteGl0bWNhaWN1dHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAwNjIsImV4cCI6MjA4MDIzNjA2Mn0.vqXO8NPAJwOgKtvw3fpwOHCnM07qftvQbtdWFWLrg4w";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 // 將 Storage URL 轉為 signed URL（30 分鐘有效）
