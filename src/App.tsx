@@ -1774,9 +1774,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   if (updateErr) {
                     console.error("更新 reports 失敗：", updateErr.message);
                     alert(
-                      "更新雲端失敗，請稍後再試。
-
-（為避免資料不一致，本次變更未寫入雲端）"
+                      "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
                     );
                     return;
                   }
