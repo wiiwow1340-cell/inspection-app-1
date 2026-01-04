@@ -158,6 +158,49 @@ async function getSignedImageUrl(input?: string): Promise<string> {
 }
 
 // =============================
+//  單一登入鎖（作法 A）
+//  - 後登入者會覆蓋 session_id
+//  - 前登入者在下次檢查時會被登出
+// =============================
+async function upsertLoginLock() {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) return;
+
+  await supabase.from("user_login_lock").upsert({
+    user_id: session.user.id,
+    session_id: session.access_token,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+async function checkLoginLock(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) return true;
+
+  const { data: lock, error } = await supabase
+    .from("user_login_lock")
+    .select("session_id")
+    .single();
+
+  // 若表還沒建立資料/讀取失敗：保守放行，但在 console 提醒
+  if (error) {
+    console.warn("讀取 user_login_lock 失敗：", error.message);
+    return true;
+  }
+  if (!lock?.session_id) return true;
+
+  if (lock.session_id !== session.access_token) {
+    alert("此帳號已在其他裝置登入");
+    await supabase.auth.signOut();
+    return false;
+  }
+
+  return true;
+}
+
+// =============================
 //  共用工具函式
 // =============================
 
@@ -303,6 +346,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     if (error) {
       setErr(error.message || "登入失敗");
     } else {
+      await upsertLoginLock();
       onLogin();
     }
 
@@ -488,6 +532,11 @@ if (
     const initAuth = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
+        const ok = await checkLoginLock();
+        if (!ok) {
+          setSessionChecked(true);
+          return;
+        }
         setIsLoggedIn(true);
         await refreshUserRole();
       }
@@ -500,6 +549,8 @@ if (
       async (_event, session) => {
         setIsLoggedIn(!!session);
         if (session) {
+          const ok = await checkLoginLock();
+          if (!ok) return;
           await refreshUserRole();
         } else {
           setAuthUsername("");
