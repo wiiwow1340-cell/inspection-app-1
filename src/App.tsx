@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // =============================
@@ -120,6 +120,54 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// =============================
+//  單一登入鎖（最小版）：後登入踢前登入
+//  - 每個瀏覽器/裝置會有自己的 local session id（存在 localStorage）
+//  - 登入成功後把 (user_id, session_id) upsert 到 user_login_lock
+//  - 已登入時每 3 秒檢查一次：DB 的 session_id 不是我 → alert + signOut + 回登入頁
+// =============================
+const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
+
+function getOrCreateLocalLoginSessionId() {
+  const existing = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY);
+  if (existing) return existing;
+  const sid = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  localStorage.setItem(SINGLE_LOGIN_LOCAL_KEY, sid);
+  return sid;
+}
+
+async function upsertLoginLockForCurrentUser() {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) return;
+  const sid = getOrCreateLocalLoginSessionId();
+  await supabase.from("user_login_lock").upsert({
+    user_id: session.user.id,
+    session_id: sid,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+async function isCurrentSessionStillValid(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) return false;
+  const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
+  if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
+
+  const { data: lock, error } = await supabase
+    .from("user_login_lock")
+    .select("session_id")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+  if (error) {
+    console.error("讀取 user_login_lock 失敗：", error.message);
+    return true; // 讀不到就先不擋，避免全站不能用
+  }
+  if (!lock?.session_id) return true;
+  return lock.session_id === sid;
+}
 // 將 Storage URL 轉為 signed URL（30 分鐘有效）
 // 將 Storage 路徑或 URL 轉為 signed URL（30 分鐘有效）
 // 支援兩種輸入：
@@ -303,6 +351,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     if (error) {
       setErr(error.message || "登入失敗");
     } else {
+      await upsertLoginLockForCurrentUser();
       onLogin();
     }
 
@@ -351,6 +400,19 @@ export default function App() {
   // ===== 權限（Admin 才能管理製程）=====
   const [authUsername, setAuthUsername] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  // ===== 單一登入鎖：被踢出處理 =====
+  const kickedRef = useRef(false);
+  const handleKickedOut = async () => {
+    if (kickedRef.current) return;
+    kickedRef.current = true;
+    alert("此帳號已在其他裝置登入，系統將登出。");
+    // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
+    supabase.auth.signOut();
+    setIsLoggedIn(false);
+    setAuthUsername("");
+    setIsAdmin(false);
+  };
 
 
   // ===== 頁面與表單狀態 =====
@@ -512,6 +574,25 @@ if (
       listener?.subscription.unsubscribe();
     };
   }, []);
+
+  // ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
+  useEffect(() => {
+    if (!isLoggedIn) {
+      kickedRef.current = false;
+      return;
+    }
+
+    kickedRef.current = false;
+    const timer = window.setInterval(async () => {
+      const ok = await isCurrentSessionStillValid();
+      if (!ok) {
+        await handleKickedOut();
+      }
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [isLoggedIn]);
+
 
   // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
   useEffect(() => {
