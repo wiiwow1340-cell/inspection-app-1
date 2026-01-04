@@ -429,27 +429,17 @@ async function uploadImage(
 }
 
 // 儲存報告 JSON 至資料庫
-type DbWriteResult =
-  | { ok: true }
-  | { ok: false; message: string; code?: string };
-
-// 儲存報告 JSON 至資料庫
-async function saveReportToDB(report: Report): Promise<DbWriteResult> {
+async function saveReportToDB(report: Report): Promise<boolean> {
   const { error } = await supabase.from("reports").insert({
     ...report,
     expected_items: JSON.stringify(report.expected_items ?? []),
   });
 
   if (error) {
-    const anyErr: any = error as any;
-    console.error("寫入 reports 失敗：", anyErr?.message || anyErr);
-    return {
-      ok: false,
-      message: anyErr?.message || "unknown error",
-      code: anyErr?.code,
-    };
+    console.error("寫入 reports 失敗：", error.message);
+    return false;
   }
-  return { ok: true };
+  return true;
 }
 
 // 從資料庫載入所有報告
@@ -639,6 +629,13 @@ export default function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [signedImg, setSignedImg] = useState<string>("");
+
+  // 防止連按（重複送出）
+  const [isSavingNew, setIsSavingNew] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const savingNewRef = useRef(false);
+  const savingEditRef = useRef(false);
 
 useEffect(() => {
   if (!showEditPreview || !editingReportId) {
@@ -1247,54 +1244,21 @@ const genFormId = (procName: string) => {
     return `${prefix}-${date}${num}`;
   };
 
-  // ✅ 單號產生：每次按「儲存」都去 DB 取最新單號再 +1（避免多人同時造成撞號）
-  const genFormIdFromDB = async (procName: string): Promise<string> => {
-    const prefix = processes.find((p) => p.name === procName)?.code || "XX";
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const like = `${prefix}-${date}%`;
-
-    const { data, error } = await supabase
-      .from("reports")
-      .select("id")
-      .like("id", like)
-      .order("id", { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error("讀取 reports 最新單號失敗：", error.message);
-      // fallback：至少不要中斷流程（仍可能撞號，因此後面仍保留 duplicate retry）
-      return genFormId(procName);
-    }
-
-    const lastId = (data && data[0]?.id) as string | undefined;
-    let next = 1;
-    if (lastId) {
-      const m = /(\d{3})$/.exec(lastId);
-      if (m) next = parseInt(m[1], 10) + 1;
-    }
-    const num = String(next).padStart(3, "0");
-    return `${prefix}-${date}${num}`;
-  };
-
-  const isDuplicateIdError = (res: DbWriteResult) => {
-    if (res.ok) return false;
-    const msg = (res.message || "").toLowerCase();
-    return res.code === "23505" || msg.includes("duplicate") || msg.includes("already exists");
-  };
-
-
   // =============================
   //  新增報告：整合 Supabase
   // =============================
 
   const saveReport = async (): Promise<boolean> => {
+    if (savingNewRef.current) return false;
+    savingNewRef.current = true;
+    setIsSavingNew(true);
     try {
       if (!serial || !selectedModel || !selectedProcess) {
         alert("請先輸入序號、選擇型號與製程");
         return false;
       }
 
-      const id = await genFormIdFromDB(selectedProcess);
+      const id = genFormId(selectedProcess);
       const proc = processes.find(
         (p) => p.name === selectedProcess && p.model === selectedModel
       );
@@ -1319,11 +1283,8 @@ const genFormId = (procName: string) => {
         }
       }
 
-
-      // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
-      let finalId = id;
-      let newReport: Report = {
-        id: finalId,
+      const newReport: Report = {
+        id,
         serial,
         model: selectedModel,
         process: selectedProcess,
@@ -1331,23 +1292,11 @@ const genFormId = (procName: string) => {
         expected_items: expectedItems,
       };
 
-      let res = await saveReportToDB(newReport);
-
-      // 若極端競態剛好撞號：再讀一次 DB 取最新 +1，重試一次
-      if (!res.ok && isDuplicateIdError(res)) {
-        const retryId = await genFormIdFromDB(selectedProcess);
-        finalId = retryId;
-        newReport = { ...newReport, id: retryId };
-        res = await saveReportToDB(newReport);
-      }
-
-      if (!res.ok) {
+      // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
+      const ok = await saveReportToDB(newReport);
+      if (!ok) {
         alert(
-          `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。
-
-報告單號：${finalId}
-
-錯誤：${res.message}`
+          `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。\n\n報告單號：${id}`
         );
         return false;
       }
@@ -1363,12 +1312,15 @@ const genFormId = (procName: string) => {
       setNewImageFiles({});
       setPreviewIndex(0);
 
-      alert(`已建立報告：${finalId}`);
+      alert(`已建立報告：${id}`);
       return true;
     } catch (e: any) {
       console.error("saveReport 發生例外：", e?.message || e);
       alert("儲存失敗（程式例外），請稍後再試。");
       return false;
+    } finally {
+      savingNewRef.current = false;
+      setIsSavingNew(false);
     }
   };
 
@@ -2351,12 +2303,13 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               </Button>
               <Button
                 className="flex-1"
+                disabled={isSavingNew}
                 onClick={async () => {
                   const ok = await saveReport();
                   if (ok) setShowPreview(false);
                 }}
               >
-                確認儲存
+                {isSavingNew ? "儲存中…" : "確認儲存"}
               </Button>
             </div>
           </div>
@@ -2430,8 +2383,13 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               </Button>
               <Button
                 className="flex-1"
+                disabled={isSavingEdit}
                 onClick={async () => {
-                  const report = reports.find((rr) => rr.id === editingReportId);
+                  if (savingEditRef.current) return;
+                  savingEditRef.current = true;
+                  setIsSavingEdit(true);
+                  try {
+                    const report = reports.find((rr) => rr.id === editingReportId);
                   if (!report) {
                     setShowEditPreview(false);
                     setEditingReportId(null);
@@ -2493,9 +2451,13 @@ const handleEditCapture = (item: string, file: File | undefined) => {
 
                   setShowEditPreview(false);
                   setEditingReportId(null);
+                  } finally {
+                    savingEditRef.current = false;
+                    setIsSavingEdit(false);
+                  }
                 }}
               >
-                確認儲存
+                {isSavingEdit ? "儲存中…" : "確認儲存"}
               </Button>
             </div>
           </div>
