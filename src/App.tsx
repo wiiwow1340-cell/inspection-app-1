@@ -726,16 +726,17 @@ if (
       expected_items: expectedItems,
     };
 
-    // 先更新前端
-    setReports((prev) => [...prev, newReport]);
-
-    // 再寫入 Supabase
+    // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
     const ok = await saveReportToDB(newReport);
     if (!ok) {
       alert(
-        `本機已建立報告：${id}，但寫入雲端失敗，請稍後再試或通知工程幫忙檢查。`
+        `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。\n\n報告單號：${id}`
       );
+      return;
     }
+
+    // 寫入成功後再更新前端
+    setReports((prev) => [...prev, newReport]);
 
     // 清空表單
     setSerial("");
@@ -1760,11 +1761,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                     expected_items: expectedItems,
                   };
 
-                  setReports((prev) =>
-                    prev.map((rr) => (rr.id === updated.id ? updated : rr))
-                  );
-
-                  await supabase
+                  const { error: updateErr } = await supabase
                     .from("reports")
                     .update({
                       images: updated.images,
@@ -1773,6 +1770,21 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                       ),
                     })
                     .eq("id", updated.id);
+
+                  if (updateErr) {
+                    console.error("更新 reports 失敗：", updateErr.message);
+                    alert(
+                      "更新雲端失敗，請稍後再試。
+
+（為避免資料不一致，本次變更未寫入雲端）"
+                    );
+                    return;
+                  }
+
+                  // 更新成功後再更新前端
+                  setReports((prev) =>
+                    prev.map((rr) => (rr.id === updated.id ? updated : rr))
+                  );
 
                   setShowEditPreview(false);
                   setEditingReportId(null);
