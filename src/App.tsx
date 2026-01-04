@@ -1476,8 +1476,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   Object.keys(newImageFiles).length > 0)
               ) {
                 const ok = window.confirm(
-                  "目前有未完成的新增檢驗資料。
-要清除並重新開始嗎？"
+                  "目前有未完成的新增檢驗資料。\n要清除並重新開始嗎？"
                 );
                 if (!ok) return;
                 await resetNewReportState(true);
