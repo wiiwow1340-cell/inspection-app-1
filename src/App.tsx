@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // =============================
@@ -191,12 +191,7 @@ async function checkLoginLock(): Promise<boolean> {
   }
   if (!lock?.session_id) return true;
 
-  if (lock.session_id !== session.access_token) {
-    alert("此帳號已在其他裝置登入");
-    // 不等待 signOut（避免網路/權限問題造成畫面卡在 Loading）
-    supabase.auth.signOut();
-    return false;
-  }
+  if (lock.session_id !== session.access_token) return false;
 
   return true;
 }
@@ -348,6 +343,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
       setErr(error.message || "登入失敗");
     } else {
       await upsertLoginLock();
+          kickedRef.current = false;
       onLogin();
     }
 
@@ -396,6 +392,32 @@ export default function App() {
   // ===== 權限（Admin 才能管理製程）=====
   const [authUsername, setAuthUsername] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+
+  // ===== 單一登入鎖：被踢出時只提醒一次 =====
+  const kickedRef = useRef(false);
+
+  const handleKickedOut = async () => {
+    if (kickedRef.current) return;
+    kickedRef.current = true;
+    alert("此帳號已在其他裝置登入，系統將登出");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // ignore
+    }
+    setIsLoggedIn(false);
+    setAuthUsername("");
+    setIsAdmin(false);
+    setPage("home");
+  };
+
+  const ensureSingleSession = async (): Promise<boolean> => {
+    const ok = await checkLoginLock();
+        if (!ok) {
+          await handleKickedOut();
+    return true;
+  };
 
 
   // ===== 頁面與表單狀態 =====
@@ -535,12 +557,8 @@ if (
         const { data } = await supabase.auth.getSession();
         if (data.session) {
           const ok = await checkLoginLock();
-          if (!ok) {
-            setIsLoggedIn(false);
-            setAuthUsername("");
-            setIsAdmin(false);
-            return;
-          }
+        if (!ok) {
+          await handleKickedOut();
           setIsLoggedIn(true);
           await refreshUserRole();
         }
@@ -565,6 +583,7 @@ if (
         // 重要：SIGNED_IN 當下要先寫入鎖，讓「後登入者」成為唯一有效 session
         if (event === "SIGNED_IN") {
           await upsertLoginLock();
+          kickedRef.current = false;
           setIsLoggedIn(true);
           await refreshUserRole();
           return;
@@ -573,11 +592,7 @@ if (
         // 其他狀態（例如切回頁面、token refresh 等）才檢查是否被踢
         const ok = await checkLoginLock();
         if (!ok) {
-          setIsLoggedIn(false);
-          setAuthUsername("");
-          setIsAdmin(false);
-          return;
-        }
+          await handleKickedOut();
 
         setIsLoggedIn(true);
         await refreshUserRole();
@@ -589,11 +604,23 @@ if (
     };
   }, []);
 
+
+  // ===== 單一登入鎖：定時檢查（讓被踢者就算不操作也會被登出） =====
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const t = window.setInterval(() => {
+      // 不阻塞 UI
+      ensureSingleSession();
+    }, 3000);
+    return () => window.clearInterval(t);
+  }, [isLoggedIn]);
+
   // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
   useEffect(() => {
     if (!isLoggedIn) return;
 
     const init = async () => {
+      if (!(await ensureSingleSession())) return;
       // 1) 先載製程
       const { data: procData, error: procErr } = await supabase
         .from("processes")
@@ -726,11 +753,8 @@ if (
 
     // 再寫入 Supabase
     const ok = await saveReportToDB(newReport);
-    if (!ok) {
-      alert(
-        `本機已建立報告：${id}，但寫入雲端失敗，請稍後再試或通知工程幫忙檢查。`
-      );
-    }
+        if (!ok) {
+          await handleKickedOut();
 
     // 清空表單
     setSerial("");
