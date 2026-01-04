@@ -574,34 +574,38 @@ if (
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!session) {
-          setIsLoggedIn(false);
-          setAuthUsername("");
-          setIsAdmin(false);
-          return;
-        }
+  async (event, session) => {
+    if (!session) {
+      setIsLoggedIn(false);
+      setAuthUsername("");
+      setIsAdmin(false);
+      return;
+    }
 
-        // 重要：SIGNED_IN 當下要先寫入鎖，讓「後登入者」成為唯一有效 session
-        if (event === "SIGNED_IN") {
-          await upsertLoginLock();
-          kickedRef.current = false;
-          setIsLoggedIn(true);
-          await refreshUserRole();
-          return;
-        }
+    // 重要：SIGNED_IN 當下要先寫入鎖，讓「後登入者」成為唯一有效 session
+    if (event === "SIGNED_IN") {
+      await upsertLoginLock();
+      kickedRef.current = false;
+      setIsLoggedIn(true);
+      await refreshUserRole();
+      return;
+    }
 
-        // 其他狀態（例如切回頁面、token refresh 等）才檢查是否被踢
-        const ok = await checkLoginLock();
-        if (!ok) {
-          await handleKickedOut();
+    // 其他狀態（例如切回頁面、token refresh 等）才檢查是否被踢
+    const ok = await checkLoginLock();
+    if (!ok) {
+      await handleKickedOut();
+      return;
+    }
 
-        setIsLoggedIn(true);
-        await refreshUserRole();
-      }
-    );
+    kickedRef.current = false;
+    setIsLoggedIn(true);
+    await refreshUserRole();
+  }
+);
 
-    return () => {
+return () => {
+
       listener?.subscription.unsubscribe();
     };
   }, []);
