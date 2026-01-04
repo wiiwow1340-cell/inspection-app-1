@@ -343,7 +343,6 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
       setErr(error.message || "登入失敗");
     } else {
       await upsertLoginLock();
-          kickedRef.current = false;
       onLogin();
     }
 
@@ -414,8 +413,10 @@ export default function App() {
 
   const ensureSingleSession = async (): Promise<boolean> => {
     const ok = await checkLoginLock();
-        if (!ok) {
-          await handleKickedOut();
+    if (!ok) {
+      await handleKickedOut();
+      return false;
+    }
     return true;
   };
 
@@ -585,7 +586,6 @@ if (
     // 重要：SIGNED_IN 當下要先寫入鎖，讓「後登入者」成為唯一有效 session
     if (event === "SIGNED_IN") {
       await upsertLoginLock();
-      kickedRef.current = false;
       setIsLoggedIn(true);
       await refreshUserRole();
       return;
@@ -598,7 +598,6 @@ if (
       return;
     }
 
-    kickedRef.current = false;
     setIsLoggedIn(true);
     await refreshUserRole();
   }
@@ -1845,4 +1844,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
       )}
     </div>
   );
+}
+
 }
