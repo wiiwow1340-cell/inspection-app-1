@@ -681,72 +681,74 @@ if (
   //  新增報告：整合 Supabase
   // =============================
 
-  const saveReport = async () => {
-    if (!serial || !selectedModel || !selectedProcess) {
-      alert("請先輸入序號、選擇型號與製程");
-      return;
-    }
+  const saveReport = async (): Promise<boolean> => {
+    try {
+      if (!serial || !selectedModel || !selectedProcess) {
+        alert("請先輸入序號、選擇型號與製程");
+        return false;
+      }
 
-    const id = genFormId(selectedProcess);
-    const proc = processes.find(
-      (p) => p.name === selectedProcess && p.model === selectedModel
-    );
-    const processCode = proc?.code || selectedProcess;
-
-    const expectedItems = proc?.items ?? [];
-    let uploadedImages: Record<string, string> = {};
-
-    if (proc) {
-      const uploads = expectedItems.map(async (item) => {
-        const file = newImageFiles[item];
-        if (!file) return { item, url: "" };
-
-        const url = await uploadImage(
-          processCode,
-          selectedModel,
-          serial,
-          { item, procItems: expectedItems },
-          file
-        );
-        return { item, url };
-      });
-
-      const results = await Promise.all(uploads);
-      results.forEach(({ item, url }) => {
-        if (url) uploadedImages[item] = url;
-      });
-    }
-
-    const newReport: Report = {
-      id,
-      serial,
-      model: selectedModel,
-      process: selectedProcess,
-      images: uploadedImages,
-      expected_items: expectedItems,
-    };
-
-    // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
-    const ok = await saveReportToDB(newReport);
-    if (!ok) {
-      alert(
-        `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。\n\n報告單號：${id}`
+      const id = genFormId(selectedProcess);
+      const proc = processes.find(
+        (p) => p.name === selectedProcess && p.model === selectedModel
       );
-      return;
+      const processCode = proc?.code || selectedProcess;
+
+      const expectedItems = proc?.items ?? [];
+      let uploadedImages: Record<string, string> = {};
+
+      if (proc) {
+        for (const item of proc.items) {
+          const file = newImageFiles[item];
+          if (file) {
+            const pathOrUrl = await uploadImage(
+              processCode,
+              selectedModel,
+              serial,
+              { item, procItems: proc.items },
+              file
+            );
+            if (pathOrUrl) uploadedImages[item] = pathOrUrl;
+          }
+        }
+      }
+
+      const newReport: Report = {
+        id,
+        serial,
+        model: selectedModel,
+        process: selectedProcess,
+        images: uploadedImages,
+        expected_items: expectedItems,
+      };
+
+      // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
+      const ok = await saveReportToDB(newReport);
+      if (!ok) {
+        alert(
+          `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。\n\n報告單號：${id}`
+        );
+        return false;
+      }
+
+      // 寫入成功後再更新前端
+      setReports((prev) => [...prev, newReport]);
+
+      // 清空表單
+      setSerial("");
+      setSelectedModel("");
+      setSelectedProcess("");
+      setImages({});
+      setNewImageFiles({});
+      setPreviewIndex(0);
+
+      alert(`已建立報告：${id}`);
+      return true;
+    } catch (e: any) {
+      console.error("saveReport 發生例外：", e?.message || e);
+      alert("儲存失敗（程式例外），請稍後再試。");
+      return false;
     }
-
-    // 寫入成功後再更新前端
-    setReports((prev) => [...prev, newReport]);
-
-    // 清空表單
-    setSerial("");
-    setSelectedModel("");
-    setSelectedProcess("");
-    setImages({});
-    setNewImageFiles({});
-    setPreviewIndex(0);
-
-    alert(`已建立報告：${id}`);
   };
 
   // 新增檢驗：拍照 / 上傳（預覽 + 記錄 File）
@@ -1645,8 +1647,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               <Button
                 className="flex-1"
                 onClick={async () => {
-                  setShowPreview(false);
-                  await saveReport();
+                  const ok = await saveReport();
+                  if (ok) setShowPreview(false);
                 }}
               >
                 確認儲存
