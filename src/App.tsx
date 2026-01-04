@@ -193,7 +193,8 @@ async function checkLoginLock(): Promise<boolean> {
 
   if (lock.session_id !== session.access_token) {
     alert("此帳號已在其他裝置登入");
-    await supabase.auth.signOut();
+    // 不等待 signOut（避免網路/權限問題造成畫面卡在 Loading）
+    supabase.auth.signOut();
     return false;
   }
 
@@ -530,20 +531,24 @@ if (
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
     const initAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        const ok = await checkLoginLock();
-        if (!ok) {
-          setIsLoggedIn(false);
-          setAuthUsername("");
-          setIsAdmin(false);
-          setSessionChecked(true);
-          return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          const ok = await checkLoginLock();
+          if (!ok) {
+            setIsLoggedIn(false);
+            setAuthUsername("");
+            setIsAdmin(false);
+            return;
+          }
+          setIsLoggedIn(true);
+          await refreshUserRole();
         }
-        setIsLoggedIn(true);
-        await refreshUserRole();
+      } catch (e) {
+        console.error("initAuth 失敗：", e);
+      } finally {
+        setSessionChecked(true);
       }
-      setSessionChecked(true);
     };
 
     initAuth();
