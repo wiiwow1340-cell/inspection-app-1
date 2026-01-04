@@ -1662,19 +1662,21 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             )}
 
             <div className="flex gap-2 mt-4">
+              <Button type="submit" className="flex-1">
+                儲存
+              </Button>
               <Button
                 type="button"
                 className="flex-1"
+                variant="secondary"
                 onClick={async () => {
-                  const ok = window.confirm("確定要取消新增嗎？\n（已輸入的資料與照片將會清除）");
+                  const ok = window.confirm("確定要取消新增嗎？
+（已輸入的資料與照片將會清除）");
                   if (!ok) return;
                   await resetNewReportState(true);
                 }}
               >
                 取消新增
-              </Button>
-              <Button type="submit" className="flex-1">
-                儲存
               </Button>
             </div>
           </form>
