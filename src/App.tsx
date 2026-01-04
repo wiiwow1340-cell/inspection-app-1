@@ -116,6 +116,150 @@ const DEFAULT_PROCESSES: Process[] = [
 //  Supabase 連線設定
 // =============================
 
+
+// =============================
+//  Draft (IndexedDB) — 用於 Safari/手機「滑掉後可復原」
+// =============================
+
+type DraftPage = "home" | "reports" | "manage";
+
+type HomeDraftData = {
+  serial: string;
+  selectedModel: string;
+  selectedProcess: string;
+  // item -> { blob, name, type, lastModified }
+  imageFiles: Record<
+    string,
+    { blob: Blob; name: string; type: string; lastModified: number }
+  >;
+};
+
+type ReportsDraftData = {
+  selectedProcessFilter: string;
+  selectedModelFilter: string;
+  selectedStatusFilter: string;
+  queryFilters: { process: string; model: string; status: string };
+  editingReportId: string | null;
+  editImageFiles: Record<
+    string,
+    { blob: Blob; name: string; type: string; lastModified: number }
+  >;
+};
+
+type ManageDraftData = {
+  newProcName: string;
+  newProcCode: string;
+  newProcModel: string;
+  newItem: string;
+  insertAfter: string;
+  editingIndex: number | null;
+  items: string[];
+  editingItemIndex: number | null;
+  editingItemValue: string;
+};
+
+type AppDraft =
+  | { page: "home"; updatedAt: number; data: HomeDraftData }
+  | { page: "reports"; updatedAt: number; data: ReportsDraftData }
+  | { page: "manage"; updatedAt: number; data: ManageDraftData };
+
+const DRAFT_DB_NAME = "inspection_app_drafts";
+const DRAFT_STORE = "drafts";
+
+function draftKey(username: string) {
+  return `draft_v1:${(username || "anon").toLowerCase()}`;
+}
+
+function openDraftDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DRAFT_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(DRAFT_STORE)) {
+        db.createObjectStore(DRAFT_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet<T>(key: string): Promise<T | null> {
+  const db = await openDraftDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_STORE, "readonly");
+    const store = tx.objectStore(DRAFT_STORE);
+    const req = store.get(key);
+    req.onsuccess = () => resolve((req.result as T) ?? null);
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+
+async function idbSet<T>(key: string, val: T): Promise<void> {
+  const db = await openDraftDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_STORE, "readwrite");
+    const store = tx.objectStore(DRAFT_STORE);
+    store.put(val as any, key);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      const err = tx.error || new Error("IndexedDB write failed");
+      db.close();
+      reject(err);
+    };
+  });
+}
+
+async function idbDel(key: string): Promise<void> {
+  const db = await openDraftDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_STORE, "readwrite");
+    const store = tx.objectStore(DRAFT_STORE);
+    store.delete(key);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      const err = tx.error || new Error("IndexedDB delete failed");
+      db.close();
+      reject(err);
+    };
+  });
+}
+
+function fileToDraftBlob(file: File) {
+  return {
+    blob: file as unknown as Blob,
+    name: file.name,
+    type: file.type || "application/octet-stream",
+    lastModified: file.lastModified || Date.now(),
+  };
+}
+
+function draftBlobToFile(d: {
+  blob: Blob;
+  name: string;
+  type: string;
+  lastModified: number;
+}) {
+  try {
+    return new File([d.blob], d.name || "image.jpg", {
+      type: d.type || "application/octet-stream",
+      lastModified: d.lastModified || Date.now(),
+    });
+  } catch {
+    // 某些舊 Safari 環境可能沒有 File constructor
+    const b: any = d.blob;
+    b.name = d.name || "image.jpg";
+    b.lastModified = d.lastModified || Date.now();
+    return b as File;
+  }
+}
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -427,6 +571,13 @@ export default function App() {
     Record<string, File | undefined>
   >({}); // 新增頁實際上傳用
 
+  // ===== Draft / 恢復提示（三頁共用）=====
+  const [pendingDraft, setPendingDraft] = useState<AppDraft | null>(null);
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const draftLoadedRef = useRef(false);
+  const draftSaveTimerRef = useRef<number | null>(null);
+
+
   // 製程 / 報告資料
   const [processes, setProcesses] = useState<Process[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -670,7 +821,364 @@ if (
   });
 
   // ===== 工具：產生表單編號 PT-YYYYMMDDXXX =====
-  const genFormId = (procName: string) => {
+  
+  // =============================
+  //  Draft：三頁共用「滑掉可復原」(UX-1)
+  // =============================
+
+  const getDraftId = () => draftKey(authUsername || "anon");
+
+  const revokePreviewUrls = (obj: Record<string, string>) => {
+    try {
+      Object.values(obj).forEach((u) => {
+        if (typeof u === "string" && u.startsWith("blob:")) {
+          URL.revokeObjectURL(u);
+        }
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const resetNewReportState = async (alsoClearDraft = true) => {
+    revokePreviewUrls(images);
+    setSerial("");
+    setSelectedModel("");
+    setSelectedProcess("");
+    setImages({});
+    setNewImageFiles({});
+    setPreviewIndex(0);
+    setShowPreview(false);
+    if (alsoClearDraft) {
+      try {
+        await idbDel(getDraftId());
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const resetEditState = async (alsoClearDraft = false) => {
+    revokePreviewUrls(editImages);
+    setEditingReportId(null);
+    setEditImages({});
+    setEditImageFiles({});
+    setShowEditPreview(false);
+    setEditPreviewIndex(0);
+    if (alsoClearDraft) {
+      try {
+        await idbDel(getDraftId());
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const resetManageState = async (alsoClearDraft = false) => {
+    setEditingIndex(null);
+    setItems([]);
+    setEditingItemIndex(null);
+    setEditingItemValue("");
+    setNewProcName("");
+    setNewProcCode("");
+    setNewProcModel("");
+    setNewItem("");
+    setInsertAfter("last");
+    if (alsoClearDraft) {
+      try {
+        await idbDel(getDraftId());
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const buildDraftFromState = (): AppDraft | null => {
+    const now = Date.now();
+
+    if (page === "home") {
+      const hasAnything =
+        serial.trim() ||
+        selectedModel ||
+        selectedProcess ||
+        Object.keys(newImageFiles).length > 0;
+      if (!hasAnything) return null;
+
+      const imageFiles: HomeDraftData["imageFiles"] = {};
+      Object.entries(newImageFiles).forEach(([k, f]) => {
+        if (f) imageFiles[k] = fileToDraftBlob(f);
+      });
+
+      return {
+        page: "home",
+        updatedAt: now,
+        data: {
+          serial,
+          selectedModel,
+          selectedProcess,
+          imageFiles,
+        },
+      };
+    }
+
+    if (page === "reports") {
+      const hasAnything =
+        selectedProcessFilter ||
+        selectedModelFilter ||
+        selectedStatusFilter ||
+        queryFilters.process ||
+        queryFilters.model ||
+        queryFilters.status ||
+        editingReportId ||
+        Object.keys(editImageFiles).length > 0;
+
+      if (!hasAnything) return null;
+
+      const editImageFilesDraft: ReportsDraftData["editImageFiles"] = {};
+      Object.entries(editImageFiles).forEach(([k, f]) => {
+        if (f) editImageFilesDraft[k] = fileToDraftBlob(f);
+      });
+
+      return {
+        page: "reports",
+        updatedAt: now,
+        data: {
+          selectedProcessFilter,
+          selectedModelFilter,
+          selectedStatusFilter,
+          queryFilters: { ...queryFilters },
+          editingReportId,
+          editImageFiles: editImageFilesDraft,
+        },
+      };
+    }
+
+    // manage
+    const hasAnything =
+      newProcName.trim() ||
+      newProcCode.trim() ||
+      newProcModel ||
+      newItem.trim() ||
+      editingIndex !== null ||
+      items.length > 0 ||
+      editingItemIndex !== null ||
+      editingItemValue.trim();
+
+    if (!hasAnything) return null;
+
+    return {
+      page: "manage",
+      updatedAt: now,
+      data: {
+        newProcName,
+        newProcCode,
+        newProcModel,
+        newItem,
+        insertAfter,
+        editingIndex,
+        items,
+        editingItemIndex,
+        editingItemValue,
+      },
+    };
+  };
+
+  const applyDraftToState = async (draft: AppDraft) => {
+    if (draft.page === "home") {
+      await resetNewReportState(false);
+      setPage("home");
+      setSerial(draft.data.serial || "");
+      setSelectedModel(draft.data.selectedModel || "");
+      setSelectedProcess(draft.data.selectedProcess || "");
+
+      // 還原照片檔（File）+ 預覽 blob URL
+      const nextFiles: Record<string, File | undefined> = {};
+      const nextPreviews: Record<string, string> = {};
+
+      Object.entries(draft.data.imageFiles || {}).forEach(([item, fd]) => {
+        const file = draftBlobToFile(fd);
+        nextFiles[item] = file;
+        try {
+          nextPreviews[item] = URL.createObjectURL(file);
+        } catch {
+          // ignore
+        }
+      });
+
+      setNewImageFiles(nextFiles);
+      setImages(nextPreviews);
+      return;
+    }
+
+    if (draft.page === "reports") {
+      await resetEditState(false);
+      setPage("reports");
+
+      setSelectedProcessFilter(draft.data.selectedProcessFilter || "");
+      setSelectedModelFilter(draft.data.selectedModelFilter || "");
+      setSelectedStatusFilter(draft.data.selectedStatusFilter || "");
+      setQueryFilters({
+        process: draft.data.queryFilters?.process || "",
+        model: draft.data.queryFilters?.model || "",
+        status: draft.data.queryFilters?.status || "",
+      });
+
+      const nextFiles: Record<string, File | undefined> = {};
+      const nextPreviews: Record<string, string> = {};
+      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fd]) => {
+        const file = draftBlobToFile(fd);
+        nextFiles[item] = file;
+        try {
+          nextPreviews[item] = URL.createObjectURL(file);
+        } catch {
+          // ignore
+        }
+      });
+
+      setEditImageFiles(nextFiles);
+      setEditImages(nextPreviews);
+      setEditingReportId(draft.data.editingReportId || null);
+      return;
+    }
+
+    // manage
+    await resetManageState(false);
+    setPage("manage");
+
+    setNewProcName(draft.data.newProcName || "");
+    setNewProcCode(draft.data.newProcCode || "");
+    setNewProcModel(draft.data.newProcModel || "");
+    setNewItem(draft.data.newItem || "");
+    setInsertAfter(draft.data.insertAfter || "last");
+    setEditingIndex(draft.data.editingIndex ?? null);
+    setItems(draft.data.items || []);
+    setEditingItemIndex(draft.data.editingItemIndex ?? null);
+    setEditingItemValue(draft.data.editingItemValue || "");
+  };
+
+  const scheduleSaveDraft = (immediate = false) => {
+    if (!isLoggedIn || !authUsername) return;
+
+    const run = async () => {
+      try {
+        const d = buildDraftFromState();
+        if (!d) {
+          await idbDel(getDraftId());
+          return;
+        }
+        await idbSet(getDraftId(), d);
+      } catch {
+        // ignore：草稿是保命用，寫失敗不影響主流程
+      }
+    };
+
+    if (immediate) {
+      void run();
+      return;
+    }
+
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+    }
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      void run();
+    }, 600);
+  };
+
+
+  // 草稿：登入後檢查是否有未完成作業（UX-1：先詢問再恢復）
+  useEffect(() => {
+    if (!isLoggedIn || !authUsername) return;
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+
+    (async () => {
+      try {
+        const d = await idbGet<AppDraft>(getDraftId());
+        if (d) {
+          setPendingDraft(d);
+          setShowDraftPrompt(true);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [isLoggedIn, authUsername]);
+
+  // 草稿：有變更就自動暫存（debounce）
+  useEffect(() => {
+    if (!isLoggedIn || !authUsername) return;
+    scheduleSaveDraft(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    page,
+    serial,
+    selectedModel,
+    selectedProcess,
+    newImageFiles,
+    selectedProcessFilter,
+    selectedModelFilter,
+    selectedStatusFilter,
+    queryFilters,
+    editingReportId,
+    editImageFiles,
+    newProcName,
+    newProcCode,
+    newProcModel,
+    newItem,
+    insertAfter,
+    editingIndex,
+    items,
+    editingItemIndex,
+    editingItemValue,
+  ]);
+
+  // 草稿：頁面即將被卸載/切到背景時，盡量立即寫入
+  useEffect(() => {
+    if (!isLoggedIn || !authUsername) return;
+
+    const onPageHide = () => {
+      scheduleSaveDraft(true);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        scheduleSaveDraft(true);
+      }
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    page,
+    serial,
+    selectedModel,
+    selectedProcess,
+    newImageFiles,
+    selectedProcessFilter,
+    selectedModelFilter,
+    selectedStatusFilter,
+    queryFilters,
+    editingReportId,
+    editImageFiles,
+    newProcName,
+    newProcCode,
+    newProcModel,
+    newItem,
+    insertAfter,
+    editingIndex,
+    items,
+    editingItemIndex,
+    editingItemValue,
+    isLoggedIn,
+    authUsername,
+  ]);
+
+const genFormId = (procName: string) => {
     const prefix = processes.find((p) => p.name === procName)?.code || "XX";
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const num = (reports.length + 1).toString().padStart(3, "0");
@@ -958,7 +1466,27 @@ const handleEditCapture = (item: string, file: File | undefined) => {
       {/* 上方主選單 + 登出 */}
       <div className="flex justify-between items-center space-x-2">
         <div className="flex space-x-2">
-          <Button onClick={() => setPage("home")}>➕ 新增檢驗資料</Button>
+          <Button
+            onClick={async () => {
+              if (
+                page === "home" &&
+                (serial.trim() ||
+                  selectedModel ||
+                  selectedProcess ||
+                  Object.keys(newImageFiles).length > 0)
+              ) {
+                const ok = window.confirm(
+                  "目前有未完成的新增檢驗資料。
+要清除並重新開始嗎？"
+                );
+                if (!ok) return;
+                await resetNewReportState(true);
+              }
+              setPage("home");
+            }}
+          >
+            ➕ 新增檢驗資料
+          </Button>
           <Button onClick={() => setPage("reports")}>📑 查看報告</Button>
           <Button onClick={() => setPage("manage")} disabled={!isAdmin} title={!isAdmin ? "僅限管理員帳號使用" : ""}>⚙️ 管理製程</Button>
         </div>
@@ -1134,9 +1662,25 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               </div>
             )}
 
-            <Button type="submit" className="w-full mt-4">
-              儲存
-            </Button>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={async () => {
+                  const ok = window.confirm(
+                    "確定要取消新增嗎？
+（已輸入的資料與照片將會清除）"
+                  );
+                  if (!ok) return;
+                  await resetNewReportState(true);
+                }}
+              >
+                取消新增
+              </Button>
+              <Button type="submit" className="flex-1">
+                儲存
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -1571,7 +2115,58 @@ const handleEditCapture = (item: string, file: File | undefined) => {
         )
       )}
 
-      {/* 新增儲存前預覽 Modal */}
+      
+      {/* 草稿恢復（UX-1） */}
+      {showDraftPrompt && pendingDraft && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full">
+            <p className="text-lg font-bold">偵測到未完成的作業</p>
+            <p className="text-sm text-gray-600 mt-2">
+              來源：
+              {pendingDraft.page === "home"
+                ? "新增檢驗資料"
+                : pendingDraft.page === "reports"
+                ? "查詢/編輯報告"
+                : "管理製程"}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              最後更新：{new Date(pendingDraft.updatedAt).toLocaleString()}
+            </p>
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                className="flex-1"
+                onClick={async () => {
+                  try {
+                    await idbDel(getDraftId());
+                  } catch {
+                    // ignore
+                  }
+                  setPendingDraft(null);
+                  setShowDraftPrompt(false);
+                }}
+              >
+                丟棄
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={async () => {
+                  const d = pendingDraft;
+                  setShowDraftPrompt(false);
+                  setPendingDraft(null);
+                  if (d) {
+                    await applyDraftToState(d);
+                  }
+                }}
+              >
+                繼續
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+{/* 新增儲存前預覽 Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col">
