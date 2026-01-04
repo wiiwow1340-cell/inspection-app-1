@@ -557,8 +557,10 @@ if (
         const { data } = await supabase.auth.getSession();
         if (data.session) {
           const ok = await checkLoginLock();
-        if (!ok) {
-          await handleKickedOut();
+          if (!ok) {
+            await handleKickedOut();
+            return;
+          }
           setIsLoggedIn(true);
           await refreshUserRole();
         }
