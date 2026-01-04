@@ -534,6 +534,9 @@ if (
       if (data.session) {
         const ok = await checkLoginLock();
         if (!ok) {
+          setIsLoggedIn(false);
+          setAuthUsername("");
+          setIsAdmin(false);
           setSessionChecked(true);
           return;
         }
@@ -546,16 +549,33 @@ if (
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setIsLoggedIn(!!session);
-        if (session) {
-          const ok = await checkLoginLock();
-          if (!ok) return;
-          await refreshUserRole();
-        } else {
+      async (event, session) => {
+        if (!session) {
+          setIsLoggedIn(false);
           setAuthUsername("");
           setIsAdmin(false);
+          return;
         }
+
+        // 重要：SIGNED_IN 當下要先寫入鎖，讓「後登入者」成為唯一有效 session
+        if (event === "SIGNED_IN") {
+          await upsertLoginLock();
+          setIsLoggedIn(true);
+          await refreshUserRole();
+          return;
+        }
+
+        // 其他狀態（例如切回頁面、token refresh 等）才檢查是否被踢
+        const ok = await checkLoginLock();
+        if (!ok) {
+          setIsLoggedIn(false);
+          setAuthUsername("");
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsLoggedIn(true);
+        await refreshUserRole();
       }
     );
 
