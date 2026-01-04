@@ -1666,10 +1666,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 type="button"
                 className="flex-1"
                 onClick={async () => {
-                  const ok = window.confirm(
-                    "確定要取消新增嗎？
-（已輸入的資料與照片將會清除）"
-                  );
+                  const ok = window.confirm("確定要取消新增嗎？\n（已輸入的資料與照片將會清除）");
                   if (!ok) return;
                   await resetNewReportState(true);
                 }}
