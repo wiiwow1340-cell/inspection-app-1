@@ -407,7 +407,6 @@ export default function App() {
     if (kickedRef.current) return;
     kickedRef.current = true;
     alert("此帳號已在其他裝置登入，系統將登出。");
-    localStorage.removeItem(SINGLE_LOGIN_LOCAL_KEY);
     // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
     supabase.auth.signOut();
     setIsLoggedIn(false);
@@ -549,32 +548,12 @@ if (
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const session = data.session;
-
-        if (session) {
-          // 保險：若本機殘留舊 sid 或換了 domain，先做一次有效性檢查，
-          // 发现不是当前登入的最后 session 就直接登出回登入画面，避免卡住。
-          const ok = await isCurrentSessionStillValid();
-          if (!ok) {
-            localStorage.removeItem(SINGLE_LOGIN_LOCAL_KEY);
-            try { await supabase.auth.signOut(); } catch {}
-            setIsLoggedIn(false);
-            setAuthUsername("");
-            setIsAdmin(false);
-            return;
-          }
-
-          setIsLoggedIn(true);
-          await refreshUserRole();
-        }
-      } catch (e) {
-        console.error("initAuth 失敗：", e);
-        // 失敗也不要卡在 Loading
-      } finally {
-        setSessionChecked(true);
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setIsLoggedIn(true);
+        await refreshUserRole();
       }
+      setSessionChecked(true);
     };
 
     initAuth();
