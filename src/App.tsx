@@ -698,22 +698,72 @@ if (
 
   // ===== 登入狀態初始化（Supabase Session） =====
   useEffect(() => {
+    let cancelled = false;
+
+    // ✅ 保險：任何情況都不要讓畫面永久卡在 Loading
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setSessionChecked(true);
+    }, 4000);
+
     const initAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setIsLoggedIn(true);
-        await refreshUserRole();
+      try {
+        // ✅ 再加一層 timeout：避免極端情況 getSession Promise 卡住
+        const sessionRes: any = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("getSession timeout")), 3000)
+          ),
+        ]);
+
+        const data = sessionRes?.data;
+        const error = sessionRes?.error;
+
+        if (error) {
+          console.error("getSession 失敗：", error.message || error);
+        }
+
+        const hasSession = !!data?.session;
+
+        if (!cancelled) {
+          setIsLoggedIn(hasSession);
+        }
+
+        if (hasSession) {
+          // ⚠️ 不要讓 refreshUserRole 阻塞 sessionChecked
+          refreshUserRole().catch((e) => {
+            console.error("refreshUserRole 失敗：", e);
+          });
+        } else {
+          if (!cancelled) {
+            setAuthUsername("");
+            setIsAdmin(false);
+          }
+        }
+      } catch (e) {
+        console.error("initAuth 失敗：", e);
+        if (!cancelled) {
+          setIsLoggedIn(false);
+          setAuthUsername("");
+          setIsAdmin(false);
+        }
+      } finally {
+        window.clearTimeout(failSafe);
+        if (!cancelled) setSessionChecked(true);
       }
-      setSessionChecked(true);
     };
 
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        // ✅ 狀態先更新，不要被 refreshUserRole 卡住
         setIsLoggedIn(!!session);
+        setSessionChecked(true);
+
         if (session) {
-          await refreshUserRole();
+          refreshUserRole().catch((e) => {
+            console.error("refreshUserRole 失敗：", e);
+          });
         } else {
           setAuthUsername("");
           setIsAdmin(false);
@@ -722,11 +772,13 @@ if (
     );
 
     return () => {
+      cancelled = true;
+      window.clearTimeout(failSafe);
       listener?.subscription.unsubscribe();
     };
   }, []);
 
-  // ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
+// ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
   useEffect(() => {
     if (!isLoggedIn) {
       kickedRef.current = false;
