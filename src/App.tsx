@@ -597,8 +597,6 @@ export default function App() {
 
   // 查看報告（方案 A）：表格列展開顯示照片
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
-  const [expandedSignedMap, setExpandedSignedMap] = useState<Record<string, string>>({});
-  const [expandedLoading, setExpandedLoading] = useState(false);
 
   // 管理製程用
   const [newProcName, setNewProcName] = useState("");
@@ -704,70 +702,10 @@ if (
 
 
 
-  // ===== 查看報告：展開列時才取得該列照片 signed URL（避免一次把全部報告照片都轉 signed 造成卡頓） =====
-  useEffect(() => {
-    let cancelled = false;
 
-    const run = async () => {
-      if (!expandedReportId) {
-        setExpandedSignedMap({});
-        return;
-      }
+  // ===== 查看報告：不在「展開列（檢視）」階段預覽照片，以避免不必要的圖片下載；
+  // 照片只在「編輯 → 儲存預覽」流程中顯示（沿用原本的 showEditPreview 機制）。
 
-      const r = reports.find((x) => x.id === expandedReportId);
-      if (!r) {
-        setExpandedSignedMap({});
-        return;
-      }
-
-      const items = r.expected_items || [];
-      const next: Record<string, string> = {};
-      setExpandedLoading(true);
-
-      try {
-        await Promise.all(
-          items.map(async (item) => {
-            const raw = r.images?.[item];
-            if (!raw) {
-              next[item] = "";
-              return;
-            }
-
-            // 新上傳的（data/blob/http）直接顯示，不要做 signed
-            if (
-              raw.startsWith("data:") ||
-              raw.startsWith("blob:") ||
-              raw.startsWith("http://") ||
-              raw.startsWith("https://")
-            ) {
-              next[item] = raw;
-              return;
-            }
-
-            // 舊照片（storage path / public url）才轉 signed
-            const signed = await getSignedImageUrl(raw);
-            next[item] = signed || "";
-          })
-        );
-
-        if (!cancelled) setExpandedSignedMap(next);
-      } finally {
-        if (!cancelled) setExpandedLoading(false);
-      }
-    };
-
-    run().catch((e) => {
-      console.error("展開列 signed url 失敗：", e);
-      if (!cancelled) {
-        setExpandedSignedMap({});
-        setExpandedLoading(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [expandedReportId, reports]);
   // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
   const computeIsAdmin = (u: string) => {
     return u === "admin";
@@ -2128,55 +2066,16 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                       </div>
                                     </div>
                                   ) : (
-                                    // ================= 展開列：檢視模式（顯示各檢驗項目照片） =================
-                                    <div className="p-3 rounded bg-gray-50 border space-y-3">
-                                      <div className="flex items-center justify-between">
-                                        <div className="font-bold">各檢驗項目照片</div>
-                                        {expandedLoading && (
-                                          <div className="text-sm text-gray-500">載入中...</div>
-                                        )}
+                                    // ================= 展開列：檢視模式（沿用編輯介面，不在此預覽照片） =================
+                                    <div className="p-3 rounded bg-gray-50 border space-y-2">
+                                      <div className="font-bold">檢視：{r.id}</div>
+                                      <div className="text-sm text-gray-700">
+                                        已拍照：{(r.expected_items || []).filter((it) => !!r.images?.[it]).length} / {(r.expected_items || []).length}
                                       </div>
-
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {(r.expected_items || []).map((item) => {
-                                          const url = expandedSignedMap[item] || "";
-                                          const has = !!r.images?.[item];
-
-                                          return (
-                                            <div
-                                              key={item}
-                                              className="bg-white border rounded p-2 space-y-2"
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <div className="font-medium">{item}</div>
-                                                <div className="text-sm">{has ? "📷" : "✖"}</div>
-                                              </div>
-
-                                              {has ? (
-                                                url ? (
-                                                  <a href={url} target="_blank" rel="noreferrer">
-                                                    <img
-                                                      src={url}
-                                                      alt={item}
-                                                      className="w-full h-40 object-cover rounded border"
-                                                    />
-                                                  </a>
-                                                ) : (
-                                                  <div className="w-full h-40 rounded border flex items-center justify-center text-sm text-gray-500">
-                                                    無法取得照片連結
-                                                  </div>
-                                                )
-                                              ) : (
-                                                <div className="w-full h-40 rounded border border-dashed flex items-center justify-center text-sm text-gray-500">
-                                                  尚未拍攝
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+                                      <div className="text-sm text-gray-600">
+                                        為避免在查詢列表中下載大量圖片，此處不預覽照片。若要查看或更新照片，請按「編輯」後使用「儲存預覽」。
                                       </div>
                                     </div>
-                                  )}
                                 </td>
                               </tr>
                             )}
