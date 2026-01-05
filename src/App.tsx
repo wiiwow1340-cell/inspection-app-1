@@ -603,6 +603,7 @@ export default function App() {
   const [insertAfter, setInsertAfter] = useState<string>("last"); // 新增項目插入位置（last 或 index）
   const [items, setItems] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [expandedProcessIndex, setExpandedProcessIndex] = useState<number | null>(null);
 
   // 管理製程：編輯「檢驗項目名稱」
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -2259,37 +2260,82 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               )}
             </div>
 
-            {/* 已有製程列表 */}
-            {processes.map((p, idx) => (
-              <div key={idx} className="border p-2 rounded space-y-1">
-                <div className="flex justify-between items-center">
-                  <span>{`${p.name} (${p.code}) - ${p.model || "無型號"}`}</span>
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={() => startEditingProcess(idx)}>
-                      編輯
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() =>
-                        setConfirmTarget({ type: "process", proc: p })
-                      }
-                    >
-                      刪除
-                    </Button>
-                  </div>
-                </div>
-                {p.items.length > 0 && (
-                  <div className="ml-4 space-y-1">
-                    {p.items.map((item, iidx) => (
-                      <div key={iidx} className="text-sm">
-                        • {item}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+            {/* 已有製程列表（表格 + 可展開） */}
+            <div className="border rounded overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="p-2 w-10"></th>
+                    <th className="p-2">製程名稱</th>
+                    <th className="p-2">製程代號</th>
+                    <th className="p-2">產品型號</th>
+                    <th className="p-2 w-32">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {processes.map((p, idx) => {
+                    const isOpen = expandedProcessIndex === idx;
+                    return (
+                      <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
+                        <tr
+                          className="border-t hover:bg-gray-50 cursor-pointer"
+                          onClick={() =>
+                            setExpandedProcessIndex((prev) => (prev === idx ? null : idx))
+                          }
+                        >
+                          <td className="p-2">{isOpen ? "▼" : "▶"}</td>
+                          <td className="p-2">{p.name}</td>
+                          <td className="p-2">{p.code}</td>
+                          <td className="p-2">{p.model || "—"}</td>
+                          <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-2">
+                              <Button type="button" size="sm" onClick={() => startEditingProcess(idx)}>
+                                編輯
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setConfirmTarget({ type: "process", proc: p })}
+                              >
+                                刪除
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {isOpen && (
+                          <tr className="border-t">
+                            <td className="p-0" colSpan={5}>
+                              <div className="p-3 bg-gray-50">
+                                <div className="font-semibold mb-2">檢驗項目</div>
+                                {p.items.length > 0 ? (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    {p.items.map((item, iidx) => (
+                                      <div
+                                        key={iidx}
+                                        className="bg-white border rounded px-3 py-2"
+                                      >
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-gray-500">尚未建立檢驗項目</div>
+                                )}
+                                <div className="text-xs text-gray-500 mt-2">
+                                  ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </Card>
         )
