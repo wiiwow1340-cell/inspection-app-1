@@ -595,9 +595,6 @@ export default function App() {
   // 查看報告：查詢後才顯示
   const [showReports, setShowReports] = useState(false);
 
-  // 查看報告（方案 A）：表格列展開顯示照片
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
-
   // 管理製程用
   const [newProcName, setNewProcName] = useState("");
   const [newProcCode, setNewProcCode] = useState("");
@@ -700,11 +697,6 @@ if (
   editImages,
 ]);
 
-
-
-
-  // ===== 查看報告：不在「展開列（檢視）」階段預覽照片，以避免不必要的圖片下載；
-  // 照片只在「編輯 → 儲存預覽」流程中顯示（沿用原本的 showEditPreview 機制）。
 
   // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
   const computeIsAdmin = (u: string) => {
@@ -895,6 +887,26 @@ if (
 
     return true;
   });
+
+  // ===== 查看報告：列表列點擊展開（共用既有「編輯模式」介面）=====
+  const toggleExpandReport = (id: string) => {
+    if (editingReportId === id) {
+      setEditingReportId(null);
+      setEditImages({});
+      setEditImageFiles({});
+      setShowEditPreview(false);
+      setEditPreviewIndex(0);
+      setSignedImg("");
+      return;
+    }
+    setEditingReportId(id);
+    setEditImages({});
+    setEditImageFiles({});
+    setShowEditPreview(false);
+    setEditPreviewIndex(0);
+    setSignedImg("");
+  };
+
 
   // ===== 工具：產生表單編號 PT-YYYYMMDDXXX =====
   
@@ -1896,186 +1908,172 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               {filteredReports.length === 0 && <p>尚無報告</p>}
 
               {filteredReports.length > 0 && (
-                <div className="w-full overflow-x-auto">
-                  <table className="w-full border-collapse">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left border-b">
-                        <th className="py-2 pr-2 w-8"></th>
-                        <th className="py-2 pr-2 whitespace-nowrap">表單編號</th>
-                        <th className="py-2 pr-2 whitespace-nowrap">製程名稱</th>
-                        <th className="py-2 pr-2 whitespace-nowrap">產品型號</th>
-                        <th className="py-2 pr-2 whitespace-nowrap">序號</th>
-                        <th className="py-2 pr-2 whitespace-nowrap">狀態</th>
-                        <th className="py-2 pr-2 whitespace-nowrap">操作</th>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-2 px-2 whitespace-nowrap">表單編號</th>
+                        <th className="text-left py-2 px-2 whitespace-nowrap">製程名稱</th>
+                        <th className="text-left py-2 px-2 whitespace-nowrap">產品型號</th>
+                        <th className="text-left py-2 px-2 whitespace-nowrap">序號</th>
+                        <th className="text-left py-2 px-2 whitespace-nowrap">狀態</th>
+                        <th className="text-left py-2 px-2 whitespace-nowrap">編輯按鈕</th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {filteredReports.map((r) => {
                         const expected = r.expected_items || [];
-                        const isDone = expected.length === 0 ? true : expected.every((it) => !!r.images?.[it]);
-                        const statusText = isDone ? "已完成" : "未完成";
-                        const isOpen = expandedReportId === r.id;
+                        const isDone =
+                          expected.length > 0 &&
+                          expected.every((item) => !!r.images?.[item]);
 
                         return (
                           <React.Fragment key={r.id}>
                             <tr
                               className="border-b hover:bg-gray-50 cursor-pointer"
-                              onClick={() => {
-                                setExpandedReportId((prev) => (prev === r.id ? null : r.id));
-                                // 切換展開列時，若正在編輯其他單，先關掉編輯狀態（避免 UI 混亂）
-                                if (editingReportId && editingReportId !== r.id) {
-                                  setEditingReportId(null);
-                                  setEditImages({});
-                                  setEditImageFiles({});
-                                }
-                              }}
+                              onClick={() => toggleExpandReport(r.id)}
+                              title="點擊展開/收合"
                             >
-                              <td className="py-2 pr-2 align-top">
-                                <span className="inline-block w-5">{isOpen ? "▼" : "▶"}</span>
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {r.id}
                               </td>
-                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.id}</td>
-                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.process}</td>
-                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.model}</td>
-                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.serial}</td>
-                              <td className="py-2 pr-2 whitespace-nowrap align-top">{statusText}</td>
-                              <td
-                                className="py-2 pr-2 whitespace-nowrap align-top"
-                                onClick={(e) => e.stopPropagation()}
-                              >
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {r.process}
+                              </td>
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {r.model}
+                              </td>
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {r.serial}
+                              </td>
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {isDone ? "已完成" : "未完成"}
+                              </td>
+                              <td className="py-2 px-2 whitespace-nowrap">
                                 <Button
-                                  type="button"
                                   size="sm"
-                                  onClick={() => {
-                                    setExpandedReportId(r.id);
-                                    setEditingReportId(r.id);
-                                    setEditImages({});
-                                    setEditImageFiles({});
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleExpandReport(r.id);
                                   }}
                                 >
-                                  編輯
+                                  {editingReportId === r.id ? "收合" : "編輯"}
                                 </Button>
                               </td>
                             </tr>
 
-                            {isOpen && (
-                              <tr className="border-b">
-                                <td colSpan={7} className="py-3">
-                                  {editingReportId === r.id ? (
-                                    // ================= 展開列：編輯模式（沿用原本邏輯） =================
-                                    <div className="p-3 rounded bg-gray-50 border space-y-2">
-                                      <p className="font-bold">編輯：{r.id}</p>
-                                      <p>序號：{r.serial}</p>
-                                      <p>產品型號：{r.model}</p>
-                                      <p>製程：{r.process}</p>
+                            {editingReportId === r.id && (
+                              <tr className="border-b bg-gray-50">
+                                <td colSpan={6} className="p-3">
+                                  {/* ===== 展開區：直接沿用原本的編輯介面 ===== */}
+                                  <div className="space-y-2">
+                                    <p className="font-bold">編輯：{r.id}</p>
+                                    <p>序號：{r.serial}</p>
+                                    <p>產品型號：{r.model}</p>
+                                    <p>製程：{r.process}</p>
 
-                                      {/* 應拍項目清單 + 拍照/上傳 */}
-                                      {(() => {
-                                        const allItems = r.expected_items || [];
-                                        return allItems.map((item, idx) => (
-                                          <div key={item} className="flex items-center gap-2">
-                                            <span className="flex-1">{item}</span>
+                                    {/* 應拍項目清單 + 拍照/上傳 */}
+                                    {(r.expected_items || []).map((item, idx) => (
+                                      <div key={item} className="flex items-center gap-2">
+                                        <span className="flex-1">{item}</span>
 
-                                            <Button
-                                              type="button"
-                                              onClick={() => {
-                                                const input = document.getElementById(
-                                                  `edit-capture-${r.id}-${idx}`
-                                                ) as HTMLInputElement;
-                                                input?.click();
-                                              }}
-                                              className="px-2 py-1"
-                                            >
-                                              📷 拍照
-                                            </Button>
-
-                                            <Button
-                                              type="button"
-                                              onClick={() => {
-                                                const input = document.getElementById(
-                                                  `edit-upload-${r.id}-${idx}`
-                                                ) as HTMLInputElement;
-                                                input?.click();
-                                              }}
-                                              className="px-2 py-1"
-                                            >
-                                              📁 上傳
-                                            </Button>
-
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              capture="environment"
-                                              className="hidden"
-                                              id={`edit-capture-${r.id}-${idx}`}
-                                              onChange={(e) =>
-                                                handleEditCapture(
-                                                  item,
-                                                  e.target.files?.[0] || undefined
-                                                )
-                                              }
-                                            />
-
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              className="hidden"
-                                              id={`edit-upload-${r.id}-${idx}`}
-                                              onChange={(e) =>
-                                                handleEditCapture(
-                                                  item,
-                                                  e.target.files?.[0] || undefined
-                                                )
-                                              }
-                                            />
-
-                                            {editImages[item] || r.images[item] ? (
-                                              <span className="text-green-600 font-bold text-xl">✔</span>
-                                            ) : (
-                                              <span className="text-gray-400 font-bold text-xl">✘</span>
-                                            )}
-                                          </div>
-                                        ));
-                                      })()}
-
-                                      <div className="flex gap-2 mt-3">
                                         <Button
-                                          className="flex-1"
                                           type="button"
-                                          onClick={() => {
-                                            setSignedImg("");
-                                            setEditPreviewIndex(0);
-                                            setShowEditPreview(true);
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const input = document.getElementById(
+                                              `edit-capture-${r.id}-${idx}`
+                                            ) as HTMLInputElement;
+                                            input?.click();
                                           }}
+                                          className="px-2 py-1"
                                         >
-                                          儲存
+                                          📷 拍照
                                         </Button>
 
                                         <Button
-                                          className="flex-1"
                                           type="button"
-                                          variant="secondary"
-                                          onClick={() => {
-                                            setEditingReportId(null);
-                                            setEditImages({});
-                                            setEditImageFiles({});
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const input = document.getElementById(
+                                              `edit-upload-${r.id}-${idx}`
+                                            ) as HTMLInputElement;
+                                            input?.click();
                                           }}
+                                          className="px-2 py-1"
                                         >
-                                          取消
+                                          📁 上傳
                                         </Button>
+
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          capture="environment"
+                                          className="hidden"
+                                          id={`edit-capture-${r.id}-${idx}`}
+                                          onChange={(e) =>
+                                            handleEditCapture(
+                                              item,
+                                              e.target.files?.[0] || undefined
+                                            )
+                                          }
+                                        />
+
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          id={`edit-upload-${r.id}-${idx}`}
+                                          onChange={(e) =>
+                                            handleEditCapture(
+                                              item,
+                                              e.target.files?.[0] || undefined
+                                            )
+                                          }
+                                        />
+
+                                        {editImages[item] || r.images[item] ? (
+                                          <span className="text-green-600 font-bold text-xl">
+                                            ✔
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 font-bold text-xl">
+                                            ✘
+                                          </span>
+                                        )}
                                       </div>
+                                    ))}
+
+                                    <div className="flex gap-2 mt-3">
+                                      <Button
+                                        className="flex-1"
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSignedImg("");
+                                          setEditPreviewIndex(0);
+                                          setShowEditPreview(true);
+                                        }}
+                                      >
+                                        儲存
+                                      </Button>
+
+                                      <Button
+                                        className="flex-1"
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // 收合 + 清除編輯暫存
+                                          toggleExpandReport(r.id);
+                                        }}
+                                      >
+                                        取消
+                                      </Button>
                                     </div>
-                                  ) : (
-                                    // ================= 展開列：檢視模式（沿用編輯介面，不在此預覽照片） =================
-                                    <div className="p-3 rounded bg-gray-50 border space-y-2">
-                                      <div className="font-bold">檢視：{r.id}</div>
-                                      <div className="text-sm text-gray-700">
-                                        已拍照：{(r.expected_items || []).filter((it) => !!r.images?.[it]).length} / {(r.expected_items || []).length}
-                                      </div>
-                                      <div className="text-sm text-gray-600">
-                                        為避免在查詢列表中下載大量圖片，此處不預覽照片。若要查看或更新照片，請按「編輯」後使用「儲存預覽」。
-                                      </div>
-                                    </div>
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -2087,7 +2085,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 </div>
               )}
             </>
-          )}        </Card>
+          )}
+        </Card>
       )}
 
       {/* 管理製程頁 */}
