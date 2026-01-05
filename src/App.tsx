@@ -68,14 +68,6 @@ const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
   />
 );
 
-
-// =============================
-//  Hybrid Dark UI tokens
-//  - White base pages + dark work panels
-// =============================
-const DARK_PANEL = "!bg-gray-900 !text-white !border-gray-700 shadow-lg";
-const DARK_INPUT = "!bg-gray-950 !border-gray-700 !text-white placeholder:text-gray-400 focus-visible:ring-blue-400 focus-visible:ring-offset-gray-900";
-const DARK_SELECT = "w-full border border-gray-700 bg-gray-950 text-white p-2 rounded";
 // =============================
 //  型別定義
 // =============================
@@ -522,14 +514,13 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="p-4 max-w-sm mx-auto space-y-4">
-      <Card className="p-4 space-y-3 !bg-gray-900 !text-white !border-gray-700 shadow-lg">
+      <Card className="p-4 space-y-3">
         <h2 className="text-xl font-bold">🔐 請先登入</h2>
         <div className="space-y-2">
           <label className="text-sm font-medium">帳號</label>
           <Input
             placeholder="例如：MGCQA1"
-            className="!bg-gray-950 !border-gray-700 !text-white placeholder:text-gray-400 focus-visible:ring-blue-400 focus-visible:ring-offset-gray-900"
-                        value={username}
+            value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
         </div>
@@ -537,13 +528,12 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <label className="text-sm font-medium">密碼</label>
           <Input
             placeholder="輸入密碼"
-            className="!bg-gray-950 !border-gray-700 !text-white placeholder:text-gray-400 focus-visible:ring-blue-400 focus-visible:ring-offset-gray-900"
-                        type="password"
+            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        {err && <p className="text-red-300 text-sm">{err}</p>}
+        {err && <p className="text-red-500 text-sm">{err}</p>}
         <Button onClick={handleLogin} disabled={loading} className="w-full">
           {loading ? "登入中..." : "登入"}
         </Button>
@@ -1675,7 +1665,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
 
       {/* 新增檢驗資料頁 */}
       {page === "home" && (
-        <Card className={`p-4 space-y-4 ${DARK_PANEL}`}>
+        <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">新增檢驗資料</h2>
 
           <form
@@ -1697,7 +1687,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 placeholder="輸入序號"
                 value={serial}
                 onChange={(e) => setSerial(e.target.value)}
-                className={`${DARK_INPUT} ${serial ? "" : "border-red-500"}`}
+                className={serial ? "" : "border-red-500"}
               />
               {!serial && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
@@ -1715,7 +1705,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   setImages({});
                   setNewImageFiles({});
                 }}
-                className={`${DARK_SELECT} ${selectedModel ? "" : "border-red-500"
+                className={`w-full border p-2 rounded ${
+                  selectedModel ? "" : "border-red-500"
                 }`}
               >
                 <option value="">請選擇型號</option>
@@ -1740,7 +1731,8 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   setImages({});
                   setNewImageFiles({});
                 }}
-                className={`${DARK_SELECT} ${selectedProcess ? "" : "border-red-500"
+                className={`w-full border p-2 rounded ${
+                  selectedProcess ? "" : "border-red-500"
                 }`}
               >
                 <option value="">請選擇製程</option>
@@ -1920,7 +1912,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="border-b bg-gray-50">
                         <th className="text-left py-2 px-2 whitespace-nowrap">表單編號</th>
                         <th className="text-left py-2 px-2 whitespace-nowrap">製程名稱</th>
                         <th className="text-left py-2 px-2 whitespace-nowrap">產品型號</th>
@@ -1974,10 +1966,10 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                             </tr>
 
                             {editingReportId === r.id && (
-                              <tr className="border-b">
+                              <tr className="border-b bg-gray-50">
                                 <td colSpan={6} className="p-3">
                                   {/* ===== 展開區：直接沿用原本的編輯介面 ===== */}
-                                  <div className={`p-3 rounded-lg border space-y-2 ${DARK_PANEL}`}>
+                                  <div className="space-y-2">
                                     <p className="font-bold">編輯：{r.id}</p>
                                     <p>序號：{r.serial}</p>
                                     <p>產品型號：{r.model}</p>
@@ -2101,13 +2093,13 @@ const handleEditCapture = (item: string, file: File | undefined) => {
       {/* 管理製程頁 */}
       {page === "manage" && (
         !isAdmin ? (
-          <Card className={`p-4 space-y-3 ${DARK_PANEL}`}>
+          <Card className="p-4 space-y-3">
           <h2 className="text-xl font-bold">管理製程</h2>
           <p className="text-red-600">此頁僅限管理員帳號使用。</p>
-          <p className="text-sm text-gray-300">目前登入：{authUsername || "未知"}</p>
+          <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
         </Card>
         ) : (
-        <Card className={`p-4 space-y-4 ${DARK_PANEL}`}>
+        <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">管理製程</h2>
 
           <div className="space-y-4">
@@ -2118,14 +2110,14 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   value={newProcName}
                   placeholder="製程名稱"
                   readOnly={editingIndex !== null}
-                  className={`${DARK_INPUT} ${editingIndex !== null ? "!bg-gray-800" : ""}`}
+                  className={editingIndex !== null ? "bg-gray-100" : ""}
                   onChange={(e) => setNewProcName(e.target.value)}
                 />
                 <Input
                   value={newProcCode}
                   placeholder="製程代號"
                   readOnly={editingIndex !== null}
-                  className={`${DARK_INPUT} ${editingIndex !== null ? "!bg-gray-800" : ""}`}
+                  className={editingIndex !== null ? "bg-gray-100" : ""}
                   onChange={(e) => setNewProcCode(e.target.value)}
                 />
               </div>
@@ -2133,7 +2125,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 value={newProcModel}
                 placeholder="產品型號"
                 readOnly={editingIndex !== null}
-                className={`${DARK_INPUT} ${editingIndex !== null ? "!bg-gray-800" : ""}`}
+                className={editingIndex !== null ? "bg-gray-100" : ""}
                 onChange={(e) => setNewProcModel(e.target.value)}
               />
             </div>
@@ -2144,7 +2136,6 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 <Input
                   value={newItem}
                   placeholder="新增檢驗照片項目"
-                  className={DARK_INPUT}
                   onChange={(e) => setNewItem(e.target.value)}
                 />
                 <Button type="button" onClick={addItem}>
@@ -2153,13 +2144,13 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-300 whitespace-nowrap">
+                <span className="text-sm text-gray-600 whitespace-nowrap">
                   插入在
                 </span>
                 <select
                   value={insertAfter}
                   onChange={(e) => setInsertAfter(e.target.value)}
-                  className="border border-gray-700 bg-gray-950 text-white p-2 rounded flex-1 h-9"
+                  className="border p-2 rounded flex-1 h-9"
                 >
                   <option value="last">最後</option>
                   {items.map((it, idx) => (
@@ -2175,7 +2166,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             {items.map((i, idx) => (
               <div
                 key={idx}
-                className="border border-gray-700 bg-gray-950 p-2 rounded flex justify-between items-center"
+                className="border p-2 rounded flex justify-between items-center"
               >
                 {editingItemIndex === idx ? (
                   <div className="flex-1 flex gap-2 items-center">
