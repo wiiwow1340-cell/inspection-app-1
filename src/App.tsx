@@ -514,13 +514,13 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="p-4 max-w-sm mx-auto space-y-4">
-      <Card className="p-4 space-y-3 bg-slate-900 text-slate-100 border-slate-700 shadow-lg">
+      <Card className="p-4 space-y-3 !bg-gray-900 !text-white !border-gray-700 shadow-lg">
         <h2 className="text-xl font-bold">🔐 請先登入</h2>
         <div className="space-y-2">
           <label className="text-sm font-medium">帳號</label>
           <Input
             placeholder="例如：MGCQA1"
-            className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-400 focus-visible:ring-offset-slate-900"
+            className="!bg-gray-950 !border-gray-700 !text-white placeholder:text-gray-400 focus-visible:ring-blue-400 focus-visible:ring-offset-gray-900"
                         value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
@@ -529,13 +529,13 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <label className="text-sm font-medium">密碼</label>
           <Input
             placeholder="輸入密碼"
-            className="bg-slate-950 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-400 focus-visible:ring-offset-slate-900"
+            className="!bg-gray-950 !border-gray-700 !text-white placeholder:text-gray-400 focus-visible:ring-blue-400 focus-visible:ring-offset-gray-900"
                         type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        {err && <p className="text-red-400 text-sm">{err}</p>}
+        {err && <p className="text-red-300 text-sm">{err}</p>}
         <Button onClick={handleLogin} disabled={loading} className="w-full">
           {loading ? "登入中..." : "登入"}
         </Button>
