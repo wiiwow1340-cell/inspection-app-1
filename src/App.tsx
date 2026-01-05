@@ -1863,9 +1863,9 @@ const handleEditCapture = (item: string, file: File | undefined) => {
           </h2>
 
           {/* 篩選條件 */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedProcessFilter}
               onChange={(e) => setSelectedProcessFilter(e.target.value)}
             >
@@ -1880,7 +1880,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             </select>
 
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedModelFilter}
               onChange={(e) => setSelectedModelFilter(e.target.value)}
             >
@@ -1893,7 +1893,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             </select>
 
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
             >
@@ -1970,12 +1970,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                 <td colSpan={6} className="p-3">
                                   {/* ===== 展開區：直接沿用原本的編輯介面 ===== */}
                                   <div className="space-y-2">
-                                    <p className="font-bold">編輯：{r.id}</p>
-                                    <p>序號：{r.serial}</p>
-                                    <p>產品型號：{r.model}</p>
-                                    <p>製程：{r.process}</p>
-
-                                    {/* 應拍項目清單 + 拍照/上傳 */}
+{/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
                                       <div key={item} className="flex items-center gap-2">
                                         <span className="flex-1">{item}</span>
