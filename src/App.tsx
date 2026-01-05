@@ -595,6 +595,11 @@ export default function App() {
   // 查看報告：查詢後才顯示
   const [showReports, setShowReports] = useState(false);
 
+  // 查看報告（方案 A）：表格列展開顯示照片
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [expandedSignedMap, setExpandedSignedMap] = useState<Record<string, string>>({});
+  const [expandedLoading, setExpandedLoading] = useState(false);
+
   // 管理製程用
   const [newProcName, setNewProcName] = useState("");
   const [newProcCode, setNewProcCode] = useState("");
@@ -698,6 +703,71 @@ if (
 ]);
 
 
+
+  // ===== 查看報告：展開列時才取得該列照片 signed URL（避免一次把全部報告照片都轉 signed 造成卡頓） =====
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!expandedReportId) {
+        setExpandedSignedMap({});
+        return;
+      }
+
+      const r = reports.find((x) => x.id === expandedReportId);
+      if (!r) {
+        setExpandedSignedMap({});
+        return;
+      }
+
+      const items = r.expected_items || [];
+      const next: Record<string, string> = {};
+      setExpandedLoading(true);
+
+      try {
+        await Promise.all(
+          items.map(async (item) => {
+            const raw = r.images?.[item];
+            if (!raw) {
+              next[item] = "";
+              return;
+            }
+
+            // 新上傳的（data/blob/http）直接顯示，不要做 signed
+            if (
+              raw.startsWith("data:") ||
+              raw.startsWith("blob:") ||
+              raw.startsWith("http://") ||
+              raw.startsWith("https://")
+            ) {
+              next[item] = raw;
+              return;
+            }
+
+            // 舊照片（storage path / public url）才轉 signed
+            const signed = await getSignedImageUrl(raw);
+            next[item] = signed || "";
+          })
+        );
+
+        if (!cancelled) setExpandedSignedMap(next);
+      } finally {
+        if (!cancelled) setExpandedLoading(false);
+      }
+    };
+
+    run().catch((e) => {
+      console.error("展開列 signed url 失敗：", e);
+      if (!cancelled) {
+        setExpandedSignedMap({});
+        setExpandedLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedReportId, reports]);
   // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
   const computeIsAdmin = (u: string) => {
     return u === "admin";
@@ -1887,162 +1957,238 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             <>
               {filteredReports.length === 0 && <p>尚無報告</p>}
 
-              {filteredReports.map((r) => (
-                <Card key={r.id} className="p-2 border space-y-2">
-                  {editingReportId === r.id ? (
-                    // ================= 編輯模式 =================
-                    <>
-                      <p className="font-bold">編輯：{r.id}</p>
-                      <p>序號：{r.serial}</p>
-                      <p>產品型號：{r.model}</p>
-                      <p>製程：{r.process}</p>
+              {filteredReports.length > 0 && (
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="text-left border-b">
+                        <th className="py-2 pr-2 w-8"></th>
+                        <th className="py-2 pr-2 whitespace-nowrap">表單編號</th>
+                        <th className="py-2 pr-2 whitespace-nowrap">製程名稱</th>
+                        <th className="py-2 pr-2 whitespace-nowrap">產品型號</th>
+                        <th className="py-2 pr-2 whitespace-nowrap">序號</th>
+                        <th className="py-2 pr-2 whitespace-nowrap">狀態</th>
+                        <th className="py-2 pr-2 whitespace-nowrap">操作</th>
+                      </tr>
+                    </thead>
 
-                      {/* 應拍項目清單 + 拍照/上傳 */}
-                      {(() => {
-                        const allItems = r.expected_items || [];
-                        return allItems.map((item, idx) => (
-                          <div key={item} className="flex items-center gap-2">
-                            <span className="flex-1">{item}</span>
+                    <tbody>
+                      {filteredReports.map((r) => {
+                        const expected = r.expected_items || [];
+                        const isDone = expected.length === 0 ? true : expected.every((it) => !!r.images?.[it]);
+                        const statusText = isDone ? "已完成" : "未完成";
+                        const isOpen = expandedReportId === r.id;
 
-                            <Button
-                              type="button"
+                        return (
+                          <React.Fragment key={r.id}>
+                            <tr
+                              className="border-b hover:bg-gray-50 cursor-pointer"
                               onClick={() => {
-                                const input = document.getElementById(
-                                  `edit-capture-${r.id}-${idx}`
-                                ) as HTMLInputElement;
-                                input?.click();
+                                setExpandedReportId((prev) => (prev === r.id ? null : r.id));
+                                // 切換展開列時，若正在編輯其他單，先關掉編輯狀態（避免 UI 混亂）
+                                if (editingReportId && editingReportId !== r.id) {
+                                  setEditingReportId(null);
+                                  setEditImages({});
+                                  setEditImageFiles({});
+                                }
                               }}
-                              className="px-2 py-1"
                             >
-                              📷 拍照
-                            </Button>
+                              <td className="py-2 pr-2 align-top">
+                                <span className="inline-block w-5">{isOpen ? "▼" : "▶"}</span>
+                              </td>
+                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.id}</td>
+                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.process}</td>
+                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.model}</td>
+                              <td className="py-2 pr-2 whitespace-nowrap align-top">{r.serial}</td>
+                              <td className="py-2 pr-2 whitespace-nowrap align-top">{statusText}</td>
+                              <td
+                                className="py-2 pr-2 whitespace-nowrap align-top"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => {
+                                    setExpandedReportId(r.id);
+                                    setEditingReportId(r.id);
+                                    setEditImages({});
+                                    setEditImageFiles({});
+                                  }}
+                                >
+                                  編輯
+                                </Button>
+                              </td>
+                            </tr>
 
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                const input = document.getElementById(
-                                  `edit-upload-${r.id}-${idx}`
-                                ) as HTMLInputElement;
-                                input?.click();
-                              }}
-                              className="px-2 py-1"
-                            >
-                              📁 上傳
-                            </Button>
+                            {isOpen && (
+                              <tr className="border-b">
+                                <td colSpan={7} className="py-3">
+                                  {editingReportId === r.id ? (
+                                    // ================= 展開列：編輯模式（沿用原本邏輯） =================
+                                    <div className="p-3 rounded bg-gray-50 border space-y-2">
+                                      <p className="font-bold">編輯：{r.id}</p>
+                                      <p>序號：{r.serial}</p>
+                                      <p>產品型號：{r.model}</p>
+                                      <p>製程：{r.process}</p>
 
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              className="hidden"
-                              id={`edit-capture-${r.id}-${idx}`}
-                              onChange={(e) =>
-                                handleEditCapture(
-                                  item,
-                                  e.target.files?.[0] || undefined
-                                )
-                              }
-                            />
+                                      {/* 應拍項目清單 + 拍照/上傳 */}
+                                      {(() => {
+                                        const allItems = r.expected_items || [];
+                                        return allItems.map((item, idx) => (
+                                          <div key={item} className="flex items-center gap-2">
+                                            <span className="flex-1">{item}</span>
 
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              id={`edit-upload-${r.id}-${idx}`}
-                              onChange={(e) =>
-                                handleEditCapture(
-                                  item,
-                                  e.target.files?.[0] || undefined
-                                )
-                              }
-                            />
+                                            <Button
+                                              type="button"
+                                              onClick={() => {
+                                                const input = document.getElementById(
+                                                  `edit-capture-${r.id}-${idx}`
+                                                ) as HTMLInputElement;
+                                                input?.click();
+                                              }}
+                                              className="px-2 py-1"
+                                            >
+                                              📷 拍照
+                                            </Button>
 
-                            {editImages[item] || r.images[item] ? (
-                              <span className="text-green-600 font-bold text-xl">
-                                ✔
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 font-bold text-xl">
-                                ✘
-                              </span>
+                                            <Button
+                                              type="button"
+                                              onClick={() => {
+                                                const input = document.getElementById(
+                                                  `edit-upload-${r.id}-${idx}`
+                                                ) as HTMLInputElement;
+                                                input?.click();
+                                              }}
+                                              className="px-2 py-1"
+                                            >
+                                              📁 上傳
+                                            </Button>
+
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              capture="environment"
+                                              className="hidden"
+                                              id={`edit-capture-${r.id}-${idx}`}
+                                              onChange={(e) =>
+                                                handleEditCapture(
+                                                  item,
+                                                  e.target.files?.[0] || undefined
+                                                )
+                                              }
+                                            />
+
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              className="hidden"
+                                              id={`edit-upload-${r.id}-${idx}`}
+                                              onChange={(e) =>
+                                                handleEditCapture(
+                                                  item,
+                                                  e.target.files?.[0] || undefined
+                                                )
+                                              }
+                                            />
+
+                                            {editImages[item] || r.images[item] ? (
+                                              <span className="text-green-600 font-bold text-xl">✔</span>
+                                            ) : (
+                                              <span className="text-gray-400 font-bold text-xl">✘</span>
+                                            )}
+                                          </div>
+                                        ));
+                                      })()}
+
+                                      <div className="flex gap-2 mt-3">
+                                        <Button
+                                          className="flex-1"
+                                          type="button"
+                                          onClick={() => {
+                                            setSignedImg("");
+                                            setEditPreviewIndex(0);
+                                            setShowEditPreview(true);
+                                          }}
+                                        >
+                                          儲存
+                                        </Button>
+
+                                        <Button
+                                          className="flex-1"
+                                          type="button"
+                                          variant="secondary"
+                                          onClick={() => {
+                                            setEditingReportId(null);
+                                            setEditImages({});
+                                            setEditImageFiles({});
+                                          }}
+                                        >
+                                          取消
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    // ================= 展開列：檢視模式（顯示各檢驗項目照片） =================
+                                    <div className="p-3 rounded bg-gray-50 border space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <div className="font-bold">各檢驗項目照片</div>
+                                        {expandedLoading && (
+                                          <div className="text-sm text-gray-500">載入中...</div>
+                                        )}
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {(r.expected_items || []).map((item) => {
+                                          const url = expandedSignedMap[item] || "";
+                                          const has = !!r.images?.[item];
+
+                                          return (
+                                            <div
+                                              key={item}
+                                              className="bg-white border rounded p-2 space-y-2"
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="font-medium">{item}</div>
+                                                <div className="text-sm">{has ? "📷" : "✖"}</div>
+                                              </div>
+
+                                              {has ? (
+                                                url ? (
+                                                  <a href={url} target="_blank" rel="noreferrer">
+                                                    <img
+                                                      src={url}
+                                                      alt={item}
+                                                      className="w-full h-40 object-cover rounded border"
+                                                    />
+                                                  </a>
+                                                ) : (
+                                                  <div className="w-full h-40 rounded border flex items-center justify-center text-sm text-gray-500">
+                                                    無法取得照片連結
+                                                  </div>
+                                                )
+                                              ) : (
+                                                <div className="w-full h-40 rounded border border-dashed flex items-center justify-center text-sm text-gray-500">
+                                                  尚未拍攝
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
                             )}
-                          </div>
-                        ));
-                      })()}
-
-                      <div className="flex gap-2 mt-3">
-                        <Button
-                          className="flex-1"
-                          type="button"
-                          onClick={() => {
-                            setSignedImg("");          // ✅ 先清掉上一張的 signed，避免切換時短暫顯示錯圖
-                            setEditPreviewIndex(0);
-                            setShowEditPreview(true);
-                          }}
-
-                        >
-                          儲存
-                        </Button>
-
-                        <Button
-                          className="flex-1"
-                          type="button"
-                          variant="secondary"
-                          onClick={() => {
-                          setEditingReportId(null);
-                          setEditImages({});
-                         setEditImageFiles({});
-                              }}
-
-                        >
-                          取消
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    // ================= 檢視模式 =================
-                    <>
-                      <p>表單編號：{r.id}</p>
-                      <p>序號：{r.serial}</p>
-                      <p>產品型號：{r.model}</p>
-                      <p>製程：{r.process}</p>
-
-                      {(() => {
-                        const allItems = r.expected_items || [];
-                        return allItems.map((item) => (
-                          <div key={item} className="flex items-center gap-2">
-                            <span>{item}</span>
-                            {r.images[item] ? (
-                              <span className="text-green-600 font-bold text-xl">
-                                ✔
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 font-bold text-xl">
-                                ✘
-                              </span>
-                            )}
-                          </div>
-                        ));
-                      })()}
-
-                      <Button
-                        className="mt-2"
-                        type="button"
-                        onClick={() => {
-                          setEditingReportId(r.id);
-                          setEditImages({}); 
-                          setEditImageFiles({});
-                        }}
-                      >
-                        編輯
-                      </Button>
-                    </>
-                  )}
-                </Card>
-              ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
-          )}
-        </Card>
+          )}        </Card>
       )}
 
       {/* 管理製程頁 */}
