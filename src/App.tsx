@@ -1970,12 +1970,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                 <td colSpan={6} className="p-3">
                                   {/* ===== 展開區：直接沿用原本的編輯介面 ===== */}
                                   <div className="space-y-2">
-                                    <p className="font-bold">編輯：{r.id}</p>
-                                    <p>序號：{r.serial}</p>
-                                    <p>產品型號：{r.model}</p>
-                                    <p>製程：{r.process}</p>
-
-                                    {/* 應拍項目清單 + 拍照/上傳 */}
+{/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
                                       <div key={item} className="flex items-center gap-2">
                                         <span className="flex-1">{item}</span>
