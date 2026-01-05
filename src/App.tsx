@@ -1310,19 +1310,39 @@ const genFormId = (procName: string) => {
       let uploadedImages: Record<string, string> = {};
 
       if (proc) {
-        for (const item of proc.items) {
-          const file = newImageFiles[item];
-          if (file) {
-            const pathOrUrl = await uploadImage(
-              processCode,
-              selectedModel,
-              serial,
-              { item, procItems: proc.items },
-              file
-            );
-            if (pathOrUrl) uploadedImages[item] = pathOrUrl;
-          }
-        }
+        // 併發上傳：限制同時上傳張數（避免一次全開造成網路/Storage 壓力）
+        const CONCURRENCY = 6;
+
+        const tasks: Array<() => Promise<void>> = proc.items
+          .filter((item) => !!newImageFiles[item])
+          .map((item) => {
+            return async () => {
+              const file = newImageFiles[item];
+              if (!file) return;
+
+              const pathOrUrl = await uploadImage(
+                processCode,
+                selectedModel,
+                serial,
+                { item, procItems: proc.items },
+                file
+              );
+              if (pathOrUrl) uploadedImages[item] = pathOrUrl;
+            };
+          });
+
+        const runWithConcurrency = async (fns: Array<() => Promise<void>>, limit: number) => {
+          let i = 0;
+          const workers = Array.from({ length: Math.min(limit, fns.length) }, async () => {
+            while (i < fns.length) {
+              const fn = fns[i++];
+              await fn();
+            }
+          });
+          await Promise.all(workers);
+        };
+
+        await runWithConcurrency(tasks, CONCURRENCY);
       }
 
 
