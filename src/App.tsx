@@ -1863,9 +1863,9 @@ const handleEditCapture = (item: string, file: File | undefined) => {
           </h2>
 
           {/* 篩選條件 */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedProcessFilter}
               onChange={(e) => setSelectedProcessFilter(e.target.value)}
             >
@@ -1880,7 +1880,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             </select>
 
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedModelFilter}
               onChange={(e) => setSelectedModelFilter(e.target.value)}
             >
@@ -1893,7 +1893,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
             </select>
 
             <select
-              className="border p-2 rounded flex-1"
+              className="border p-2 rounded w-full sm:flex-1 min-w-0"
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
             >
