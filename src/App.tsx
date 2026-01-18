@@ -2316,17 +2316,24 @@ if (
               <Button onClick={saveProcess} className="flex-1" type="button">
                 {editingIndex !== null ? "更新製程" : "儲存製程"}
               </Button>
-              {editingIndex !== null && (
+
+              {editingIndex === null ? (
                 <Button
                   className="flex-1"
                   type="button"
                   variant="secondary"
-                  onClick={() => {
-                    setEditingIndex(null);
-                    setNewProcName("");
-                    setNewProcCode("");
-                    setNewProcModel("");
-                    setItems([]);
+                  onClick={cancelManageCreate}
+                >
+                  取消新增
+                </Button>
+              ) : (
+                <Button
+                  className="flex-1"
+                  type="button"
+                  variant="secondary"
+                  onClick={async () => {
+                    if (!confirmDiscard("確定要取消編輯製程嗎？")) return;
+                    await resetManageState(false);
                   }}
                 >
                   取消編輯
