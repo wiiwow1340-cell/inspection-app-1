@@ -93,6 +93,10 @@ type ConfirmTarget =
   | { type: "process"; proc: Process }
   | null;
 
+// 影像狀態：不適用 (N/A) 以 sentinel 存在 images map 中
+const NA_SENTINEL = "__NA__";
+
+
 // =============================
 //  預設製程
 // =============================
@@ -127,6 +131,7 @@ type HomeDraftData = {
   serial: string;
   selectedModel: string;
   selectedProcess: string;
+  na: Record<string, boolean>;
   // item -> { blob, name, type, lastModified }
   imageFiles: Record<
     string,
@@ -140,6 +145,7 @@ type ReportsDraftData = {
   selectedStatusFilter: string;
   queryFilters: { process: string; model: string; status: string };
   editingReportId: string | null;
+  na: Record<string, boolean>;
   editImageFiles: Record<
     string,
     { blob: Blob; name: string; type: string; lastModified: number }
@@ -611,6 +617,14 @@ export default function App() {
 
 
   // 查看報告：就地編輯照片
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null); // 展開檢視用（不等於編輯）
+
+  // 新增檢驗：N/A 標記（不刪照片，可逆）
+  const [homeNA, setHomeNA] = useState<Record<string, boolean>>({});
+
+  // 編輯報告：N/A 標記（不刪照片，可逆）
+  const [editNA, setEditNA] = useState<Record<string, boolean>>({});
+
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [editImages, setEditImages] = useState<Record<string, string>>({});
   const [editImageFiles, setEditImageFiles] = useState<
@@ -668,6 +682,11 @@ useEffect(() => {
   editImages[item] ||
   report.images?.[item];
 
+  if (editNA[item] || rawImg === NA_SENTINEL) {
+    setSignedImg("");
+    return;
+  }
+
 if (!rawImg) {
   setSignedImg("");
   return;
@@ -696,6 +715,7 @@ if (
   editPreviewIndex,
   reports,
   editImages,
+  editNA,
 ]);
 
 
@@ -877,40 +897,197 @@ if (
     if (queryFilters.model && r.model !== queryFilters.model) return false;
 
     const expected = r.expected_items || [];
+    const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
+    const isItemDone = (item: string) => isItemNA(item) || !!r.images?.[item];
 
     if (queryFilters.status === "done") {
-      if (!expected.every((item) => r.images[item])) return false;
+      // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
+      const required = expected.filter((it) => !isItemNA(it));
+      if (required.length === 0) return true;
+      if (!required.every((item) => !!r.images?.[item])) return false;
     }
 
     if (queryFilters.status === "not") {
-      if (!expected.some((item) => !r.images[item])) return false;
+      // 未完成：存在「非 N/A」但尚未拍照的項目
+      const required = expected.filter((it) => !isItemNA(it));
+      if (required.length === 0) return false;
+      if (!required.some((item) => !r.images?.[item])) return false;
     }
 
+    // 其他狀態：不過濾
     return true;
   });
 
-  // ===== 查看報告：列表列點擊展開（共用既有「編輯模式」介面）=====
-  const toggleExpandReport = (id: string) => {
-    if (editingReportId === id) {
-      setEditingReportId(null);
-      setEditImages({});
-      setEditImageFiles({});
-      setShowEditPreview(false);
-      setEditPreviewIndex(0);
-      setSignedImg("");
-      return;
+
+
+  // ===== 拍照 / 上傳：新增頁（Home） =====
+  const handleCapture = (item: string, file: File | undefined) => {
+    if (!file) return;
+
+    // 預覽：用 blob URL（快且不吃記憶體）
+    const previewUrl = URL.createObjectURL(file);
+
+    setImages((prev) => {
+      // 釋放舊的 blob URL（避免記憶體累積）
+      const old = prev[item];
+      if (old && typeof old === "string" && old.startsWith("blob:")) {
+        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
+      }
+      return { ...prev, [item]: previewUrl };
+    });
+
+    setNewImageFiles((prev) => ({ ...prev, [item]: file }));
+  };
+
+  // ===== 拍照 / 上傳：報告編輯（Reports - Edit mode） =====
+  const handleEditCapture = (item: string, file: File | undefined) => {
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setEditImages((prev) => {
+      const old = prev[item];
+      if (old && typeof old === "string" && old.startsWith("blob:")) {
+        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
+      }
+      return { ...prev, [item]: previewUrl };
+    });
+
+    setEditImageFiles((prev) => ({ ...prev, [item]: file }));
+
+    // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
+    setEditNA((prev) => {
+      if (!prev[item]) return prev;
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+  };
+
+  // ===== 新增表單：確認儲存（上傳到 Storage + 寫 DB） =====
+  const saveReport = async (): Promise<boolean> => {
+    const sn = serial.trim();
+    if (!sn) {
+      alert("請先輸入序號");
+      return false;
     }
+    if (!selectedModel || !selectedProcess || !selectedProcObj) {
+      alert("請先選擇型號與製程");
+      return false;
+    }
+
+    const expectedItems = selectedProcObj.items || [];
+    const uploadedImages: Record<string, string> = {};
+
+    // 逐項上傳（N/A 寫入 sentinel；其他有檔案才上傳）
+    const uploads = expectedItems.map(async (item) => {
+      if (homeNA[item]) {
+        uploadedImages[item] = NA_SENTINEL;
+        return;
+      }
+
+      const file = newImageFiles[item];
+      if (!file) return;
+
+      const path = await uploadImage(
+        selectedProcObj.code,
+        selectedModel,
+        sn,
+        { item, procItems: expectedItems },
+        file
+      );
+      if (path) uploadedImages[item] = path;
+    });
+
+    await Promise.all(uploads);
+
+    // 產生一個簡單、可讀的表單 ID（避免依賴 DB 端序號）
+    const d = new Date();
+    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
+    const id = `PT-${ymd}-${rand}`;
+
+    const report: Report = {
+      id,
+      serial: sn,
+      model: selectedModel,
+      process: selectedProcess,
+      images: uploadedImages,
+      expected_items: expectedItems,
+    };
+
+    const res = await saveReportToDB(report);
+    if (!res.ok) {
+      console.error("saveReportToDB failed:", res);
+      alert(`寫入雲端失敗，請稍後再試。
+
+(${res.message})`);
+      return false;
+    }
+
+    // 寫入成功後再更新前端 + 清空新增狀態
+    setReports((prev) => [...prev, report]);
+    await resetNewReportState(true);
+    return true;
+  };
+
+  // ===== 查看報告：列表列點擊展開（只檢視，不等於編輯）=====
+  const toggleExpandReport = (id: string) => {
+    setExpandedReportId((prev) => {
+      const next = prev === id ? null : id;
+      // 若正在編輯同一張，收合時也一併退出編輯
+      if (next === null && editingReportId === id) {
+        revokePreviewUrls(editImages);
+        setEditingReportId(null);
+        setEditImages({});
+        setEditImageFiles({});
+        setEditNA({});
+        setShowEditPreview(false);
+        setEditPreviewIndex(0);
+        setSignedImg("");
+      }
+      return next;
+    });
+  };
+
+  const beginEditReport = (id: string) => {
+    const report = reports.find((rr) => rr.id === id);
+    setExpandedReportId(id);
     setEditingReportId(id);
     setEditImages({});
     setEditImageFiles({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
     setSignedImg("");
+
+    // 初始化 N/A（從既有資料帶入）
+    const nextNA: Record<string, boolean> = {};
+    (report?.expected_items || []).forEach((it) => {
+      if (report?.images?.[it] === NA_SENTINEL) nextNA[it] = true;
+    });
+    setEditNA(nextNA);
+  };
+
+  const toggleEditReport = (id: string) => {
+    if (editingReportId === id) {
+      // 取消編輯：保留展開（回到檢視模式）
+      revokePreviewUrls(editImages);
+      setEditingReportId(null);
+      setEditImages({});
+      setEditImageFiles({});
+      setEditNA({});
+      setShowEditPreview(false);
+      setEditPreviewIndex(0);
+      setSignedImg("");
+      setExpandedReportId(id);
+      return;
+    }
+    beginEditReport(id);
   };
 
 
-  // ===== 工具：產生表單編號 PT-YYYYMMDDXXX =====
-  
+
+
   // =============================
   //  Draft：三頁共用「滑掉可復原」(UX-1)
   // =============================
@@ -936,6 +1113,7 @@ if (
     setSelectedProcess("");
     setImages({});
     setNewImageFiles({});
+    setHomeNA({});
     setPreviewIndex(0);
     setShowPreview(false);
     if (alsoClearDraft) {
@@ -951,7 +1129,8 @@ if (
     revokePreviewUrls(editImages);
     setEditingReportId(null);
     setEditImages({});
-    setEditImageFiles({});
+        setEditImageFiles({});
+        setEditNA({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
     if (alsoClearDraft) {
@@ -990,7 +1169,8 @@ if (
         serial.trim() ||
         selectedModel ||
         selectedProcess ||
-        Object.keys(newImageFiles).length > 0;
+        Object.keys(newImageFiles).length > 0 ||
+        Object.keys(homeNA).length > 0;
       if (!hasAnything) return null;
 
       const imageFiles: HomeDraftData["imageFiles"] = {};
@@ -1006,6 +1186,7 @@ if (
           selectedModel,
           selectedProcess,
           imageFiles,
+          na: { ...homeNA },
         },
       };
     }
@@ -1019,7 +1200,8 @@ if (
         queryFilters.model ||
         queryFilters.status ||
         editingReportId ||
-        Object.keys(editImageFiles).length > 0;
+        Object.keys(editImageFiles).length > 0 ||
+        Object.keys(editNA).length > 0;
 
       if (!hasAnything) return null;
 
@@ -1038,6 +1220,7 @@ if (
           queryFilters: { ...queryFilters },
           editingReportId,
           editImageFiles: editImageFilesDraft,
+          na: { ...editNA },
         },
       };
     }
@@ -1079,6 +1262,7 @@ if (
       setSerial(draft.data.serial || "");
       setSelectedModel(draft.data.selectedModel || "");
       setSelectedProcess(draft.data.selectedProcess || "");
+      setHomeNA(draft.data.na || {});
 
       // 還原照片檔（File）+ 預覽 blob URL
       const nextFiles: Record<string, File | undefined> = {};
@@ -1126,7 +1310,9 @@ if (
 
       setEditImageFiles(nextFiles);
       setEditImages(nextPreviews);
+      setEditNA(draft.data.na || {});
       setEditingReportId(draft.data.editingReportId || null);
+      if (draft.data.editingReportId) setExpandedReportId(draft.data.editingReportId);
       return;
     }
 
@@ -1157,7 +1343,7 @@ if (
         }
         await idbSet(getDraftId(), d);
       } catch {
-        // ignore：草稿是保命用，寫失敗不影響主流程
+        // ignore
       }
     };
 
@@ -1168,14 +1354,16 @@ if (
 
     if (draftSaveTimerRef.current) {
       window.clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
     }
+
     draftSaveTimerRef.current = window.setTimeout(() => {
       void run();
-    }, 600);
+      draftSaveTimerRef.current = null;
+    }, 700);
   };
 
-
-  // 草稿：登入後檢查是否有未完成作業（UX-1：先詢問再恢復）
+  // 啟動時：讀取草稿（只做一次）
   useEffect(() => {
     if (!isLoggedIn || !authUsername) return;
     if (draftLoadedRef.current) return;
@@ -1183,7 +1371,7 @@ if (
 
     (async () => {
       try {
-        const d = await idbGet<AppDraft>(getDraftId());
+        const d = await idbGet(getDraftId());
         if (d) {
           setPendingDraft(d);
           setShowDraftPrompt(true);
@@ -1194,9 +1382,8 @@ if (
     })();
   }, [isLoggedIn, authUsername]);
 
-  // 草稿：有變更就自動暫存（debounce）
+  // 狀態變動：自動存草稿
   useEffect(() => {
-    if (!isLoggedIn || !authUsername) return;
     scheduleSaveDraft(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1205,12 +1392,14 @@ if (
     selectedModel,
     selectedProcess,
     newImageFiles,
+    homeNA,
     selectedProcessFilter,
     selectedModelFilter,
     selectedStatusFilter,
     queryFilters,
     editingReportId,
     editImageFiles,
+    editNA,
     newProcName,
     newProcCode,
     newProcModel,
@@ -1221,230 +1410,6 @@ if (
     editingItemIndex,
     editingItemValue,
   ]);
-
-  // 草稿：頁面即將被卸載/切到背景時，盡量立即寫入
-  useEffect(() => {
-    if (!isLoggedIn || !authUsername) return;
-
-    const onPageHide = () => {
-      scheduleSaveDraft(true);
-    };
-    const onVis = () => {
-      if (document.visibilityState === "hidden") {
-        scheduleSaveDraft(true);
-      }
-    };
-
-    window.addEventListener("pagehide", onPageHide);
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    page,
-    serial,
-    selectedModel,
-    selectedProcess,
-    newImageFiles,
-    selectedProcessFilter,
-    selectedModelFilter,
-    selectedStatusFilter,
-    queryFilters,
-    editingReportId,
-    editImageFiles,
-    newProcName,
-    newProcCode,
-    newProcModel,
-    newItem,
-    insertAfter,
-    editingIndex,
-    items,
-    editingItemIndex,
-    editingItemValue,
-    isLoggedIn,
-    authUsername,
-  ]);
-
-const genFormId = (procName: string) => {
-    const prefix = processes.find((p) => p.name === procName)?.code || "XX";
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const num = (reports.length + 1).toString().padStart(3, "0");
-    return `${prefix}-${date}${num}`;
-  };
-
-  // ✅ 單號產生：每次按「儲存」都去 DB 取最新單號再 +1（避免多人同時造成撞號）
-  const genFormIdFromDB = async (procName: string): Promise<string> => {
-    const prefix = processes.find((p) => p.name === procName)?.code || "XX";
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const like = `${prefix}-${date}%`;
-
-    const { data, error } = await supabase
-      .from("reports")
-      .select("id")
-      .like("id", like)
-      .order("id", { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error("讀取 reports 最新單號失敗：", error.message);
-      // fallback：至少不要中斷流程（仍可能撞號，因此後面仍保留 duplicate retry）
-      return genFormId(procName);
-    }
-
-    const lastId = (data && data[0]?.id) as string | undefined;
-    let next = 1;
-    if (lastId) {
-      const m = /(\d{3})$/.exec(lastId);
-      if (m) next = parseInt(m[1], 10) + 1;
-    }
-    const num = String(next).padStart(3, "0");
-    return `${prefix}-${date}${num}`;
-  };
-
-  const isDuplicateIdError = (res: DbWriteResult) => {
-    if (res.ok) return false;
-    const msg = (res.message || "").toLowerCase();
-    return res.code === "23505" || msg.includes("duplicate") || msg.includes("already exists");
-  };
-
-
-  // =============================
-  //  新增報告：整合 Supabase
-  // =============================
-
-  const saveReport = async (): Promise<boolean> => {
-    try {
-      if (!serial || !selectedModel || !selectedProcess) {
-        alert("請先輸入序號、選擇型號與製程");
-        return false;
-      }
-
-      const id = await genFormIdFromDB(selectedProcess);
-      const proc = processes.find(
-        (p) => p.name === selectedProcess && p.model === selectedModel
-      );
-      const processCode = proc?.code || selectedProcess;
-
-      const expectedItems = proc?.items ?? [];
-      let uploadedImages: Record<string, string> = {};
-
-      if (proc) {
-        // 併發上傳：限制同時上傳張數（避免一次全開造成網路/Storage 壓力）
-        const CONCURRENCY = 6;
-
-        const tasks: Array<() => Promise<void>> = proc.items
-          .filter((item) => !!newImageFiles[item])
-          .map((item) => {
-            return async () => {
-              const file = newImageFiles[item];
-              if (!file) return;
-
-              const pathOrUrl = await uploadImage(
-                processCode,
-                selectedModel,
-                serial,
-                { item, procItems: proc.items },
-                file
-              );
-              if (pathOrUrl) uploadedImages[item] = pathOrUrl;
-            };
-          });
-
-        const runWithConcurrency = async (fns: Array<() => Promise<void>>, limit: number) => {
-          let i = 0;
-          const workers = Array.from({ length: Math.min(limit, fns.length) }, async () => {
-            while (i < fns.length) {
-              const fn = fns[i++];
-              await fn();
-            }
-          });
-          await Promise.all(workers);
-        };
-
-        await runWithConcurrency(tasks, CONCURRENCY);
-      }
-
-
-      // 先寫入 Supabase（以資料庫為準，避免前端出現「假成功」報告）
-      let finalId = id;
-      let newReport: Report = {
-        id: finalId,
-        serial,
-        model: selectedModel,
-        process: selectedProcess,
-        images: uploadedImages,
-        expected_items: expectedItems,
-      };
-
-      let res = await saveReportToDB(newReport);
-
-      // 若極端競態剛好撞號：再讀一次 DB 取最新 +1，重試一次
-      if (!res.ok && isDuplicateIdError(res)) {
-        const retryId = await genFormIdFromDB(selectedProcess);
-        finalId = retryId;
-        newReport = { ...newReport, id: retryId };
-        res = await saveReportToDB(newReport);
-      }
-
-      if (!res.ok) {
-        alert(
-          `寫入雲端失敗（可能是單號重複或網路問題）。請稍後再試。
-
-報告單號：${finalId}
-
-錯誤：${res.message}`
-        );
-        return false;
-      }
-
-      // 寫入成功後再更新前端
-      setReports((prev) => [...prev, newReport]);
-
-      // 清空表單
-      setSerial("");
-      setSelectedModel("");
-      setSelectedProcess("");
-      setImages({});
-      setNewImageFiles({});
-      setPreviewIndex(0);
-
-      alert(`已建立報告：${finalId}`);
-      return true;
-    } catch (e: any) {
-      console.error("saveReport 發生例外：", e?.message || e);
-      alert("儲存失敗（程式例外），請稍後再試。");
-      return false;
-    }
-  };
-
-  // 新增檢驗：拍照 / 上傳（預覽 + 記錄 File）
-  const handleCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const previewUrl = reader.result as string;
-      setImages((prev) => ({ ...prev, [item]: previewUrl }));
-    };
-    reader.readAsDataURL(file);
-
-    setNewImageFiles((prev) => ({ ...prev, [item]: file }));
-  };
-
-  // 編輯報告：拍照 / 上傳（本機預覽 + 記錄 File）
-const handleEditCapture = (item: string, file: File | undefined) => {
-  if (!file) return;
-
-  // 1) 用 blob URL 做預覽（穩、快、不會受 base64/reader 影響）
-  const previewUrl = URL.createObjectURL(file);
-  setEditImages((prev) => ({ ...prev, [item]: previewUrl }));
-
-  // 2) 把檔案記起來，等你按「確認儲存」時才真的上傳到 Supabase
-  setEditImageFiles((prev) => ({ ...prev, [item]: file }));
-};
-
 
   // 管理製程：新增 / 移除項目
   const addItem = () => {
@@ -1704,6 +1669,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   setSelectedProcess("");
                   setImages({});
                   setNewImageFiles({});
+    setHomeNA({});
                 }}
                 className={`w-full border p-2 rounded ${
                   selectedModel ? "" : "border-red-500"
@@ -1730,6 +1696,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   setSelectedProcess(e.target.value);
                   setImages({});
                   setNewImageFiles({});
+    setHomeNA({});
                 }}
                 className={`w-full border p-2 rounded ${
                   selectedProcess ? "" : "border-red-500"
@@ -1807,14 +1774,43 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                       }
                     />
 
-                    {images[item] ? (
-                      <span className="text-green-600 font-bold text-xl">
+                    {homeNA[item] ? (
+                      <button
+                        type="button"
+                        className="text-gray-600 font-bold text-xl"
+                        title="N/A（不適用）- 點一下恢復"
+                        onClick={() =>
+                          setHomeNA((prev) => {
+                            const next = { ...prev };
+                            delete next[item];
+                            return next;
+                          })
+                        }
+                      >
+                        🚫
+                      </button>
+                    ) : images[item] ? (
+                      <button
+                        type="button"
+                        className="text-green-600 font-bold text-xl"
+                        title="已拍 - 點一下設為 N/A"
+                        onClick={() =>
+                          setHomeNA((prev) => ({ ...prev, [item]: true }))
+                        }
+                      >
                         ✔
-                      </span>
+                      </button>
                     ) : (
-                      <span className="text-gray-400 font-bold text-xl">
+                      <button
+                        type="button"
+                        className="text-gray-400 font-bold text-xl"
+                        title="未拍 - 點一下設為 N/A"
+                        onClick={() =>
+                          setHomeNA((prev) => ({ ...prev, [item]: true }))
+                        }
+                      >
                         ✘
-                      </span>
+                      </button>
                     )}
                   </div>
                 ))}
@@ -1823,7 +1819,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
 
             <div className="flex gap-2 mt-4">
               <Button type="submit" className="flex-1">
-                儲存
+                確認
               </Button>
               <Button
                 type="button"
@@ -1927,7 +1923,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                         const expected = r.expected_items || [];
                         const isDone =
                           expected.length > 0 &&
-                          expected.every((item) => !!r.images?.[item]);
+                          expected.every((item) => r.images?.[item] === NA_SENTINEL || !!r.images?.[item]);
 
                         return (
                           <React.Fragment key={r.id}>
@@ -1957,18 +1953,19 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleExpandReport(r.id);
+                                    toggleEditReport(r.id);
                                   }}
                                 >
-                                  {editingReportId === r.id ? "收合" : "編輯"}
+                                  {editingReportId === r.id ? "編輯中" : "編輯"}
                                 </Button>
                               </td>
                             </tr>
 
-                            {editingReportId === r.id && (
+                            {expandedReportId === r.id && (
                               <tr className="border-b bg-gray-50">
                                 <td colSpan={6} className="p-3">
-                                  {/* ===== 展開區：直接沿用原本的編輯介面 ===== */}
+                                  {/* ===== 展開區：檢視 or 編輯 ===== */}
+                                  {editingReportId === r.id ? (
                                   <div className="space-y-2">
 {/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
@@ -2030,14 +2027,43 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                           }
                                         />
 
-                                        {editImages[item] || r.images[item] ? (
-                                          <span className="text-green-600 font-bold text-xl">
+                                        {editNA[item] ? (
+                                          <button
+                                            type="button"
+                                            className="text-gray-600 font-bold text-xl"
+                                            title="N/A（不適用）- 點一下恢復"
+                                            onClick={() =>
+                                              setEditNA((prev) => {
+                                                const next = { ...prev };
+                                                delete next[item];
+                                                return next;
+                                              })
+                                            }
+                                          >
+                                            🚫
+                                          </button>
+                                        ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
+                                          <button
+                                            type="button"
+                                            className="text-green-600 font-bold text-xl"
+                                            title="已拍 - 點一下設為 N/A"
+                                            onClick={() =>
+                                              setEditNA((prev) => ({ ...prev, [item]: true }))
+                                            }
+                                          >
                                             ✔
-                                          </span>
+                                          </button>
                                         ) : (
-                                          <span className="text-gray-400 font-bold text-xl">
+                                          <button
+                                            type="button"
+                                            className="text-gray-400 font-bold text-xl"
+                                            title="未拍 - 點一下設為 N/A"
+                                            onClick={() =>
+                                              setEditNA((prev) => ({ ...prev, [item]: true }))
+                                            }
+                                          >
                                             ✘
-                                          </span>
+                                          </button>
                                         )}
                                       </div>
                                     ))}
@@ -2053,7 +2079,7 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                           setShowEditPreview(true);
                                         }}
                                       >
-                                        儲存
+                                        確認
                                       </Button>
 
                                       <Button
@@ -2063,13 +2089,37 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           // 收合 + 清除編輯暫存
-                                          toggleExpandReport(r.id);
+                                          toggleEditReport(r.id);
                                         }}
                                       >
                                         取消
                                       </Button>
                                     </div>
                                   </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {(r.expected_items || []).map((item) => {
+                                        const v = r.images?.[item];
+                                        const isNA = v === NA_SENTINEL;
+                                        const hasImg = !!v && v !== NA_SENTINEL;
+                                        return (
+                                          <div key={item} className="flex items-center gap-2">
+                                            <span className="flex-1">{item}</span>
+                                            {isNA ? (
+                                              <span className="text-gray-600 font-bold text-xl">🚫</span>
+                                            ) : hasImg ? (
+                                              <span className="text-green-600 font-bold text-xl">✔</span>
+                                            ) : (
+                                              <span className="text-gray-400 font-bold text-xl">✘</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      <div className="text-xs text-gray-500 pt-2">
+                                        ※ 此處為檢視模式；如需修改，請按右側「編輯」。
+                                      </div>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
@@ -2104,23 +2154,17 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                 <Input
                   value={newProcName}
                   placeholder="製程名稱"
-                  readOnly={editingIndex !== null}
-                  className={editingIndex !== null ? "bg-gray-100" : ""}
                   onChange={(e) => setNewProcName(e.target.value)}
                 />
                 <Input
                   value={newProcCode}
                   placeholder="製程代號"
-                  readOnly={editingIndex !== null}
-                  className={editingIndex !== null ? "bg-gray-100" : ""}
                   onChange={(e) => setNewProcCode(e.target.value)}
                 />
               </div>
               <Input
                 value={newProcModel}
                 placeholder="產品型號"
-                readOnly={editingIndex !== null}
-                className={editingIndex !== null ? "bg-gray-100" : ""}
                 onChange={(e) => setNewProcModel(e.target.value)}
               />
             </div>
@@ -2408,12 +2452,15 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               const safeIndex = Math.min(previewIndex, itemsList.length - 1);
               const currentItem = itemsList[safeIndex];
               const currentImg = currentItem ? images[currentItem] : null;
+              const isNA = currentItem ? !!homeNA[currentItem] : false;
 
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{currentItem}</p>
 
-                  {currentImg ? (
+                  {homeNA[currentItem] ? (
+                    <p className="text-gray-600 text-sm">N/A（不適用）</p>
+                  ) : currentImg ? (
                     <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
@@ -2506,7 +2553,9 @@ const handleEditCapture = (item: string, file: File | undefined) => {
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {signedImg ? (
+                  {editNA[item] ? (
+  <p className="text-gray-600 text-sm">N/A（不適用）</p>
+) : signedImg ? (
   <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
@@ -2575,8 +2624,19 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   };
 
                   const uploads = expectedItems.map(async (item) => {
+                    if (editNA[item]) {
+                      uploadedImages[item] = NA_SENTINEL;
+                      return;
+                    }
+
                     const file = editImageFiles[item];
-                    if (!file) return;
+                    if (!file) {
+                      // 沒有新檔案：保留原本（若原本是 N/A 且已取消 N/A，則視為未拍）
+                      if (report.images?.[item] === NA_SENTINEL) {
+                        delete uploadedImages[item];
+                      }
+                      return;
+                    }
 
                     const url = await uploadImage(
                       processes.find((p) => p.name === report.process)?.code ||
@@ -2592,6 +2652,18 @@ const handleEditCapture = (item: string, file: File | undefined) => {
                   });
 
                   await Promise.all(uploads);
+
+                  // N/A：寫入 sentinel；若從 N/A 切回一般且未重新拍照，則保留原圖（若原本是 N/A 則變回未拍）
+                  expectedItems.forEach((it) => {
+                    if (editNA[it]) {
+                      uploadedImages[it] = NA_SENTINEL;
+                      return;
+                    }
+                    // 若原本是 N/A，且現在已取消 N/A 但沒有新圖，視為未拍
+                    if (uploadedImages[it] === NA_SENTINEL) {
+                      delete uploadedImages[it];
+                    }
+                  });
 
                   const updated: Report = {
                     ...report,
