@@ -554,7 +554,13 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         <Button onClick={handleLogin} disabled={loading} className="w-full">
           {loading ? "登入中..." : "登入"}
         </Button>
-      </Card>
+      
+          {saveHint && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded shadow">
+              {saveHint}
+            </div>
+          )}
+</Card>
     </div>
   );
 }
@@ -628,7 +634,8 @@ export default function App() {
 
 
   // 查看報告：就地編輯照片
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null); // 展開檢視用（不等於編輯）
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [saveHint, setSaveHint] = useState<string | null>(null); // 展開檢視用（不等於編輯）
 
   // 新增檢驗：N/A 標記（不刪照片，可逆）
   const [homeNA, setHomeNA] = useState<Record<string, boolean>>({});
@@ -1870,7 +1877,13 @@ if (
               </Button>
             </div>
           </form>
-        </Card>
+        
+          {saveHint && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded shadow">
+              {saveHint}
+            </div>
+          )}
+</Card>
       )}
 
       {/* 查看報告頁 */}
@@ -2167,7 +2180,13 @@ if (
               )}
             </>
           )}
-        </Card>
+        
+          {saveHint && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded shadow">
+              {saveHint}
+            </div>
+          )}
+</Card>
       )}
 
       {/* 管理製程頁 */}
@@ -2177,7 +2196,13 @@ if (
           <h2 className="text-xl font-bold">管理製程</h2>
           <p className="text-red-600">此頁僅限管理員帳號使用。</p>
           <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
-        </Card>
+        
+          {saveHint && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded shadow">
+              {saveHint}
+            </div>
+          )}
+</Card>
         ) : (
         <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">管理製程</h2>
@@ -2418,7 +2443,13 @@ if (
               </table>
             </div>
           </div>
-        </Card>
+        
+          {saveHint && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded shadow">
+              {saveHint}
+            </div>
+          )}
+</Card>
         )
       )}
 
