@@ -98,6 +98,17 @@ const NA_SENTINEL = "__NA__";
 
 
 // =============================
+//  共用 UX：取消前確認（避免誤刪編輯中資料）
+// =============================
+function confirmDiscard(message?: string) {
+  return window.confirm(
+    message ||
+      "目前有未儲存的編輯內容，確定要取消嗎？\n（未儲存的變更將會遺失）"
+  );
+}
+
+
+// =============================
 //  預設製程
 // =============================
 
@@ -1035,8 +1046,13 @@ if (
   const toggleExpandReport = (id: string) => {
     setExpandedReportId((prev) => {
       const next = prev === id ? null : id;
-      // 若正在編輯同一張，收合時也一併退出編輯
+      // 若正在編輯同一張，收合前需確認
       if (next === null && editingReportId === id) {
+        const hasDirty =
+          Object.keys(editImageFiles).length > 0 ||
+          Object.keys(editNA).length > 0;
+        if (hasDirty && !confirmDiscard()) return prev;
+
         revokePreviewUrls(editImages);
         setEditingReportId(null);
         setEditImages({});
@@ -1070,6 +1086,11 @@ if (
 
   const toggleEditReport = (id: string) => {
     if (editingReportId === id) {
+      const hasDirty =
+        Object.keys(editImageFiles).length > 0 ||
+        Object.keys(editNA).length > 0;
+      if (hasDirty && !confirmDiscard()) return;
+
       // 取消編輯：保留展開（回到檢視模式）
       revokePreviewUrls(editImages);
       setEditingReportId(null);
@@ -1464,6 +1485,8 @@ if (
   };
 
   const cancelEditingItem = () => {
+    const hasDirty = editingItemValue.trim();
+    if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
     setEditingItemIndex(null);
     setEditingItemValue("");
   };
@@ -1508,6 +1531,18 @@ if (
     }
 
     setProcesses((prev) => prev.filter((p) => p !== proc));
+  };
+
+
+  const cancelManageCreate = async () => {
+    const hasDirty =
+      newProcName.trim() ||
+      newProcCode.trim() ||
+      newProcModel.trim() ||
+      newItem.trim() ||
+      items.length > 0;
+    if (hasDirty && !confirmDiscard("確定要取消新增製程嗎？\n（已輸入的資料將會清除）")) return;
+    await resetManageState(true);
   };
 
   const saveProcess = async () => {
