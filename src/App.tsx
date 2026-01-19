@@ -1693,22 +1693,22 @@ if (
             }}
           className="h-14 px-3"
           >
-            <div className="flex flex-col items-center justify-center leading-tight">
-              <span className="text-base" aria-hidden>
-                ➕
-              </span>
-              <span className="text-xs">新增檢驗</span>
-              <span className="text-xs">資料</span>
+            <div className="flex items-center justify-center gap-2">
+              
+              <div className="flex flex-col leading-tight text-left">
+                <span className="text-xs">新增檢驗</span>
+                <span className="text-xs">資料</span>
+              </div>
             </div>
           </Button>
 
           <Button onClick={() => setPage("reports")} className="h-14 px-3">
-            <div className="flex flex-col items-center justify-center leading-tight">
-              <span className="text-base" aria-hidden>
-                📑
-              </span>
-              <span className="text-xs">查看</span>
-              <span className="text-xs">報告</span>
+            <div className="flex items-center justify-center gap-2">
+              
+              <div className="flex flex-col leading-tight text-left">
+                <span className="text-xs">查看</span>
+                <span className="text-xs">報告</span>
+              </div>
             </div>
           </Button>
 
@@ -1718,12 +1718,12 @@ if (
             title={!isAdmin ? "僅限管理員帳號使用" : ""}
             className="h-14 px-3"
           >
-            <div className="flex flex-col items-center justify-center leading-tight">
-              <span className="text-base" aria-hidden>
-                ⚙️
-              </span>
-              <span className="text-xs">管理</span>
-              <span className="text-xs">製程</span>
+            <div className="flex items-center justify-center gap-2">
+              
+              <div className="flex flex-col leading-tight text-left">
+                <span className="text-xs">管理</span>
+                <span className="text-xs">製程</span>
+              </div>
             </div>
           </Button>
         </div>
@@ -1832,7 +1832,48 @@ if (
               <div className="space-y-2 mt-2">
                 {selectedProcObj.items.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="flex-1">{item}</span>
+                    <span className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="truncate">{item}</span>
+
+                      {homeNA[item] ? (
+                        <button
+                          type="button"
+                          className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                          title="N/A（不適用）- 點一下恢復"
+                          onClick={() =>
+                            setHomeNA((prev) => {
+                              const next = { ...prev };
+                              delete next[item];
+                              return next;
+                            })
+                          }
+                        >
+                          <StatusIcon kind="na" title="N/A" />
+                        </button>
+                      ) : images[item] ? (
+                        <button
+                          type="button"
+                          className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                          title="已拍 - 點一下設為 N/A"
+                          onClick={() =>
+                            setHomeNA((prev) => ({ ...prev, [item]: true }))
+                          }
+                        >
+                          <StatusIcon kind="ok" title="已拍" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                          title="未拍 - 點一下設為 N/A"
+                          onClick={() =>
+                            setHomeNA((prev) => ({ ...prev, [item]: true }))
+                          }
+                        >
+                          <StatusIcon kind="ng" title="未拍" />
+                        </button>
+                      )}
+                    </span>
 
                     <Button
                       type="button"
@@ -1887,48 +1928,10 @@ if (
                       }
                     />
 
-                    {homeNA[item] ? (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                        title="N/A（不適用）- 點一下恢復"
-                        onClick={() =>
-                          setHomeNA((prev) => {
-                            const next = { ...prev };
-                            delete next[item];
-                            return next;
-                          })
-                        }
-                      >
-                        <StatusIcon kind="na" title="N/A" />
-                      </button>
-                    ) : images[item] ? (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                        title="已拍 - 點一下設為 N/A"
-                        onClick={() =>
-                          setHomeNA((prev) => ({ ...prev, [item]: true }))
-                        }
-                      >
-                        <StatusIcon kind="ok" title="已拍" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                        title="未拍 - 點一下設為 N/A"
-                        onClick={() =>
-                          setHomeNA((prev) => ({ ...prev, [item]: true }))
-                        }
-                      >
-                        <StatusIcon kind="ng" title="未拍" />
-                      </button>
-                    ))}
                   </div>
                 ))}
               </div>
-            ))}
+            )}
 
             <div className="flex gap-2 mt-4">
               <Button type="submit" className="flex-1">
@@ -1949,7 +1952,7 @@ if (
             </div>
           </form>
         </Card>
-      ))}
+      )}
 
       {/* 查看報告頁 */}
       {page === "reports" && (
@@ -1985,7 +1988,7 @@ if (
                     {procName}
                   </option>
                 )
-              ))}
+              )}
             </select>
 
             <select
@@ -2054,9 +2057,9 @@ if (
 
                             <div className="mt-2 space-y-1 text-sm text-gray-700">
                               <div className="flex items-center justify-between gap-2">
-                                <div className="truncate">{r.process}</div>
+                                <div className="truncate">檢驗製程：{r.process}</div>
                                 <div className={`text-xs font-medium ${isDone ? "text-green-700" : "text-gray-600"}`}>
-                                  {isDone ? "已完成" : "未完成"}
+                                  狀態：{isDone ? "已完成" : "未完成"}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
@@ -2074,7 +2077,48 @@ if (
                                 <div className="space-y-2">
                                   {(r.expected_items || []).map((item, idx) => (
                                     <div key={item} className="flex items-center gap-2">
-                                      <span className="flex-1">{item}</span>
+                                      <span className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="truncate">{item}</span>
+
+                                        {editNA[item] ? (
+                                          <button
+                                            type="button"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                                            title="N/A（不適用）- 點一下恢復"
+                                            onClick={() =>
+                                              setEditNA((prev) => {
+                                                const next = { ...prev };
+                                                delete next[item];
+                                                return next;
+                                              })
+                                            }
+                                          >
+                                            <StatusIcon kind="na" title="N/A" />
+                                          </button>
+                                        ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
+                                          <button
+                                            type="button"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                            title="已拍 - 點一下設為 N/A"
+                                            onClick={() =>
+                                              setEditNA((prev) => ({ ...prev, [item]: true }))
+                                            }
+                                          >
+                                            <StatusIcon kind="ok" title="已拍" />
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                                            title="未拍 - 點一下設為 N/A"
+                                            onClick={() =>
+                                              setEditNA((prev) => ({ ...prev, [item]: true }))
+                                            }
+                                          >
+                                            <StatusIcon kind="ng" title="未拍" />
+                                          </button>
+                                        )}
+                                      </span>
 
                                       <Button
                                         type="button"
@@ -2130,45 +2174,6 @@ if (
                                           )
                                         }
                                       />
-
-                                      {editNA[item] ? (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                                          title="N/A（不適用）- 點一下恢復"
-                                          onClick={() =>
-                                            setEditNA((prev) => {
-                                              const next = { ...prev };
-                                              delete next[item];
-                                              return next;
-                                            })
-                                          }
-                                        >
-                                          <StatusIcon kind="na" title="N/A" />
-                                        </button>
-                                      ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                          title="已拍 - 點一下設為 N/A"
-                                          onClick={() =>
-                                            setEditNA((prev) => ({ ...prev, [item]: true }))
-                                          }
-                                        >
-                                          <StatusIcon kind="ok" title="已拍" />
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                                          title="未拍 - 點一下設為 N/A"
-                                          onClick={() =>
-                                            setEditNA((prev) => ({ ...prev, [item]: true }))
-                                          }
-                                        >
-                                          <StatusIcon kind="ng" title="未拍" />
-                                        </button>
-                                      ))}
                                     </div>
                                   ))}
 
@@ -2207,20 +2212,22 @@ if (
                                     const hasImg = !!v && v !== NA_SENTINEL;
                                     return (
                                       <div key={item} className="flex items-center gap-2">
-                                        <span className="flex-1">{item}</span>
-                                        {isNA ? (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
-                                            <StatusIcon kind="na" title="N/A" />
-                                          </span>
-                                        ) : hasImg ? (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
-                                            <StatusIcon kind="ok" title="已拍" />
-                                          </span>
-                                        ) : (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
-                                            <StatusIcon kind="ng" title="未拍" />
-                                          </span>
-                                        ))}
+                                        <span className="flex items-center gap-2 flex-1 min-w-0">
+                                          <span className="truncate">{item}</span>
+                                          {isNA ? (
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                              <StatusIcon kind="na" title="N/A" />
+                                            </span>
+                                          ) : hasImg ? (
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                              <StatusIcon kind="ok" title="已拍" />
+                                            </span>
+                                          ) : (
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                              <StatusIcon kind="ng" title="未拍" />
+                                            </span>
+                                          )}
+                                        </span>
                                       </div>
                                     );
                                   })}
@@ -2228,9 +2235,9 @@ if (
                                     ※ 此處為檢視模式；如需修改，請按上方「編輯」。
                                   </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          ))}
+                          )}
                         </div>
                       );
                     })}
@@ -2302,7 +2309,48 @@ if (
 {/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
                                       <div key={item} className="flex items-center gap-2">
-                                        <span className="flex-1">{item}</span>
+                                        <span className="flex items-center gap-2 flex-1 min-w-0">
+                                          <span className="truncate">{item}</span>
+
+                                          {editNA[item] ? (
+                                            <button
+                                              type="button"
+                                              className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                                              title="N/A（不適用）- 點一下恢復"
+                                              onClick={() =>
+                                                setEditNA((prev) => {
+                                                  const next = { ...prev };
+                                                  delete next[item];
+                                                  return next;
+                                                })
+                                              }
+                                            >
+                                              <StatusIcon kind="na" title="N/A" />
+                                            </button>
+                                          ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
+                                            <button
+                                              type="button"
+                                              className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                              title="已拍 - 點一下設為 N/A"
+                                              onClick={() =>
+                                                setEditNA((prev) => ({ ...prev, [item]: true }))
+                                              }
+                                            >
+                                              <StatusIcon kind="ok" title="已拍" />
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                                              title="未拍 - 點一下設為 N/A"
+                                              onClick={() =>
+                                                setEditNA((prev) => ({ ...prev, [item]: true }))
+                                              }
+                                            >
+                                              <StatusIcon kind="ng" title="未拍" />
+                                            </button>
+                                          )}
+                                        </span>
 
                                         <Button
                                           type="button"
@@ -2359,44 +2407,6 @@ if (
                                           }
                                         />
 
-                                        {editNA[item] ? (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                                            title="N/A（不適用）- 點一下恢復"
-                                            onClick={() =>
-                                              setEditNA((prev) => {
-                                                const next = { ...prev };
-                                                delete next[item];
-                                                return next;
-                                              })
-                                            }
-                                          >
-                                            <StatusIcon kind="na" title="N/A" />
-                                          </button>
-                                        ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                            title="已拍 - 點一下設為 N/A"
-                                            onClick={() =>
-                                              setEditNA((prev) => ({ ...prev, [item]: true }))
-                                            }
-                                          >
-                                            <StatusIcon kind="ok" title="已拍" />
-                                          </button>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                                            title="未拍 - 點一下設為 N/A"
-                                            onClick={() =>
-                                              setEditNA((prev) => ({ ...prev, [item]: true }))
-                                            }
-                                          >
-                                            <StatusIcon kind="ng" title="未拍" />
-                                          </button>
-                                        ))}
                                       </div>
                                     ))}
 
@@ -2436,20 +2446,22 @@ if (
                                         const hasImg = !!v && v !== NA_SENTINEL;
                                         return (
                                           <div key={item} className="flex items-center gap-2">
-                                            <span className="flex-1">{item}</span>
-                                            {isNA ? (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
-                                                <StatusIcon kind="na" title="N/A" />
-                                              </span>
-                                            ) : hasImg ? (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
-                                                <StatusIcon kind="ok" title="已拍" />
-                                              </span>
-                                            ) : (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
-                                                <StatusIcon kind="ng" title="未拍" />
-                                              </span>
-                                            ))}
+                                            <span className="flex items-center gap-2 flex-1 min-w-0">
+                                              <span className="truncate">{item}</span>
+                                              {isNA ? (
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                                  <StatusIcon kind="na" title="N/A" />
+                                                </span>
+                                              ) : hasImg ? (
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                                  <StatusIcon kind="ok" title="已拍" />
+                                                </span>
+                                              ) : (
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                                  <StatusIcon kind="ng" title="未拍" />
+                                                </span>
+                                              )}
+                                            </span>
                                           </div>
                                         );
                                       })}
@@ -2457,10 +2469,10 @@ if (
                                         ※ 此處為檢視模式；如需修改，請按右側「編輯」。
                                       </div>
                                     </div>
-                                  ))}
+                                  )}
                                 </td>
                               </tr>
-                            ))}
+                            )}
                           </React.Fragment>
                         );
                       })}
@@ -2468,11 +2480,11 @@ if (
                     </table>
                   </div>
                 </>
-              ))}
+              )}
             </>
           )}
         </Card>
-      ))}
+      )}
 
       {/* 管理製程頁 */}
       {page === "manage" && (
@@ -2567,7 +2579,7 @@ if (
                   </div>
                 ) : (
                   <span className="flex-1">{i}</span>
-                ))}
+                )}
 
                 <div className="flex gap-2">
                   {editingItemIndex === idx ? null : (
@@ -2580,7 +2592,7 @@ if (
                     >
                       編輯
                     </Button>
-                  ))}
+                  )}
                   <Button
                     type="button"
                     size="sm"
@@ -2642,7 +2654,7 @@ if (
                 >
                   取消編輯
                 </Button>
-              ))}
+              )}
             </div>
 
             {/* 已有製程列表（表格 + 可展開） */}
@@ -2707,14 +2719,14 @@ if (
                                   </div>
                                 ) : (
                                   <div className="text-gray-500">尚未建立檢驗項目</div>
-                                ))}
+                                )}
                                 <div className="text-xs text-gray-500 mt-2">
                                   ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
                                 </div>
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </React.Fragment>
                     );
                   })}
@@ -2724,7 +2736,7 @@ if (
           </div>
         </Card>
         )
-      ))}
+      )}
 
       
       {/* 草稿恢復（UX-1） */}
@@ -2775,7 +2787,7 @@ if (
             </div>
           </div>
         </div>
-      ))}
+      )}
 
 {/* 新增儲存前預覽 Modal */}
       {showPreview && (
@@ -2810,7 +2822,7 @@ if (
                     <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
-                  ))}
+                  )}
 
                   <div className="flex justify-between pt-2">
                     <Button
@@ -2877,7 +2889,7 @@ if (
             </div>
           </div>
         </div>
-      ))}
+      )}
 
       {/* 編輯儲存前預覽 Modal */}
       {showEditPreview && editingReportId && (
@@ -2905,7 +2917,7 @@ if (
   <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
-))}
+)}
 
 
 
@@ -3053,7 +3065,7 @@ if (
             </div>
           </div>
         </div>
-      ))}
+      )}
 
       {/* 刪除確認 Modal */}
       {confirmTarget && (
@@ -3087,7 +3099,7 @@ if (
             </div>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
