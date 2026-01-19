@@ -418,6 +418,13 @@ async function getSignedImageUrl(input?: string): Promise<string> {
 //  共用工具函式
 // =============================
 
+
+function getYearFromSerial(serial: string) {
+  const yy = serial.trim().slice(0, 2);
+  if (!/^\d{2}$/.test(yy)) return "";
+  return `20${yy}`;
+}
+
 // 把中文項目名轉成安全檔名 item1 / item2 / ...
 function getSafeItemName(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
@@ -474,7 +481,8 @@ async function uploadImage(
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
-  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+  const year = getYearFromSerial(serial);
+  const filePath = `${model}/${year}/${serial}/${processCode}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
@@ -2072,7 +2080,7 @@ if (
                             <div className="mt-2 space-y-1 text-sm text-gray-700">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="truncate">製程名稱：{r.process}</div>
-                                {isDone ? <span className="text-sm text-green-600">狀態：已完成</span> : <span className="text-sm text-gray-600">狀態：未完成</span>}
+                                {isDone ? <span className="text-sm text-green-600"><span className="hidden sm:inline text-green-600">已完成</span><span className="sm:hidden text-green-600">狀態：已完成</span></span> : <span className="text-sm text-gray-600"><span className="hidden sm:inline text-gray-600">未完成</span><span className="sm:hidden text-gray-600">狀態：未完成</span></span>}
                               </div>
                               <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
                                 <div className="truncate">型號：{r.model}</div>
@@ -2292,7 +2300,7 @@ if (
                                 {r.serial}
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
-                                {isDone ? <span className="text-green-600">狀態：已完成</span> : <span className="text-gray-600">狀態：未完成</span>}
+                                {isDone ? <span className="text-green-600"><span className="hidden sm:inline text-green-600">已完成</span><span className="sm:hidden text-green-600">狀態：已完成</span></span> : <span className="text-gray-600"><span className="hidden sm:inline text-gray-600">未完成</span><span className="sm:hidden text-gray-600">狀態：未完成</span></span>}
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
                                 <Button
@@ -2521,6 +2529,11 @@ if (
                 placeholder="產品型號"
                 onChange={(e) => setNewProcModel(e.target.value)}
               />
+              {editingIndex !== null && (
+                <div className="text-xs text-gray-500">
+                  ※ 目前為「編輯製程」模式，修改後請按「更新製程」
+                </div>
+              )}
             </div>
 
             {/* 檢驗照片項目新增區（支援插入位置） */}
