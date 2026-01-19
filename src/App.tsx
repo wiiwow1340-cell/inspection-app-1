@@ -1787,7 +1787,7 @@ if (
                   <option key={m} value={m}>
                     {m}
                   </option>
-                ))}
+                )}
               </select>
               {!selectedModel && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
@@ -1814,7 +1814,7 @@ if (
                   <option key={`${p.name}-${p.model}`} value={p.name}>
                     {p.name} ({p.code})
                   </option>
-                ))}
+                )}
               </select>
               {!selectedProcess && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
@@ -1924,7 +1924,7 @@ if (
                     )}
 </div>
 
-                ))}
+                )}
               </div>
             )}
 
@@ -1996,7 +1996,7 @@ if (
                 <option key={m} value={m}>
                   {m}
                 </option>
-              ))}
+              )}
             </select>
 
             <select
@@ -2128,7 +2128,7 @@ if (
                                       )}
 </div>
 
-                                  ))}
+                                  )}
 
                                   <div className="flex gap-2 mt-3">
                                     <Button
@@ -2360,7 +2360,7 @@ if (
                                         )}
 </div>
 
-                                    ))}
+                                    )}
 
                                     <div className="flex gap-2 mt-3">
                                       <Button
@@ -2500,7 +2500,7 @@ if (
                     <option key={`${it}-${idx}`} value={String(idx)}>
                       在「{it}」後
                     </option>
-                  ))}
+                  )}
                 </select>
               </div>
             </div>
@@ -2579,7 +2579,7 @@ if (
                   </Button>
                 </div>
               </div>
-            ))}
+            )}
 
             {/* 儲存 / 更新製程 */}
             <div className="flex gap-2">
@@ -2669,7 +2669,7 @@ if (
                                       >
                                         {item}
                                       </div>
-                                    ))}
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="text-gray-500">尚未建立檢驗項目</div>
