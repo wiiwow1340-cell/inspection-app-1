@@ -1696,7 +1696,7 @@ if (
             <div className="flex items-center justify-center gap-2">
               
               <div className="flex flex-col leading-tight text-left">
-                <span className="text-xs">新增檢驗</span>
+                <span className="text-xs sm:whitespace-nowrap" >新增檢驗</span>
                 <span className="text-xs">資料</span>
               </div>
             </div>
@@ -1744,7 +1744,7 @@ if (
       {/* 新增檢驗資料頁 */}
       {page === "home" && (
         <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">新增檢驗資料</h2>
+          <h2 className="text-xl font-bold sm:whitespace-nowrap" >新增檢驗資料</h2>
 
           <form
             onSubmit={(e) => {
@@ -2490,13 +2490,13 @@ if (
       {page === "manage" && (
         !isAdmin ? (
           <Card className="p-4 space-y-3">
-          <h2 className="text-xl font-bold">管理製程</h2>
+          <h2 className="text-xl font-bold sm:whitespace-nowrap" >管理製程</h2>
           <p className="text-red-600">此頁僅限管理員帳號使用。</p>
           <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
         </Card>
         ) : (
         <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">管理製程</h2>
+          <h2 className="text-xl font-bold sm:whitespace-nowrap" >管理製程</h2>
 
           <div className="space-y-4">
             {/* 製程基本資料輸入 */}
