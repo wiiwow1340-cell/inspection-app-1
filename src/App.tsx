@@ -1934,12 +1934,12 @@ if (
             )}
 
             <div className="flex gap-2 mt-4">
-              <Button type="submit" className="flex-1">
+              <Button type="submit" className="flex-1 line-clamp-2 leading-snug flex items-center">
                 確認
               </Button>
               <Button
                 type="button"
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 variant="secondary"
                 onClick={async () => {
                   const ok = window.confirm("確定要取消新增嗎？\n（已輸入的資料與照片將會清除）");
@@ -2179,7 +2179,7 @@ if (
 
                                   <div className="flex gap-2 mt-3">
                                     <Button
-                                      className="flex-1"
+                                      className="flex-1 line-clamp-2 leading-snug flex items-center"
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -2192,7 +2192,7 @@ if (
                                     </Button>
 
                                     <Button
-                                      className="flex-1"
+                                      className="flex-1 line-clamp-2 leading-snug flex items-center"
                                       type="button"
                                       variant="secondary"
                                       onClick={(e) => {
@@ -2412,7 +2412,7 @@ if (
 
                                     <div className="flex gap-2 mt-3">
                                       <Button
-                                        className="flex-1"
+                                        className="flex-1 line-clamp-2 leading-snug flex items-center"
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -2425,7 +2425,7 @@ if (
                                       </Button>
 
                                       <Button
-                                        className="flex-1"
+                                        className="flex-1 line-clamp-2 leading-snug flex items-center"
                                         type="button"
                                         variant="secondary"
                                         onClick={(e) => {
@@ -2578,7 +2578,7 @@ if (
                     </Button>
                   </div>
                 ) : (
-                  <span className="flex-1">{i}</span>
+                  <span className="flex-1 line-clamp-2 leading-snug flex items-center">{i}</span>
                 )}
 
                 <div className="flex gap-2">
@@ -2629,13 +2629,13 @@ if (
 
             {/* 儲存 / 更新製程 */}
             <div className="flex gap-2">
-              <Button onClick={saveProcess} className="flex-1" type="button">
+              <Button onClick={saveProcess} className="flex-1 line-clamp-2 leading-snug flex items-center" type="button">
                 {editingIndex !== null ? "更新製程" : "儲存製程"}
               </Button>
 
               {editingIndex === null ? (
                 <Button
-                  className="flex-1"
+                  className="flex-1 line-clamp-2 leading-snug flex items-center"
                   type="button"
                   variant="secondary"
                   onClick={cancelManageCreate}
@@ -2644,7 +2644,7 @@ if (
                 </Button>
               ) : (
                 <Button
-                  className="flex-1"
+                  className="flex-1 line-clamp-2 leading-snug flex items-center"
                   type="button"
                   variant="secondary"
                   onClick={async () => {
@@ -2758,7 +2758,7 @@ if (
 
             <div className="flex gap-2 mt-4">
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 onClick={async () => {
                   try {
                     await idbDel(getDraftId());
@@ -2772,7 +2772,7 @@ if (
                 丟棄
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 onClick={async () => {
                   const d = pendingDraft;
                   setShowDraftPrompt(false);
@@ -2859,7 +2859,7 @@ if (
 
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 variant="secondary"
                 onClick={() => setShowPreview(false)}
                 disabled={isSavingNew}
@@ -2867,7 +2867,7 @@ if (
                 返回修改
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 disabled={isSavingNew}
                 onClick={async () => {
                   // 防止連點：React 尚未 re-render 前，用 ref 先擋
@@ -2952,7 +2952,7 @@ if (
             </div>
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 variant="secondary"
                 onClick={() => setShowEditPreview(false)}
                 disabled={isSavingEdit}
@@ -2960,7 +2960,7 @@ if (
                 返回修改
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 disabled={isSavingEdit}
                 onClick={async () => {
                   // 防止連點：React 尚未 re-render 前，用 ref 先擋
@@ -3075,14 +3075,14 @@ if (
             <p className="text-sm text-gray-600">此動作無法復原。</p>
             <div className="flex gap-2">
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 variant="secondary"
                 onClick={() => setConfirmTarget(null)}
               >
                 取消
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 line-clamp-2 leading-snug flex items-center"
                 variant="destructive"
                 onClick={async () => {
                   if (confirmTarget?.type === "item") {
