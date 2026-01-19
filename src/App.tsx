@@ -1769,7 +1769,7 @@ if (
               />
               {!serial && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              ))}
+              )}
             </div>
 
             {/* 產品型號 */}
@@ -1797,7 +1797,7 @@ if (
               </select>
               {!selectedModel && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              ))}
+              )}
             </div>
 
             {/* 製程 */}
@@ -1824,7 +1824,7 @@ if (
               </select>
               {!selectedProcess && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              ))}
+              )}
             </div>
 
             {/* 檢驗項目 + 拍照/上傳按鈕 */}
