@@ -467,8 +467,6 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
-// 上傳單張圖片到 Storage（最終穩定版）
-// Path: {processCode}/{model}/{serial}/{item}.jpg
 async function uploadImage(
   processCode: string,
   model: string,
@@ -483,8 +481,8 @@ async function uploadImage(
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
-
-  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+  const year = getYearFromSerial(serial);
+  const filePath = `${model}/${year}/${serial}/${processCode}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
@@ -495,14 +493,6 @@ async function uploadImage(
       console.error("上傳圖片失敗（Storage）:", error.message);
       return "";
     }
-
-    return filePath;
-  } catch (e: any) {
-    console.error("上傳圖片失敗（例外）:", e?.message || e);
-    return "";
-  }
-}
-
 
     return filePath;
   } catch (e: any) {
