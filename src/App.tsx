@@ -1012,11 +1012,24 @@ if (
 
     await Promise.all(uploads);
 
-    // 產生一個簡單、可讀的表單 ID（避免依賴 DB 端序號）
+    // 產生表單編碼：FI-YYYYMMDDNNN（依當日流水）
     const d = new Date();
     const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
-    const id = `PT-${ymd}-${rand}`;
+
+    // 查詢當日已存在的最大流水號
+    const prefix = "FI";
+    const { data: todayRows } = await supabase
+      .from("reports")
+      .select("id")
+      .like("id", `${prefix}-${ymd}%`);
+
+    const seq =
+      (todayRows || [])
+        .map((r: any) => Number(String(r.id).slice(-3)))
+        .filter((n: number) => Number.isFinite(n))
+        .reduce((a: number, b: number) => Math.max(a, b), 0) + 1;
+
+    const id = `${prefix}-${ymd}${String(seq).padStart(3, "0")}`;
 
     const report: Report = {
       id,
@@ -1039,6 +1052,7 @@ if (
     // 寫入成功後再更新前端 + 清空新增狀態
     setReports((prev) => [...prev, report]);
     await resetNewReportState(true);
+    alert(`儲存完成\n表單編號：${id}`);
     return true;
   };
 
