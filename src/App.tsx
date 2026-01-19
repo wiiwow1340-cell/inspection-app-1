@@ -1060,11 +1060,14 @@ if (
 
     await Promise.all(uploads);
 
-    // 產生一個簡單、可讀的表單 ID（避免依賴 DB 端序號）
+    // 產生表單 ID：製程代號-YYYYMMDDNNN（同日遞增）
     const d = new Date();
     const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
-    const id = `PT-${ymd}-${rand}`;
+    const procCode = selectedProcObj.code;
+    const todayCount =
+      reports.filter((r) => r.id?.startsWith(`${procCode}-${ymd}`)).length + 1;
+    const seq = String(todayCount).padStart(3, "0");
+    const id = `${procCode}-${ymd}${seq}`;
 
     const report: Report = {
       id,
@@ -1086,6 +1089,7 @@ if (
 
     // 寫入成功後再更新前端 + 清空新增狀態
     setReports((prev) => [...prev, report]);
+    alert("儲存成功");
     await resetNewReportState(true);
     return true;
   };
@@ -1696,9 +1700,7 @@ if (
 
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>➕</span>
-              </div>
+              
               <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
                 新增檢驗資料
               </span>
@@ -1711,9 +1713,7 @@ if (
 
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>📑</span>
-              </div>
+              
               <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
                 查看報告
               </span>
@@ -1731,9 +1731,7 @@ if (
 
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>⚙️</span>
-              </div>
+              
               <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
                 管理製程
               </span>
