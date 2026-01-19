@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-function sanitizePathSegment(name: string) {
-  return (name || "")
-    .trim()
-    .replace(/[\\\/\:*?\"<>|]/g, "_");
-}
-
-
 // =============================
 //  簡易 UI 元件：Button / Input / Card
 // =============================
@@ -474,6 +467,42 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
+// 上傳單張圖片到 Storage（最終穩定版）
+// Path: {processCode}/{model}/{serial}/{item}.jpg
+async function uploadImage(
+  processCode: string,
+  model: string,
+  serial: string,
+  info: { item: string; procItems: string[] },
+  file: File
+): Promise<string> {
+  if (!file) return "";
+
+  const compressed = await compressImage(file);
+
+  const { item, procItems } = info;
+  const safeItem = getSafeItemName(procItems, item);
+  const fileName = `${safeItem}.jpg`;
+
+  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+
+  try {
+    const { error } = await supabase.storage
+      .from("photos")
+      .upload(filePath, compressed, { upsert: true });
+
+    if (error) {
+      console.error("上傳圖片失敗（Storage）:", error.message);
+      return "";
+    }
+
+    return filePath;
+  } catch (e: any) {
+    console.error("上傳圖片失敗（例外）:", e?.message || e);
+    return "";
+  }
+}
+
 
     return filePath;
   } catch (e: any) {
@@ -483,48 +512,6 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 // 儲存報告 JSON 至資料庫
-
-// =============================
-//  Storage upload (v2) — SINGLE SOURCE OF TRUTH
-//  Path: {processCode}/{model}/{serial}/{processName}/{item}.jpg
-// =============================
-async function uploadImage(
-  processCode: string,
-  processName: string,
-  model: string,
-  serial: string,
-  info: { item: string; procItems: string[] },
-  file: File
-): Promise<string> {
-
-  if (!processCode || !processName || !model || !serial || !file) {
-    console.error("uploadImage 參數錯誤", {
-      processCode, processName, model, serial, file,
-    });
-    return "";
-  }
-
-  const compressed = await compressImage(file);
-
-  const { item, procItems } = info;
-  const safeItem = getSafeItemName(procItems, item);
-  const fileName = `${safeItem}.jpg`;
-
-  const processNameSafe = sanitizePathSegment(processName);
-  const filePath = `${processCode}/${model}/${serial}/${processNameSafe}/${fileName}`;
-
-  const { error } = await supabase.storage
-    .from("photos")
-    .upload(filePath, compressed, { upsert: true });
-
-  if (error) {
-    console.error("上傳圖片失敗（Storage）:", error.message);
-    return "";
-  }
-
-  return filePath;
-}
-
 type DbWriteResult =
   | { ok: true }
   | { ok: false; message: string; code?: string };
@@ -1081,7 +1068,6 @@ if (
 
       const path = await uploadImage(
         selectedProcObj.code,
-        selectedProcess,
         selectedModel,
         sn,
         { item, procItems: expectedItems },
