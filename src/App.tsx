@@ -1087,9 +1087,10 @@ if (
       return false;
     }
 
-    // 寫入成功後再更新前端 + 清空新增狀態
-    setReports((prev) => [...prev, report]);
+    // 寫入成功後：不做 optimistic append，改為重新從 DB 讀取（DB-only）
     alert("儲存成功");
+    const freshReports = await fetchReportsFromDB();
+    setReports(freshReports);
     await resetNewReportState(true);
     return true;
   };
@@ -1971,7 +1972,10 @@ if (
             <span>報告列表</span>
             <Button
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                // 查詢時一律重新從 DB 讀取，避免前端快取殘影（DB-only）
+                const freshReports = await fetchReportsFromDB();
+                setReports(freshReports);
                 setQueryFilters({
                   process: selectedProcessFilter,
                   model: selectedModelFilter,
