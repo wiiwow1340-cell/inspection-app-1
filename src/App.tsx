@@ -481,7 +481,6 @@ async function uploadImage(processName: string,
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
   const year = getYearFromSerial(serial);
-  const year = getYearFromSerial(serial);
   const filePath = `${model}/${year}/${serial}/${processName}/${fileName}`;
 try {
     const { error } = await supabase.storage
