@@ -1693,19 +1693,23 @@ if (
             }}
           className="h-14 px-3"
           >
-
-
-            <span className="text-xs sm:text-sm text-center sm:text-left">新增檢驗資料</span>
-
-
+            <div className="flex flex-col items-center justify-center leading-tight">
+              <span className="text-base" aria-hidden>
+                ➕
+              </span>
+              <span className="text-xs">新增檢驗</span>
+              <span className="text-xs">資料</span>
+            </div>
           </Button>
 
           <Button onClick={() => setPage("reports")} className="h-14 px-3">
-
-
-            <span className="text-xs sm:text-sm text-center sm:text-left">查看報告</span>
-
-
+            <div className="flex flex-col items-center justify-center leading-tight">
+              <span className="text-base" aria-hidden>
+                📑
+              </span>
+              <span className="text-xs">查看</span>
+              <span className="text-xs">報告</span>
+            </div>
           </Button>
 
           <Button
@@ -1714,11 +1718,13 @@ if (
             title={!isAdmin ? "僅限管理員帳號使用" : ""}
             className="h-14 px-3"
           >
-
-
-            <span className="text-xs sm:text-sm text-center sm:text-left">管理製程</span>
-
-
+            <div className="flex flex-col items-center justify-center leading-tight">
+              <span className="text-base" aria-hidden>
+                ⚙️
+              </span>
+              <span className="text-xs">管理</span>
+              <span className="text-xs">製程</span>
+            </div>
           </Button>
         </div>
         <Button
@@ -1763,7 +1769,7 @@ if (
               />
               {!serial && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
+              ))}
             </div>
 
             {/* 產品型號 */}
@@ -1791,7 +1797,7 @@ if (
               </select>
               {!selectedModel && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
+              ))}
             </div>
 
             {/* 製程 */}
@@ -1814,24 +1820,21 @@ if (
                   <option key={`${p.name}-${p.model}`} value={p.name}>
                     {p.name} ({p.code})
                   </option>
-                )}
+                ))}
               </select>
               {!selectedProcess && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
+              ))}
             </div>
 
             {/* 檢驗項目 + 拍照/上傳按鈕 */}
             {selectedProcObj && selectedProcObj.items.length > 0 && (
               <div className="space-y-2 mt-2">
                 {selectedProcObj.items.map((item, idx) => (
-                  
-<div className="flex items-center gap-2">
-  <span className="flex items-center gap-2 flex-1">
-    <span>{item}</span>
-    
-  </span>
-  <Button
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="flex-1">{item}</span>
+
+                    <Button
                       type="button"
                       onClick={() => {
                         const input = document.getElementById(
@@ -1921,12 +1924,11 @@ if (
                       >
                         <StatusIcon kind="ng" title="未拍" />
                       </button>
-                    )}
-</div>
-
-                )}
+                    ))}
+                  </div>
+                ))}
               </div>
-            )}
+            ))}
 
             <div className="flex gap-2 mt-4">
               <Button type="submit" className="flex-1">
@@ -1947,7 +1949,7 @@ if (
             </div>
           </form>
         </Card>
-      )}
+      ))}
 
       {/* 查看報告頁 */}
       {page === "reports" && (
@@ -1996,7 +1998,7 @@ if (
                 <option key={m} value={m}>
                   {m}
                 </option>
-              )}
+              ))}
             </select>
 
             <select
@@ -2027,13 +2029,54 @@ if (
                       const isOpen = expandedReportId === r.id;
 
                       return (
-                        
-<div className="flex items-center gap-2">
-  <span className="flex items-center gap-2 flex-1">
-    <span>{item}</span>
-    
-  </span>
-  <Button
+                        <div key={r.id} className="border rounded-lg overflow-hidden">
+                          {/* Header（點擊展開/收合） */}
+                          <button
+                            type="button"
+                            className="w-full text-left p-3 bg-white"
+                            onClick={() => toggleExpandReport(r.id)}
+                            title="點擊展開/收合"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="font-semibold break-all">{r.id}</div>
+                              <Button
+                                size="sm"
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleEditReport(r.id);
+                                }}
+                                title={editingReportId === r.id ? "目前編輯中" : "編輯"}
+                              >
+                                {editingReportId === r.id ? "編輯中" : "編輯"}
+                              </Button>
+                            </div>
+
+                            <div className="mt-2 space-y-1 text-sm text-gray-700">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="truncate">{r.process}</div>
+                                <div className={`text-xs font-medium ${isDone ? "text-green-700" : "text-gray-600"}`}>
+                                  {isDone ? "已完成" : "未完成"}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                                <div className="truncate">型號：{r.model}</div>
+                                <div className="truncate">序號：{r.serial}</div>
+                              </div>
+                              <div className="text-xs text-gray-500">{isOpen ? "▼ 已展開" : "▶ 點此展開"}</div>
+                            </div>
+                          </button>
+
+                          {/* 展開內容（沿用既有 render） */}
+                          {isOpen && (
+                            <div className="bg-gray-50 p-3">
+                              {editingReportId === r.id ? (
+                                <div className="space-y-2">
+                                  {(r.expected_items || []).map((item, idx) => (
+                                    <div key={item} className="flex items-center gap-2">
+                                      <span className="flex-1">{item}</span>
+
+                                      <Button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -2125,10 +2168,9 @@ if (
                                         >
                                           <StatusIcon kind="ng" title="未拍" />
                                         </button>
-                                      )}
-</div>
-
-                                  )}
+                                      ))}
+                                    </div>
+                                  ))}
 
                                   <div className="flex gap-2 mt-3">
                                     <Button
@@ -2164,11 +2206,9 @@ if (
                                     const isNA = v === NA_SENTINEL;
                                     const hasImg = !!v && v !== NA_SENTINEL;
                                     return (
-                                      
-<div className="flex items-center gap-2">
-  <span className="flex items-center gap-2 flex-1">
-    <span>{item}</span>
-    {isNA ? (
+                                      <div key={item} className="flex items-center gap-2">
+                                        <span className="flex-1">{item}</span>
+                                        {isNA ? (
                                           <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
                                             <StatusIcon kind="na" title="N/A" />
                                           </span>
@@ -2180,7 +2220,7 @@ if (
                                           <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
                                             <StatusIcon kind="ng" title="未拍" />
                                           </span>
-                                        )}
+                                        ))}
                                       </div>
                                     );
                                   })}
@@ -2188,9 +2228,9 @@ if (
                                     ※ 此處為檢視模式；如需修改，請按上方「編輯」。
                                   </div>
                                 </div>
-                              )}
+                              ))}
                             </div>
-                          )}
+                          ))}
                         </div>
                       );
                     })}
@@ -2240,8 +2280,7 @@ if (
                                 {isDone ? "已完成" : "未完成"}
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
-  </span>
-  <Button
+                                <Button
                                   size="sm"
                                   type="button"
                                   onClick={(e) => {
@@ -2357,10 +2396,9 @@ if (
                                           >
                                             <StatusIcon kind="ng" title="未拍" />
                                           </button>
-                                        )}
-</div>
-
-                                    )}
+                                        ))}
+                                      </div>
+                                    ))}
 
                                     <div className="flex gap-2 mt-3">
                                       <Button
@@ -2397,11 +2435,9 @@ if (
                                         const isNA = v === NA_SENTINEL;
                                         const hasImg = !!v && v !== NA_SENTINEL;
                                         return (
-                                          
-<div className="flex items-center gap-2">
-  <span className="flex items-center gap-2 flex-1">
-    <span>{item}</span>
-    {isNA ? (
+                                          <div key={item} className="flex items-center gap-2">
+                                            <span className="flex-1">{item}</span>
+                                            {isNA ? (
                                               <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
                                                 <StatusIcon kind="na" title="N/A" />
                                               </span>
@@ -2413,7 +2449,7 @@ if (
                                               <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
                                                 <StatusIcon kind="ng" title="未拍" />
                                               </span>
-                                            )}
+                                            ))}
                                           </div>
                                         );
                                       })}
@@ -2421,10 +2457,10 @@ if (
                                         ※ 此處為檢視模式；如需修改，請按右側「編輯」。
                                       </div>
                                     </div>
-                                  )}
+                                  ))}
                                 </td>
                               </tr>
-                            )}
+                            ))}
                           </React.Fragment>
                         );
                       })}
@@ -2436,7 +2472,7 @@ if (
             </>
           )}
         </Card>
-      )}
+      ))}
 
       {/* 管理製程頁 */}
       {page === "manage" && (
@@ -2480,8 +2516,7 @@ if (
                   placeholder="新增檢驗照片項目"
                   onChange={(e) => setNewItem(e.target.value)}
                 />
-  </span>
-  <Button type="button" onClick={addItem}>
+                <Button type="button" onClick={addItem}>
                   加入
                 </Button>
               </div>
@@ -2500,7 +2535,7 @@ if (
                     <option key={`${it}-${idx}`} value={String(idx)}>
                       在「{it}」後
                     </option>
-                  )}
+                  ))}
                 </select>
               </div>
             </div>
@@ -2529,11 +2564,10 @@ if (
                     >
                       取消
                     </Button>
-</div>
-
+                  </div>
                 ) : (
                   <span className="flex-1">{i}</span>
-                )}
+                ))}
 
                 <div className="flex gap-2">
                   {editingItemIndex === idx ? null : (
@@ -2546,7 +2580,7 @@ if (
                     >
                       編輯
                     </Button>
-                  )}
+                  ))}
                   <Button
                     type="button"
                     size="sm"
@@ -2579,7 +2613,7 @@ if (
                   </Button>
                 </div>
               </div>
-            )}
+            ))}
 
             {/* 儲存 / 更新製程 */}
             <div className="flex gap-2">
@@ -2608,7 +2642,7 @@ if (
                 >
                   取消編輯
                 </Button>
-              )}
+              ))}
             </div>
 
             {/* 已有製程列表（表格 + 可展開） */}
@@ -2669,18 +2703,18 @@ if (
                                       >
                                         {item}
                                       </div>
-                                    )}
+                                    ))}
                                   </div>
                                 ) : (
                                   <div className="text-gray-500">尚未建立檢驗項目</div>
-                                )}
+                                ))}
                                 <div className="text-xs text-gray-500 mt-2">
                                   ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
                                 </div>
                               </div>
                             </td>
                           </tr>
-                        )}
+                        ))}
                       </React.Fragment>
                     );
                   })}
@@ -2741,7 +2775,7 @@ if (
             </div>
           </div>
         </div>
-      )}
+      ))}
 
 {/* 新增儲存前預覽 Modal */}
       {showPreview && (
@@ -2776,7 +2810,7 @@ if (
                     <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
-                  )}
+                  ))}
 
                   <div className="flex justify-between pt-2">
                     <Button
@@ -2843,7 +2877,7 @@ if (
             </div>
           </div>
         </div>
-      )}
+      ))}
 
       {/* 編輯儲存前預覽 Modal */}
       {showEditPreview && editingReportId && (
@@ -2871,7 +2905,7 @@ if (
   <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
 ) : (
   <p className="text-red-500">尚未拍攝</p>
-)}
+))}
 
 
 
@@ -3019,7 +3053,7 @@ if (
             </div>
           </div>
         </div>
-      )}
+      ))}
 
       {/* 刪除確認 Modal */}
       {confirmTarget && (
@@ -3053,7 +3087,7 @@ if (
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
