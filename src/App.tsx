@@ -2521,6 +2521,11 @@ if (
                 placeholder="產品型號"
                 onChange={(e) => setNewProcModel(e.target.value)}
               />
+              {editingIndex !== null && (
+                <div className="text-xs text-gray-500">
+                  ※ 目前為「編輯製程」模式，修改後請按「更新製程」
+                </div>
+              )}
             </div>
 
             {/* 檢驗照片項目新增區（支援插入位置） */}
