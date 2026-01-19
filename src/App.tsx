@@ -2068,11 +2068,9 @@ if (
                             <div className="mt-2 space-y-1 text-sm text-gray-700">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="truncate">製程名稱：{r.process}</div>
-                                <div className={`text-xs font-medium ${isDone ? "text-green-700" : "text-gray-600"}`}>
-                                  {isDone ? <span className="text-green-600">狀態：已完成</span> : <span className="text-gray-600">狀態：未完成</span>}
-                                </div>
+                                {isDone ? <span className="text-sm text-green-600">狀態：已完成</span> : <span className="text-sm text-gray-600">狀態：未完成</span>}
                               </div>
-                              <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                              <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
                                 <div className="truncate">型號：{r.model}</div>
                                 <div className="truncate">序號：{r.serial}</div>
                               </div>
