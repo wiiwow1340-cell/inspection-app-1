@@ -1787,7 +1787,7 @@ if (
                   <option key={m} value={m}>
                     {m}
                   </option>
-                )}
+                ))}
               </select>
               {!selectedModel && (
                 <p className="text-red-500 text-sm">此欄位為必填</p>
