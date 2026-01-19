@@ -1066,6 +1066,7 @@ if (
 
       const path = await uploadImage(
         selectedProcObj.code,
+        selectedProcess,
         selectedModel,
         sn,
         { item, procItems: expectedItems },
