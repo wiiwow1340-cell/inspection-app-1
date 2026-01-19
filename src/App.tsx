@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+function sanitizePathSegment(name: string) {
+  return (name || "")
+    .trim()
+    .replace(/[\\\/\:*?\"<>|]/g, "_");
+}
+
+
 // =============================
 //  簡易 UI 元件：Button / Input / Card
 // =============================
@@ -469,6 +476,7 @@ async function compressImage(file: File): Promise<Blob> {
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
 async function uploadImage(
   processCode: string,
+  processName: string,
   model: string,
   serial: string,
   info: { item: string; procItems: string[] },
