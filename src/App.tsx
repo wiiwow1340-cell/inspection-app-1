@@ -1695,14 +1695,7 @@ if (
           >
 
 
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>➕</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                新增檢驗資料
-              </span>
-            </div>
+            <span className="text-xs sm:text-sm text-center sm:text-left">新增檢驗資料</span>
 
 
           </Button>
@@ -1710,14 +1703,7 @@ if (
           <Button onClick={() => setPage("reports")} className="h-14 px-3">
 
 
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>📑</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                查看報告
-              </span>
-            </div>
+            <span className="text-xs sm:text-sm text-center sm:text-left">查看報告</span>
 
 
           </Button>
@@ -1730,14 +1716,7 @@ if (
           >
 
 
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>⚙️</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                管理製程
-              </span>
-            </div>
+            <span className="text-xs sm:text-sm text-center sm:text-left">管理製程</span>
 
 
           </Button>
@@ -1846,10 +1825,13 @@ if (
             {selectedProcObj && selectedProcObj.items.length > 0 && (
               <div className="space-y-2 mt-2">
                 {selectedProcObj.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="flex-1">{item}</span>
-
-                    <Button
+                  
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    
+  </span>
+  <Button
                       type="button"
                       onClick={() => {
                         const input = document.getElementById(
@@ -1940,7 +1922,8 @@ if (
                         <StatusIcon kind="ng" title="未拍" />
                       </button>
                     )}
-                  </div>
+</div>
+
                 ))}
               </div>
             )}
@@ -2044,54 +2027,13 @@ if (
                       const isOpen = expandedReportId === r.id;
 
                       return (
-                        <div key={r.id} className="border rounded-lg overflow-hidden">
-                          {/* Header（點擊展開/收合） */}
-                          <button
-                            type="button"
-                            className="w-full text-left p-3 bg-white"
-                            onClick={() => toggleExpandReport(r.id)}
-                            title="點擊展開/收合"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="font-semibold break-all">{r.id}</div>
-                              <Button
-                                size="sm"
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleEditReport(r.id);
-                                }}
-                                title={editingReportId === r.id ? "目前編輯中" : "編輯"}
-                              >
-                                {editingReportId === r.id ? "編輯中" : "編輯"}
-                              </Button>
-                            </div>
-
-                            <div className="mt-2 space-y-1 text-sm text-gray-700">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="truncate">{r.process}</div>
-                                <div className={`text-xs font-medium ${isDone ? "text-green-700" : "text-gray-600"}`}>
-                                  {isDone ? "已完成" : "未完成"}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
-                                <div className="truncate">型號：{r.model}</div>
-                                <div className="truncate">序號：{r.serial}</div>
-                              </div>
-                              <div className="text-xs text-gray-500">{isOpen ? "▼ 已展開" : "▶ 點此展開"}</div>
-                            </div>
-                          </button>
-
-                          {/* 展開內容（沿用既有 render） */}
-                          {isOpen && (
-                            <div className="bg-gray-50 p-3">
-                              {editingReportId === r.id ? (
-                                <div className="space-y-2">
-                                  {(r.expected_items || []).map((item, idx) => (
-                                    <div key={item} className="flex items-center gap-2">
-                                      <span className="flex-1">{item}</span>
-
-                                      <Button
+                        
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    
+  </span>
+  <Button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -2184,7 +2126,8 @@ if (
                                           <StatusIcon kind="ng" title="未拍" />
                                         </button>
                                       )}
-                                    </div>
+</div>
+
                                   ))}
 
                                   <div className="flex gap-2 mt-3">
@@ -2221,9 +2164,11 @@ if (
                                     const isNA = v === NA_SENTINEL;
                                     const hasImg = !!v && v !== NA_SENTINEL;
                                     return (
-                                      <div key={item} className="flex items-center gap-2">
-                                        <span className="flex-1">{item}</span>
-                                        {isNA ? (
+                                      
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    {isNA ? (
                                           <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
                                             <StatusIcon kind="na" title="N/A" />
                                           </span>
@@ -2295,7 +2240,8 @@ if (
                                 {isDone ? "已完成" : "未完成"}
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
-                                <Button
+  </span>
+  <Button
                                   size="sm"
                                   type="button"
                                   onClick={(e) => {
@@ -2412,7 +2358,8 @@ if (
                                             <StatusIcon kind="ng" title="未拍" />
                                           </button>
                                         )}
-                                      </div>
+</div>
+
                                     ))}
 
                                     <div className="flex gap-2 mt-3">
@@ -2450,9 +2397,11 @@ if (
                                         const isNA = v === NA_SENTINEL;
                                         const hasImg = !!v && v !== NA_SENTINEL;
                                         return (
-                                          <div key={item} className="flex items-center gap-2">
-                                            <span className="flex-1">{item}</span>
-                                            {isNA ? (
+                                          
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    {isNA ? (
                                               <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
                                                 <StatusIcon kind="na" title="N/A" />
                                               </span>
@@ -2531,7 +2480,8 @@ if (
                   placeholder="新增檢驗照片項目"
                   onChange={(e) => setNewItem(e.target.value)}
                 />
-                <Button type="button" onClick={addItem}>
+  </span>
+  <Button type="button" onClick={addItem}>
                   加入
                 </Button>
               </div>
@@ -2579,7 +2529,8 @@ if (
                     >
                       取消
                     </Button>
-                  </div>
+</div>
+
                 ) : (
                   <span className="flex-1">{i}</span>
                 )}
