@@ -1084,8 +1084,7 @@ if (
       return false;
     }
 
-    // 寫入成功後再更新前端 + 清空新增狀態
-    setReports((prev) => [...prev, report]);
+    // 寫入成功後只清空新增狀態（作法 A：reports 唯一來源 = DB）
     await resetNewReportState(true);
     return true;
   };
@@ -1691,35 +1690,13 @@ if (
               }
               setPage("home");
             }}
-          className="h-14 px-3"
+            className="h-14 px-3"
           >
-
-
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>➕</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                新增檢驗資料
-              </span>
-            </div>
-
-
+            新增檢驗資料
           </Button>
 
           <Button onClick={() => setPage("reports")} className="h-14 px-3">
-
-
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>📑</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                查看報告
-              </span>
-            </div>
-
-
+            查看報告
           </Button>
 
           <Button
@@ -1728,18 +1705,7 @@ if (
             title={!isAdmin ? "僅限管理員帳號使用" : ""}
             className="h-14 px-3"
           >
-
-
-            <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
-              <div className="flex items-center justify-center h-6 w-6">
-                <span className="text-lg leading-none" aria-hidden>⚙️</span>
-              </div>
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
-                管理製程
-              </span>
-            </div>
-
-
+            管理製程
           </Button>
         </div>
         <Button
