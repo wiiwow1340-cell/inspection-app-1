@@ -418,12 +418,6 @@ async function getSignedImageUrl(input?: string): Promise<string> {
 //  共用工具函式
 // =============================
 
-function sanitizePathSegment(s: string) {
-  // Supabase Storage path segment: avoid slashes and trim spaces
-  return (s || "").trim().replace(/[\\/]+/g, "_");
-}
-
-
 
 function getYearFromSerial(serial: string) {
   const yy = serial.trim().slice(0, 2);
@@ -473,8 +467,7 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
-async function uploadImage(
-  processName: string,
+async function uploadImage(processName: string,
   model: string,
   serial: string,
   info: { item: string; procItems: string[] },
@@ -488,10 +481,9 @@ async function uploadImage(
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
   const year = getYearFromSerial(serial);
-  const safeProc = sanitizePathSegment(processName);
-  const filePath = `${model}/${year}/${serial}/${safeProc}/${fileName}`;
-
-  try {
+  const year = getYearFromSerial(serial);
+  const filePath = `${model}/${year}/${serial}/${processName}/${fileName}`;
+try {
     const { error } = await supabase.storage
       .from("photos")
       .upload(filePath, compressed, { upsert: true });
@@ -1052,7 +1044,7 @@ if (
 
     const year = getYearFromSerial(sn);
     if (!year) {
-      alert("序號前 2 碼必須是數字（用於建立西元年份資料夾，例如 24xxxx -> 2024）");
+      alert("序號前 2 碼必須是數字（用於建立西元年份資料夾，例如 24xxxx → 2024）");
       return false;
     }
 
