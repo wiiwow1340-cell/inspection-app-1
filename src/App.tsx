@@ -59,6 +59,54 @@ const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
   />
 );
 
+// =============================
+//  小圖示（SVG）- 用於狀態顯示（避免字元 ✔ / ✖ 視覺大小不一致）
+// =============================
+
+type StatusIconKind = "ok" | "ng" | "na";
+
+const StatusIcon: React.FC<{ kind: StatusIconKind; className?: string; title?: string }> = ({
+  kind,
+  className = "",
+  title,
+}) => {
+  const common = {
+    width: 22,
+    height: 22,
+    viewBox: "0 0 24 24",
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 3,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (kind === "ok") {
+    return (
+      <svg {...common} className={className} aria-label={title} role="img">
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  }
+
+  if (kind === "ng") {
+    return (
+      <svg {...common} className={className} aria-label={title} role="img">
+        <path d="M18 6L6 18" />
+        <path d="M6 6l12 12" />
+      </svg>
+    );
+  }
+
+  // na
+  return (
+    <svg {...common} className={className} aria-label={title} role="img">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M7 17L17 7" />
+    </svg>
+  );
+};
+
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
@@ -1643,11 +1691,35 @@ if (
               }
               setPage("home");
             }}
+          className="h-14 px-3"
           >
-            ➕ 新增檢驗資料
+
+
+            <span className="text-xs sm:text-sm text-center sm:text-left">新增檢驗資料</span>
+
+
           </Button>
-          <Button onClick={() => setPage("reports")}>📑 查看報告</Button>
-          <Button onClick={() => setPage("manage")} disabled={!isAdmin} title={!isAdmin ? "僅限管理員帳號使用" : ""}>⚙️ 管理製程</Button>
+
+          <Button onClick={() => setPage("reports")} className="h-14 px-3">
+
+
+            <span className="text-xs sm:text-sm text-center sm:text-left">查看報告</span>
+
+
+          </Button>
+
+          <Button
+            onClick={() => setPage("manage")}
+            disabled={!isAdmin}
+            title={!isAdmin ? "僅限管理員帳號使用" : ""}
+            className="h-14 px-3"
+          >
+
+
+            <span className="text-xs sm:text-sm text-center sm:text-left">管理製程</span>
+
+
+          </Button>
         </div>
         <Button
           variant="secondary"
@@ -1753,10 +1825,13 @@ if (
             {selectedProcObj && selectedProcObj.items.length > 0 && (
               <div className="space-y-2 mt-2">
                 {selectedProcObj.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="flex-1">{item}</span>
-
-                    <Button
+                  
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    
+  </span>
+  <Button
                       type="button"
                       onClick={() => {
                         const input = document.getElementById(
@@ -1766,7 +1841,7 @@ if (
                       }}
                       className="px-2 py-1"
                     >
-                      📷 拍照
+                      拍照
                     </Button>
 
                     <Button
@@ -1779,7 +1854,7 @@ if (
                       }}
                       className="px-2 py-1"
                     >
-                      📁 上傳
+                      上傳
                     </Button>
 
                     <input
@@ -1812,7 +1887,7 @@ if (
                     {homeNA[item] ? (
                       <button
                         type="button"
-                        className="text-gray-600 font-bold text-xl"
+                        className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
                         title="N/A（不適用）- 點一下恢復"
                         onClick={() =>
                           setHomeNA((prev) => {
@@ -1822,32 +1897,33 @@ if (
                           })
                         }
                       >
-                        🚫
+                        <StatusIcon kind="na" title="N/A" />
                       </button>
                     ) : images[item] ? (
                       <button
                         type="button"
-                        className="text-green-600 font-bold text-xl"
+                        className="w-8 h-8 inline-flex items-center justify-center text-green-600"
                         title="已拍 - 點一下設為 N/A"
                         onClick={() =>
                           setHomeNA((prev) => ({ ...prev, [item]: true }))
                         }
                       >
-                        ✔
+                        <StatusIcon kind="ok" title="已拍" />
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className="text-gray-400 font-bold text-xl"
+                        className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
                         title="未拍 - 點一下設為 N/A"
                         onClick={() =>
                           setHomeNA((prev) => ({ ...prev, [item]: true }))
                         }
                       >
-                        ✘
+                        <StatusIcon kind="ng" title="未拍" />
                       </button>
                     )}
-                  </div>
+</div>
+
                 ))}
               </div>
             )}
@@ -1940,8 +2016,189 @@ if (
               {filteredReports.length === 0 && <p>尚無報告</p>}
 
               {filteredReports.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <>
+                  {/* Mobile：改為卡片式列表，避免左右滑動 */}
+                  <div className="sm:hidden space-y-3">
+                    {filteredReports.map((r) => {
+                      const expected = r.expected_items || [];
+                      const isDone =
+                        expected.length > 0 &&
+                        expected.every((item) => r.images?.[item] === NA_SENTINEL || !!r.images?.[item]);
+                      const isOpen = expandedReportId === r.id;
+
+                      return (
+                        
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    
+  </span>
+  <Button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const input = document.getElementById(
+                                            `edit-capture-${r.id}-${idx}`
+                                          ) as HTMLInputElement;
+                                          input?.click();
+                                        }}
+                                        className="px-2 py-1"
+                                      >
+                                        拍照
+                                      </Button>
+
+                                      <Button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const input = document.getElementById(
+                                            `edit-upload-${r.id}-${idx}`
+                                          ) as HTMLInputElement;
+                                          input?.click();
+                                        }}
+                                        className="px-2 py-1"
+                                      >
+                                        上傳
+                                      </Button>
+
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                        id={`edit-capture-${r.id}-${idx}`}
+                                        onChange={(e) =>
+                                          handleEditCapture(
+                                            item,
+                                            e.target.files?.[0] || undefined
+                                          )
+                                        }
+                                      />
+
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        id={`edit-upload-${r.id}-${idx}`}
+                                        onChange={(e) =>
+                                          handleEditCapture(
+                                            item,
+                                            e.target.files?.[0] || undefined
+                                          )
+                                        }
+                                      />
+
+                                      {editNA[item] ? (
+                                        <button
+                                          type="button"
+                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                                          title="N/A（不適用）- 點一下恢復"
+                                          onClick={() =>
+                                            setEditNA((prev) => {
+                                              const next = { ...prev };
+                                              delete next[item];
+                                              return next;
+                                            })
+                                          }
+                                        >
+                                          <StatusIcon kind="na" title="N/A" />
+                                        </button>
+                                      ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
+                                        <button
+                                          type="button"
+                                          className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                          title="已拍 - 點一下設為 N/A"
+                                          onClick={() =>
+                                            setEditNA((prev) => ({ ...prev, [item]: true }))
+                                          }
+                                        >
+                                          <StatusIcon kind="ok" title="已拍" />
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                                          title="未拍 - 點一下設為 N/A"
+                                          onClick={() =>
+                                            setEditNA((prev) => ({ ...prev, [item]: true }))
+                                          }
+                                        >
+                                          <StatusIcon kind="ng" title="未拍" />
+                                        </button>
+                                      )}
+</div>
+
+                                  ))}
+
+                                  <div className="flex gap-2 mt-3">
+                                    <Button
+                                      className="flex-1"
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSignedImg("");
+                                        setEditPreviewIndex(0);
+                                        setShowEditPreview(true);
+                                      }}
+                                    >
+                                      確認
+                                    </Button>
+
+                                    <Button
+                                      className="flex-1"
+                                      type="button"
+                                      variant="secondary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleEditReport(r.id);
+                                      }}
+                                    >
+                                      取消
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {(r.expected_items || []).map((item) => {
+                                    const v = r.images?.[item];
+                                    const isNA = v === NA_SENTINEL;
+                                    const hasImg = !!v && v !== NA_SENTINEL;
+                                    return (
+                                      
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    {isNA ? (
+                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                            <StatusIcon kind="na" title="N/A" />
+                                          </span>
+                                        ) : hasImg ? (
+                                          <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                            <StatusIcon kind="ok" title="已拍" />
+                                          </span>
+                                        ) : (
+                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                            <StatusIcon kind="ng" title="未拍" />
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="text-xs text-gray-500 pt-2">
+                                    ※ 此處為檢視模式；如需修改，請按上方「編輯」。
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop：保留表格 */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-2 px-2 whitespace-nowrap">表單編號</th>
@@ -1983,7 +2240,8 @@ if (
                                 {isDone ? "已完成" : "未完成"}
                               </td>
                               <td className="py-2 px-2 whitespace-nowrap">
-                                <Button
+  </span>
+  <Button
                                   size="sm"
                                   type="button"
                                   onClick={(e) => {
@@ -2018,7 +2276,7 @@ if (
                                           }}
                                           className="px-2 py-1"
                                         >
-                                          📷 拍照
+                                          拍照
                                         </Button>
 
                                         <Button
@@ -2032,7 +2290,7 @@ if (
                                           }}
                                           className="px-2 py-1"
                                         >
-                                          📁 上傳
+                                          上傳
                                         </Button>
 
                                         <input
@@ -2065,7 +2323,7 @@ if (
                                         {editNA[item] ? (
                                           <button
                                             type="button"
-                                            className="text-gray-600 font-bold text-xl"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
                                             title="N/A（不適用）- 點一下恢復"
                                             onClick={() =>
                                               setEditNA((prev) => {
@@ -2075,32 +2333,33 @@ if (
                                               })
                                             }
                                           >
-                                            🚫
+                                            <StatusIcon kind="na" title="N/A" />
                                           </button>
                                         ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
                                           <button
                                             type="button"
-                                            className="text-green-600 font-bold text-xl"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-green-600"
                                             title="已拍 - 點一下設為 N/A"
                                             onClick={() =>
                                               setEditNA((prev) => ({ ...prev, [item]: true }))
                                             }
                                           >
-                                            ✔
+                                            <StatusIcon kind="ok" title="已拍" />
                                           </button>
                                         ) : (
                                           <button
                                             type="button"
-                                            className="text-gray-400 font-bold text-xl"
+                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
                                             title="未拍 - 點一下設為 N/A"
                                             onClick={() =>
                                               setEditNA((prev) => ({ ...prev, [item]: true }))
                                             }
                                           >
-                                            ✘
+                                            <StatusIcon kind="ng" title="未拍" />
                                           </button>
                                         )}
-                                      </div>
+</div>
+
                                     ))}
 
                                     <div className="flex gap-2 mt-3">
@@ -2138,14 +2397,22 @@ if (
                                         const isNA = v === NA_SENTINEL;
                                         const hasImg = !!v && v !== NA_SENTINEL;
                                         return (
-                                          <div key={item} className="flex items-center gap-2">
-                                            <span className="flex-1">{item}</span>
-                                            {isNA ? (
-                                              <span className="text-gray-600 font-bold text-xl">🚫</span>
+                                          
+<div className="flex items-center gap-2">
+  <span className="flex items-center gap-2 flex-1">
+    <span>{item}</span>
+    {isNA ? (
+                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                                <StatusIcon kind="na" title="N/A" />
+                                              </span>
                                             ) : hasImg ? (
-                                              <span className="text-green-600 font-bold text-xl">✔</span>
+                                              <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                                <StatusIcon kind="ok" title="已拍" />
+                                              </span>
                                             ) : (
-                                              <span className="text-gray-400 font-bold text-xl">✘</span>
+                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                                <StatusIcon kind="ng" title="未拍" />
+                                              </span>
                                             )}
                                           </div>
                                         );
@@ -2162,8 +2429,9 @@ if (
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                    </table>
+                  </div>
+                </>
               )}
             </>
           )}
@@ -2212,7 +2480,8 @@ if (
                   placeholder="新增檢驗照片項目"
                   onChange={(e) => setNewItem(e.target.value)}
                 />
-                <Button type="button" onClick={addItem}>
+  </span>
+  <Button type="button" onClick={addItem}>
                   加入
                 </Button>
               </div>
@@ -2260,7 +2529,8 @@ if (
                     >
                       取消
                     </Button>
-                  </div>
+</div>
+
                 ) : (
                   <span className="flex-1">{i}</span>
                 )}
