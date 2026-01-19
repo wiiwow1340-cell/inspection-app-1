@@ -418,6 +418,13 @@ async function getSignedImageUrl(input?: string): Promise<string> {
 //  共用工具函式
 // =============================
 
+
+function getYearFromSerial(serial: string) {
+  const yy = serial.trim().slice(0, 2);
+  if (!/^\d{2}$/.test(yy)) return "";
+  return `20${yy}`;
+}
+
 // 把中文項目名轉成安全檔名 item1 / item2 / ...
 function getSafeItemName(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
@@ -474,7 +481,8 @@ async function uploadImage(
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
-  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+  const year = getYearFromSerial(serial);
+  const filePath = `${model}/${year}/${serial}/${processCode}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
