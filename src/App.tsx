@@ -1832,7 +1832,7 @@ if (
               <div className="space-y-2 mt-2">
                 {selectedProcObj.items.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="flex items-center gap-2 flex-1 min-w-0 line-clamp-2 flex items-center">
                       <span className="truncate">{item}</span>
 
                       {homeNA[item] ? (
@@ -1934,12 +1934,12 @@ if (
             )}
 
             <div className="flex gap-2 mt-4">
-              <Button type="submit" className="flex-1 line-clamp-2 leading-snug flex items-center">
+              <Button type="submit" className="flex-1">
                 確認
               </Button>
               <Button
                 type="button"
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 variant="secondary"
                 onClick={async () => {
                   const ok = window.confirm("確定要取消新增嗎？\n（已輸入的資料與照片將會清除）");
@@ -2077,7 +2077,7 @@ if (
                                 <div className="space-y-2">
                                   {(r.expected_items || []).map((item, idx) => (
                                     <div key={item} className="flex items-center gap-2">
-                                      <span className="flex items-center gap-2 flex-1 min-w-0">
+                                      <span className="flex items-center gap-2 flex-1 min-w-0 line-clamp-2 flex items-center">
                                         <span className="truncate">{item}</span>
 
                                         {editNA[item] ? (
@@ -2179,7 +2179,7 @@ if (
 
                                   <div className="flex gap-2 mt-3">
                                     <Button
-                                      className="flex-1 line-clamp-2 leading-snug flex items-center"
+                                      className="flex-1"
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -2192,7 +2192,7 @@ if (
                                     </Button>
 
                                     <Button
-                                      className="flex-1 line-clamp-2 leading-snug flex items-center"
+                                      className="flex-1"
                                       type="button"
                                       variant="secondary"
                                       onClick={(e) => {
@@ -2212,18 +2212,18 @@ if (
                                     const hasImg = !!v && v !== NA_SENTINEL;
                                     return (
                                       <div key={item} className="flex items-center gap-2">
-                                        <span className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="flex items-center gap-2 flex-1 min-w-0 line-clamp-2 flex items-center">
                                           <span className="truncate">{item}</span>
                                           {isNA ? (
-                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600 line-clamp-2 flex items-center">
                                               <StatusIcon kind="na" title="N/A" />
                                             </span>
                                           ) : hasImg ? (
-                                            <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-green-600 line-clamp-2 flex items-center">
                                               <StatusIcon kind="ok" title="已拍" />
                                             </span>
                                           ) : (
-                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                            <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400 line-clamp-2 flex items-center">
                                               <StatusIcon kind="ng" title="未拍" />
                                             </span>
                                           )}
@@ -2309,7 +2309,7 @@ if (
 {/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
                                       <div key={item} className="flex items-center gap-2">
-                                        <span className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="flex items-center gap-2 flex-1 min-w-0 line-clamp-2 flex items-center">
                                           <span className="truncate">{item}</span>
 
                                           {editNA[item] ? (
@@ -2412,7 +2412,7 @@ if (
 
                                     <div className="flex gap-2 mt-3">
                                       <Button
-                                        className="flex-1 line-clamp-2 leading-snug flex items-center"
+                                        className="flex-1"
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -2425,7 +2425,7 @@ if (
                                       </Button>
 
                                       <Button
-                                        className="flex-1 line-clamp-2 leading-snug flex items-center"
+                                        className="flex-1"
                                         type="button"
                                         variant="secondary"
                                         onClick={(e) => {
@@ -2446,18 +2446,18 @@ if (
                                         const hasImg = !!v && v !== NA_SENTINEL;
                                         return (
                                           <div key={item} className="flex items-center gap-2">
-                                            <span className="flex items-center gap-2 flex-1 min-w-0">
+                                            <span className="flex items-center gap-2 flex-1 min-w-0 line-clamp-2 flex items-center">
                                               <span className="truncate">{item}</span>
                                               {isNA ? (
-                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600 line-clamp-2 flex items-center">
                                                   <StatusIcon kind="na" title="N/A" />
                                                 </span>
                                               ) : hasImg ? (
-                                                <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-green-600 line-clamp-2 flex items-center">
                                                   <StatusIcon kind="ok" title="已拍" />
                                                 </span>
                                               ) : (
-                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
+                                                <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400 line-clamp-2 flex items-center">
                                                   <StatusIcon kind="ng" title="未拍" />
                                                 </span>
                                               )}
@@ -2578,7 +2578,7 @@ if (
                     </Button>
                   </div>
                 ) : (
-                  <span className="flex-1 line-clamp-2 leading-snug flex items-center">{i}</span>
+                  <span className="flex-1">{i}</span>
                 )}
 
                 <div className="flex gap-2">
@@ -2629,13 +2629,13 @@ if (
 
             {/* 儲存 / 更新製程 */}
             <div className="flex gap-2">
-              <Button onClick={saveProcess} className="flex-1 line-clamp-2 leading-snug flex items-center" type="button">
+              <Button onClick={saveProcess} className="flex-1" type="button">
                 {editingIndex !== null ? "更新製程" : "儲存製程"}
               </Button>
 
               {editingIndex === null ? (
                 <Button
-                  className="flex-1 line-clamp-2 leading-snug flex items-center"
+                  className="flex-1"
                   type="button"
                   variant="secondary"
                   onClick={cancelManageCreate}
@@ -2644,7 +2644,7 @@ if (
                 </Button>
               ) : (
                 <Button
-                  className="flex-1 line-clamp-2 leading-snug flex items-center"
+                  className="flex-1"
                   type="button"
                   variant="secondary"
                   onClick={async () => {
@@ -2758,7 +2758,7 @@ if (
 
             <div className="flex gap-2 mt-4">
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 onClick={async () => {
                   try {
                     await idbDel(getDraftId());
@@ -2772,7 +2772,7 @@ if (
                 丟棄
               </Button>
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 onClick={async () => {
                   const d = pendingDraft;
                   setShowDraftPrompt(false);
@@ -2859,7 +2859,7 @@ if (
 
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 variant="secondary"
                 onClick={() => setShowPreview(false)}
                 disabled={isSavingNew}
@@ -2867,7 +2867,7 @@ if (
                 返回修改
               </Button>
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 disabled={isSavingNew}
                 onClick={async () => {
                   // 防止連點：React 尚未 re-render 前，用 ref 先擋
@@ -2952,7 +2952,7 @@ if (
             </div>
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 variant="secondary"
                 onClick={() => setShowEditPreview(false)}
                 disabled={isSavingEdit}
@@ -2960,7 +2960,7 @@ if (
                 返回修改
               </Button>
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 disabled={isSavingEdit}
                 onClick={async () => {
                   // 防止連點：React 尚未 re-render 前，用 ref 先擋
@@ -3075,14 +3075,14 @@ if (
             <p className="text-sm text-gray-600">此動作無法復原。</p>
             <div className="flex gap-2">
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 variant="secondary"
                 onClick={() => setConfirmTarget(null)}
               >
                 取消
               </Button>
               <Button
-                className="flex-1 line-clamp-2 leading-snug flex items-center"
+                className="flex-1"
                 variant="destructive"
                 onClick={async () => {
                   if (confirmTarget?.type === "item") {
