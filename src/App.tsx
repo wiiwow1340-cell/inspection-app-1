@@ -732,6 +732,15 @@ export default function App() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [signedImg, setSignedImg] = useState<string>("");
 
+
+  // ===== 上傳進度（文字版）=====
+  const [uploadProgress, setUploadProgress] = useState<{ total: number; done: number; active: boolean }>({
+    total: 0,
+    done: 0,
+    active: false,
+  });
+
+
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -1056,15 +1065,22 @@ if (
     const expectedItems = selectedProcObj.items || [];
     const uploadedImages: Record<string, string> = {};
 
+    // 初始化上傳進度
+    setUploadProgress({ total: expectedItems.length, done: 0, active: true });
+
     // 逐項上傳（N/A 寫入 sentinel；其他有檔案才上傳）
     const uploadTasks = expectedItems.map((item) => async () => {
       if (homeNA[item]) {
         uploadedImages[item] = NA_SENTINEL;
+        setUploadProgress((p) => ({ ...p, done: p.done + 1 }));
         return;
       }
 
       const file = newImageFiles[item];
-      if (!file) return;
+      if (!file) {
+        setUploadProgress((p) => ({ ...p, done: p.done + 1 }));
+        return;
+      }
 
       const path = await uploadImage(
         selectedProcObj.code,
@@ -1074,10 +1090,12 @@ if (
         file
       );
       if (path) uploadedImages[item] = path;
+      setUploadProgress((p) => ({ ...p, done: p.done + 1 }));
     });
 
     // 同時最多 6 張，其餘排隊
     await runInBatches(uploadTasks, 6);
+    setUploadProgress((p) => ({ ...p, active: false }));
 
     // 產生表單 ID：製程代號-YYYYMMDDNNN（同日遞增）
     const d = new Date();
@@ -1963,7 +1981,14 @@ if (
               </div>
             )}
 
-            <div className="flex gap-2 mt-4">
+            
+            {uploadProgress.active && (
+              <div className="text-sm text-gray-600 mb-2">
+                📤 上傳照片中…（{uploadProgress.done} / {uploadProgress.total}）
+              </div>
+            )}
+
+<div className="flex gap-2 mt-4">
               <Button type="submit" className="flex-1">
                 確認
               </Button>
@@ -2783,7 +2808,14 @@ if (
               最後更新：{new Date(pendingDraft.updatedAt).toLocaleString()}
             </p>
 
-            <div className="flex gap-2 mt-4">
+            
+            {uploadProgress.active && (
+              <div className="text-sm text-gray-600 mb-2">
+                📤 上傳照片中…（{uploadProgress.done} / {uploadProgress.total}）
+              </div>
+            )}
+
+<div className="flex gap-2 mt-4">
               <Button
                 className="flex-1"
                 onClick={async () => {
