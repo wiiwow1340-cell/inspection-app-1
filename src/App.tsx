@@ -1060,12 +1060,7 @@ if (
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
-      const totalTasks =
-    expectedItems.filter((item) => {
-      if (homeNA[item]) return true;
-      return !!newImageFiles[item];
-    }).length || 1;
-
+    const totalTasks = expectedItems.length;
 
     const uploadTasks = expectedItems.map((item) => async () => {
       try {
@@ -3013,12 +3008,6 @@ if (
               );
             })()}
             </div>
-            {isSavingEdit && (
-              <div className="text-sm text-gray-600 text-center py-2">
-                📤 上傳中… {uploadProgress}%
-              </div>
-            )}
-
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
                 className="flex-1"
@@ -3050,57 +3039,35 @@ if (
                     ...report.images,
                   };
 
-                  // ===== 編輯儲存：上傳進度初始化 =====
-                  setUploadProgress(0);
-                  let completedCount = 0;
-                  const totalTasks =
-                  expectedItems.filter((item) => {
-                    if (editNA[item]) return true;
-                    return (
-                      !!editImageFiles[item] ||
-                      report.images?.[item] === NA_SENTINEL
-                    );
-                  }).length || 1;
+                  const uploads = expectedItems.map(async (item) => {
+                    if (editNA[item]) {
+                      uploadedImages[item] = NA_SENTINEL;
+                      return;
+                    }
 
-                  
-                  // ===== 編輯儲存：逐項上傳（含進度）=====
-                  const uploadTasks = expectedItems.map((item) => async () => {
-                    try {
-                      if (editNA[item]) {
-                        uploadedImages[item] = NA_SENTINEL;
-                        return;
+                    const file = editImageFiles[item];
+                    if (!file) {
+                      // 沒有新檔案：保留原本（若原本是 N/A 且已取消 N/A，則視為未拍）
+                      if (report.images?.[item] === NA_SENTINEL) {
+                        delete uploadedImages[item];
                       }
-                  
-                      const file = editImageFiles[item];
-                      if (!file) {
-                        if (report.images?.[item] === NA_SENTINEL) {
-                          delete uploadedImages[item];
-                        }
-                        return;
-                      }
-                  
-                      const url = await uploadImage(
-                        processes.find((p) => p.name === report.process)?.code ||
-                          report.process,
-                        report.model,
-                        report.serial,
-                        { item, procItems: expectedItems },
-                        file
-                      );
-                  
-                      if (url) {
-                        uploadedImages[item] = url;
-                      }
-                    } finally {
-                      completedCount++;
-                      setUploadProgress(
-                        Math.round((completedCount / totalTasks) * 100)
-                      );
+                      return;
+                    }
+
+                    const url = await uploadImage(
+                      processes.find((p) => p.name === report.process)?.code ||
+                        report.process,
+                      report.model,
+                      report.serial,
+                      { item, procItems: expectedItems },
+                      file
+                    );
+                    if (url) {
+                      uploadedImages[item] = url;
                     }
                   });
-                  
-                  // ===== 同時最多 6 張，其餘排隊 =====
-                  await runInBatches(uploadTasks, 6);
+
+                  await Promise.all(uploads);
 
                   // N/A：寫入 sentinel；若從 N/A 切回一般且未重新拍照，則保留原圖（若原本是 N/A 則變回未拍）
                   expectedItems.forEach((it) => {
