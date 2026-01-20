@@ -1,269 +1,272 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 
-// Strategy Y：Page 僅負責 render，所有狀態與邏輯由 App.tsx 傳入
-
-// =============================
-//  簡易 UI 元件：Button / Input / Card
-//  （為了維持 4 檔結構，不依賴 shadcn / @/ 路徑）
-// =============================
-
-type ButtonVariant = "default" | "secondary" | "destructive";
-type ButtonSize = "default" | "sm";
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant | string;
-  size?: ButtonSize;
+interface HomePageProps {
+  // 核心物件與狀態
+  supabase: any;
+  user: any;
+  selectedModel: string;
+  selectedProcObj: any;
+  NA_SENTINEL: string;
+  // 樣式元件與常用函式 (從 App.tsx 傳入)
+  Button: any;
+  Input: any;
+  Card: any;
 }
 
-const Button: React.FC<ButtonProps> = ({
-  variant = "default",
-  size = "default",
-  className = "",
-  ...props
-}) => {
-  const base =
-    "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors " +
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
-
-  const variantClass: Record<ButtonVariant, string> = {
-    default:
-      "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600",
-    secondary:
-      "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
-    destructive:
-      "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
-  };
-
-  const sizeClass: Record<ButtonSize, string> = {
-    default: "h-9 px-4 py-2",
-    sm: "h-8 px-3 text-xs",
-  };
-
-  const resolvedVariant: ButtonVariant =
-    variant === "secondary" || variant === "destructive"
-      ? (variant as ButtonVariant)
-      : "default";
-
-  return (
-    <button
-      className={`${base} ${variantClass[resolvedVariant]} ${sizeClass[size]} ${className}`}
-      {...props}
-    />
-  );
-};
-
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
-
-const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
-  <input
-    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
-    {...props}
-  />
-);
-
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
-  <div
-    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
-    {...props}
-  />
-);
-
-type Process = {
-  name: string;
-  code: string;
-  model: string;
-  items: string[];
-};
-
-type Props = {
-  visible: boolean;
-
-  serial: string;
-  setSerial: (v: string) => void;
-
-  selectedModel: string;
-  setSelectedModel: (v: string) => void;
-
-  selectedProcess: string;
-  setSelectedProcess: (v: string) => void;
-
-  productModels: string[];
-  filteredProcesses: Process[];
-  selectedProcObj: Process | null;
-
-  images: Record<string, string>;
-  homeNA: Record<string, boolean>;
-  setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-
-  handleCapture: (item: string, file: File | undefined) => void;
-
-  onSubmit: () => void;
-  onCancel?: () => void;
-};
-
-export default function HomePage({
-  visible,
-  serial,
-  setSerial,
+const HomePage: React.FC<HomePageProps> = ({
+  supabase,
+  user,
   selectedModel,
-  setSelectedModel,
-  selectedProcess,
-  setSelectedProcess,
-  productModels,
-  filteredProcesses,
   selectedProcObj,
-  images,
-  homeNA,
-  setHomeNA,
-  handleCapture,
-  onSubmit,
-  onCancel,
-}: Props) {
-  if (!visible) return null;
+  NA_SENTINEL,
+  Button,
+  Input,
+  Card
+}) => {
+  const [sn, setSn] = useState("");
+  const [newImageFiles, setNewImageFiles] = useState<Record<string, File>>({});
+  const [homeNA, setHomeNA] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const safeProductModels = productModels ?? [];
-  const safeFilteredProcesses = filteredProcesses ?? [];
-  const safeItems = selectedProcObj?.items ?? [];
+  // 1. IndexedDB 邏輯 (維持原邏輯)
+  const openDB = (): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("InspectionDraftDB", 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains("drafts")) {
+          req.result.createObjectStore("drafts", { keyPath: "id" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  };
+
+  const loadDraft = async (pCode: string, sNumber: string) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction("drafts", "readonly");
+      const store = tx.objectStore("drafts");
+      const id = `${user?.email}_${pCode}_${sNumber}`;
+      const req = store.get(id);
+      req.onsuccess = () => {
+        if (req.result) {
+          setNewImageFiles(req.result.files || {});
+          setHomeNA(req.result.na || {});
+        } else {
+          setNewImageFiles({});
+          setHomeNA({});
+        }
+      };
+    } catch (e) { console.error("Load draft error", e); }
+  };
+
+  const saveDraftLocal = async (pCode: string, sNumber: string, files: any, na: any) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction("drafts", "readwrite");
+      const store = tx.objectStore("drafts");
+      const id = `${user?.email}_${pCode}_${sNumber}`;
+      store.put({ id, files, na, updatedAt: Date.now() });
+    } catch (e) { console.error("Save draft error", e); }
+  };
+
+  const deleteDraftLocal = async (pCode: string, sNumber: string) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction("drafts", "readwrite");
+      tx.objectStore("drafts").delete(`${user?.email}_${pCode}_${sNumber}`);
+    } catch (e) { console.error("Delete draft error", e); }
+  };
+
+  // 2. 圖片壓縮 (維持原邏輯：1600px)
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const maxSide = 1600;
+          if (width > maxSide || height > maxSide) {
+            if (width > height) {
+              height = (maxSide / width) * height;
+              width = maxSide;
+            } else {
+              width = (maxSide / height) * width;
+              height = maxSide;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject("Blob error"), "image/jpeg", 0.8);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const uploadImage = async (pCode: string, model: string, sNumber: string, item: string, file: File) => {
+    const compressed = await compressImage(file);
+    const fileName = `${Date.now()}_${item}.jpg`;
+    const filePath = `${pCode}/${model}/${sNumber}/${fileName}`;
+    const { error: upErr } = await supabase.storage.from("inspection-images").upload(filePath, compressed);
+    if (upErr) throw upErr;
+    return filePath;
+  };
+
+  // 3. 儲存邏輯 (實作一次上傳 6 張平衡穩定性與速度)
+  const saveReport = async () => {
+    if (!selectedProcObj || !sn.trim()) {
+      alert("請先選擇製程並輸入序號");
+      return;
+    }
+    const missing = (selectedProcObj.items || []).filter(item => !newImageFiles[item] && !homeNA[item]);
+    if (missing.length > 0) {
+      alert(`尚有項目未完成：\n${missing.join(", ")}`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const expectedItems = selectedProcObj.items || [];
+      const uploadedImages: Record<string, string> = {};
+      const itemsToUpload = expectedItems.filter(item => !homeNA[item]);
+
+      expectedItems.filter(item => homeNA[item]).forEach(item => {
+        uploadedImages[item] = NA_SENTINEL;
+      });
+
+      // --- 每 6 張一組並行上傳 ---
+      const BATCH_SIZE = 6;
+      for (let i = 0; i < itemsToUpload.length; i += BATCH_SIZE) {
+        const batch = itemsToUpload.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (item) => {
+          const file = newImageFiles[item];
+          if (file) {
+            const path = await uploadImage(selectedProcObj.code, selectedModel, sn.trim(), item, file);
+            if (path) uploadedImages[item] = path;
+          }
+        }));
+      }
+
+      const { error: dbErr } = await supabase.from("reports").insert([{
+        sn: sn.trim(),
+        model: selectedModel,
+        process_code: selectedProcObj.code,
+        process_name: selectedProcObj.name,
+        images: uploadedImages,
+        inspector: user?.email,
+      }]);
+
+      if (dbErr) throw dbErr;
+
+      await deleteDraftLocal(selectedProcObj.code, sn.trim());
+      alert("儲存成功！");
+      setSn("");
+      setNewImageFiles({});
+      setHomeNA({});
+    } catch (err: any) {
+      alert("儲存失敗：" + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedProcObj && sn.trim()) loadDraft(selectedProcObj.code, sn.trim());
+  }, [selectedProcObj, sn]);
 
   return (
-    <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">新增檢驗資料</h2>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div className="space-y-1">
-          <label className="text-sm font-medium">序號</label>
-          <Input
-            placeholder="輸入序號"
-            value={serial}
-            onChange={(e) => setSerial(e.target.value)}
-            className={serial ? "" : "border-red-500"}
-          />
-          {!serial && <p className="text-red-500 text-sm">此欄位為必填</p>}
+    <div className="space-y-6">
+      <Card className="p-4">
+        <h2 className="text-xl font-bold mb-4">新增檢驗紀錄 ({selectedModel})</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">產品序號 (S/N)</label>
+            <Input 
+              placeholder="請輸入或掃描序號" 
+              value={sn} 
+              onChange={(e: any) => setSn(e.target.value.toUpperCase())}
+            />
+          </div>
         </div>
+      </Card>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium">產品型號</label>
-          <select
-            value={selectedModel}
-            onChange={(e) => {
-              setSelectedModel(e.target.value);
-              setSelectedProcess("");
-            }}
-            className={`w-full border p-2 rounded ${
-              selectedModel ? "" : "border-red-500"
-            }`}
-          >
-            <option value="">請選擇型號</option>
-            {safeProductModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          {!selectedModel && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
-          )}
-        </div>
+      {selectedProcObj && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {selectedProcObj.items.map((item: string) => (
+            <Card key={item} className={`p-4 relative border ${homeNA[item] ? "bg-gray-50 opacity-60" : "bg-white"}`}>
+              <div className="flex justify-between items-start mb-2">
+                <p className="font-medium text-gray-800">{item}</p>
+                <label className="flex items-center text-xs text-gray-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mr-1 h-4 w-4"
+                    checked={!!homeNA[item]}
+                    onChange={(e) => {
+                      const newNA = { ...homeNA, [item]: e.target.checked };
+                      setHomeNA(newNA);
+                      saveDraftLocal(selectedProcObj.code, sn, newImageFiles, newNA);
+                    }}
+                  />
+                  N/A
+                </label>
+              </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium">製程</label>
-          <select
-            value={selectedProcess}
-            onChange={(e) => setSelectedProcess(e.target.value)}
-            className={`w-full border p-2 rounded ${
-              selectedProcess ? "" : "border-red-500"
-            }`}
-          >
-            <option value="">請選擇製程</option>
-            {safeFilteredProcesses.map((p) => (
-              <option key={`${p.name}-${p.model}`} value={p.name}>
-                {p.name} ({p.code})
-              </option>
-            ))}
-          </select>
-          {!selectedProcess && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
-          )}
-        </div>
-
-        {selectedProcObj && (
-          <div className="space-y-2">
-            <h3 className="font-semibold">檢驗照片</h3>
-
-            {/* 讓每個項目呈現更接近你原本的「名稱 + 右側 N/A」視覺 */}
-            {safeItems.map((it) => {
-              const isNA = !!homeNA[it];
-              const preview = images[it];
-
-              return (
-                <div key={it} className="border rounded p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium break-all">{it}</div>
-
-                    <label className="flex items-center gap-2 text-sm text-gray-700 select-none shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={isNA}
-                        onChange={(e) =>
-                          setHomeNA((prev) => ({
-                            ...prev,
-                            [it]: e.target.checked,
-                          }))
-                        }
+              {!homeNA[item] && (
+                <div className="space-y-2">
+                  <Button
+                    variant="secondary"
+                    className="w-full h-40 border-2 border-dashed border-gray-300 relative overflow-hidden"
+                    onClick={() => fileInputRefs.current[item]?.click()}
+                  >
+                    {newImageFiles[item] ? (
+                      <img 
+                        src={URL.createObjectURL(newImageFiles[item])} 
+                        className="absolute inset-0 w-full h-full object-cover" 
+                        alt="preview"
                       />
-                      N/A
-                    </label>
-                  </div>
-
+                    ) : (
+                      "點擊/拍照上傳"
+                    )}
+                  </Button>
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    disabled={isNA}
-                    onChange={(e) => handleCapture(it, e.target.files?.[0])}
-                    className="block w-full text-sm"
+                    className="hidden"
+                    ref={(el: any) => (fileInputRefs.current[item] = el)}
+                    onChange={(e: any) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const newFiles = { ...newImageFiles, [item]: file };
+                        setNewImageFiles(newFiles);
+                        saveDraftLocal(selectedProcObj.code, sn, newFiles, homeNA);
+                      }
+                    }}
                   />
-
-                  {/* 預覽：保留，但更小、更像原本「可拍可看」 */}
-                  {preview && !isNA && (
-                    <img
-                      src={preview}
-                      alt={it}
-                      className="w-full rounded border max-h-64 object-contain"
-                    />
-                  )}
-
-                  {isNA && (
-                    <div className="text-sm text-gray-500">此項已標記為 N/A</div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <Button type="submit" className="flex-1">
-            確認儲存
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="flex-1"
-            onClick={() => (onCancel ? onCancel() : undefined)}
-          >
-            取消
-          </Button>
+              )}
+            </Card>
+          ))}
         </div>
-      </form>
-    </Card>
+      )}
+
+      {selectedProcObj && (
+        <Button className="w-full h-16 text-xl font-bold" disabled={saving} onClick={saveReport}>
+          {saving ? "正在上傳..." : "提交檢驗報告"}
+        </Button>
+      )}
+    </div>
   );
-}
+};
+
+export default HomePage;
