@@ -1737,8 +1737,6 @@ if (
         visible={page === "home"}
         user={authUsername}
         processes={processes}
-        newReport={newReport}
-        setNewReport={setNewReport}
         isSavingNew={isSavingNew}
         handleCapture={handleCapture}
         handleSave={saveReport}
