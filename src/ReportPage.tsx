@@ -1,10 +1,9 @@
 import React from "react";
 
-// Strategy Y：Page 僅負責 render，所有狀態與邏輯由 App.tsx 傳入
+// Strategy Y：僅負責查詢頁 UI 與互動，所有 state / DB 操作由 App.tsx 傳入
 
 // =============================
-//  簡易 UI 元件：Button / Input / Card
-//  （為了維持 4 檔結構，不依賴 shadcn / @/ 路徑）
+//  簡易 UI 元件：Button / Card
 // =============================
 
 type ButtonVariant = "default" | "secondary" | "destructive";
@@ -52,15 +51,6 @@ const Button: React.FC<ButtonProps> = ({
   );
 };
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
-
-const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
-  <input
-    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
-    {...props}
-  />
-);
-
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
@@ -70,191 +60,291 @@ const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
   />
 );
 
-type Process = {
-  name: string;
-  code: string;
+// =============================
+//  小圖示（SVG）- 狀態顯示
+// =============================
+type StatusIconKind = "ok" | "ng" | "na";
+
+const StatusIcon: React.FC<{
+  kind: StatusIconKind;
+  className?: string;
+  title?: string;
+}> = ({ kind, className = "", title }) => {
+  const common = {
+    width: 22,
+    height: 22,
+    viewBox: "0 0 24 24",
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 3,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (kind === "ok") {
+    return (
+      <svg {...common} className={className} aria-label={title} role="img">
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  }
+
+  if (kind === "ng") {
+    return (
+      <svg {...common} className={className} aria-label={title} role="img">
+        <path d="M18 6L6 18" />
+        <path d="M6 6l12 12" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common} className={className} aria-label={title} role="img">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M7 17L17 7" />
+    </svg>
+  );
+};
+
+type Report = {
+  id: string;
+  serial: string;
   model: string;
-  items: string[];
+  process: string;
+  images: Record<string, string>;
+  expected_items: string[];
 };
 
 type Props = {
   visible: boolean;
 
-  serial: string;
-  setSerial: (v: string) => void;
+  // 資料（App 已先套用 queryFilters 的結果）
+  reports: Report[];
 
-  selectedModel: string;
-  setSelectedModel: (v: string) => void;
+  // 篩選條件（UI 綁定）
+  selectedProcessFilter: string;
+  setSelectedProcessFilter: (v: string) => void;
 
-  selectedProcess: string;
-  setSelectedProcess: (v: string) => void;
+  selectedModelFilter: string;
+  setSelectedModelFilter: (v: string) => void;
 
-  productModels: string[];
-  filteredProcesses: Process[];
-  selectedProcObj: Process | null;
+  selectedStatusFilter: string;
+  setSelectedStatusFilter: (v: string) => void;
 
-  images: Record<string, string>;
-  homeNA: Record<string, boolean>;
-  setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  // 按下查詢後正式生效
+  onQuery: () => void;
 
-  handleCapture: (item: string, file: File | undefined) => void;
+  // 展開 / 編輯控制（由 App 管理）
+  expandedReportId: string | null;
+  toggleExpandReport: (id: string) => void;
+  toggleEditReport: (id: string) => void;
+  editingReportId: string | null;
 
-  onSubmit: () => void;
-  onCancel?: () => void;
+  // 製程 / 型號選項
+  processOptions: string[];
+  modelOptions: string[];
 };
 
-export default function NewReportPage({
+// 與 App.tsx 一致：N/A sentinel
+const NA_SENTINEL = "__NA__";
+
+function computeReportStatus(r: Report): "done" | "not" {
+  const expected = r.expected_items || [];
+  if (expected.length === 0) return "not";
+
+  const isNA = (it: string) => r.images?.[it] === NA_SENTINEL;
+  const hasPhoto = (it: string) => !!r.images?.[it] && !isNA(it);
+
+  // 只要所有「非 N/A」都有照片，就視為 done
+  const required = expected.filter((it) => !isNA(it));
+  if (required.length === 0) return "done";
+  return required.every((it) => hasPhoto(it)) ? "done" : "not";
+}
+
+function itemStatus(r: Report, it: string): StatusIconKind {
+  const v = r.images?.[it];
+  if (v === NA_SENTINEL) return "na";
+  if (v) return "ok";
+  return "ng";
+}
+
+export default function ReportPage({
   visible,
-  serial,
-  setSerial,
-  selectedModel,
-  setSelectedModel,
-  selectedProcess,
-  setSelectedProcess,
-  productModels,
-  filteredProcesses,
-  selectedProcObj,
-  images,
-  homeNA,
-  setHomeNA,
-  handleCapture,
-  onSubmit,
-  onCancel,
+  reports,
+  selectedProcessFilter,
+  setSelectedProcessFilter,
+  selectedModelFilter,
+  setSelectedModelFilter,
+  selectedStatusFilter,
+  setSelectedStatusFilter,
+  onQuery,
+  expandedReportId,
+  toggleExpandReport,
+  toggleEditReport,
+  editingReportId,
+  processOptions,
+  modelOptions,
 }: Props) {
   if (!visible) return null;
 
   return (
     <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">新增檢驗資料</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xl font-bold">查看報告</h2>
+        <Button type="button" onClick={onQuery}>
+          查詢
+        </Button>
+      </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div className="space-y-1">
-          <label className="text-sm font-medium">序號</label>
-          <Input
-            placeholder="輸入序號"
-            value={serial}
-            onChange={(e) => setSerial(e.target.value)}
-            className={serial ? "" : "border-red-500"}
-          />
-          {!serial && <p className="text-red-500 text-sm">此欄位為必填</p>}
-        </div>
+      {/* 篩選條件 */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <select
+          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          value={selectedProcessFilter}
+          onChange={(e) => setSelectedProcessFilter(e.target.value)}
+        >
+          <option value="">全部製程</option>
+          {processOptions.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium">產品型號</label>
-          <select
-            value={selectedModel}
-            onChange={(e) => {
-              setSelectedModel(e.target.value);
-              setSelectedProcess("");
-            }}
-            className={`w-full border p-2 rounded ${
-              selectedModel ? "" : "border-red-500"
-            }`}
-          >
-            <option value="">請選擇型號</option>
-            {productModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          {!selectedModel && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
-          )}
-        </div>
+        <select
+          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          value={selectedModelFilter}
+          onChange={(e) => setSelectedModelFilter(e.target.value)}
+        >
+          <option value="">全部型號</option>
+          {modelOptions.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium">製程</label>
-          <select
-            value={selectedProcess}
-            onChange={(e) => setSelectedProcess(e.target.value)}
-            className={`w-full border p-2 rounded ${
-              selectedProcess ? "" : "border-red-500"
-            }`}
-          >
-            <option value="">請選擇製程</option>
-            {filteredProcesses.map((p) => (
-              <option key={`${p.name}-${p.model}`} value={p.name}>
-                {p.name} ({p.code})
-              </option>
-            ))}
-          </select>
-          {!selectedProcess && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
-          )}
-        </div>
+        <select
+          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          value={selectedStatusFilter}
+          onChange={(e) => setSelectedStatusFilter(e.target.value)}
+        >
+          <option value="">全部狀態</option>
+          <option value="done">已完成</option>
+          <option value="not">未完成</option>
+        </select>
+      </div>
 
-        {selectedProcObj && (
-          <div className="space-y-2">
-            <h3 className="font-semibold">檢驗照片</h3>
-            {selectedProcObj.items.map((it) => {
-              const isNA = !!homeNA[it];
-              const preview = images[it];
-              return (
-                <div
-                  key={it}
-                  className="border rounded p-3 space-y-2 bg-gray-50"
+      {/* 報告列表 */}
+      {reports.length === 0 ? (
+        <p className="text-sm text-gray-600">尚無報告</p>
+      ) : (
+        <div className="space-y-3">
+          {reports.map((r) => {
+            const isOpen = expandedReportId === r.id;
+            const isEditing = editingReportId === r.id;
+            const status = computeReportStatus(r);
+
+            return (
+              <div key={r.id} className="border rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  className="w-full text-left p-3 bg-white"
+                  onClick={() => toggleExpandReport(r.id)}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium break-all">{it}</div>
-                    <label className="flex items-center gap-2 text-sm text-gray-700 select-none">
-                      <input
-                        type="checkbox"
-                        checked={isNA}
-                        onChange={(e) =>
-                          setHomeNA((prev) => ({ ...prev, [it]: e.target.checked }))
-                        }
-                      />
-                      N/A
-                    </label>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold break-all">{r.id}</div>
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleEditReport(r.id);
+                      }}
+                    >
+                      {isEditing ? "編輯中" : "編輯"}
+                    </Button>
                   </div>
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    disabled={isNA}
-                    onChange={(e) => handleCapture(it, e.target.files?.[0])}
-                    className="block w-full text-sm"
-                  />
+                  <div className="mt-2 space-y-1 text-sm text-gray-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate">檢驗製程：{r.process}</div>
+                      <div className="truncate">型號：{r.model}</div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+                      <div className="truncate">序號：{r.serial}</div>
+                      <div className="truncate">
+                        狀態：{status === "done" ? "已完成" : "未完成"}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {isOpen ? "▼ 已展開" : "▶ 點此展開"}
+                    </div>
+                  </div>
+                </button>
 
-                  {preview && !isNA && (
-                    <img
-                      src={preview}
-                      alt={it}
-                      className="w-full rounded border"
-                    />
-                  )}
+                {/* ✅ 展開內容（原本缺失，導致你覺得展開沒東西） */}
+                {isOpen && (
+                  <div className="border-t bg-gray-50 p-3 space-y-2">
+                    <div className="text-sm font-semibold text-gray-800">
+                      檢驗項目
+                    </div>
 
-                  {isNA && (
-                    <div className="text-sm text-gray-500">此項已標記為 N/A</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    {(r.expected_items || []).length === 0 ? (
+                      <div className="text-sm text-gray-600">
+                        這筆報告沒有 expected_items（無法列出項目）。
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {r.expected_items.map((it) => {
+                          const k = itemStatus(r, it);
+                          return (
+                            <div
+                              key={it}
+                              className="flex items-center justify-between gap-3 rounded border bg-white px-3 py-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm">{it}</div>
+                              </div>
 
-        <div className="flex gap-2">
-          <Button type="submit" className="flex-1">
-            確認儲存
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="flex-1"
-            onClick={() => (onCancel ? onCancel() : undefined)}
-          >
-            取消
-          </Button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <StatusIcon
+                                  kind={k}
+                                  title={
+                                    k === "ok"
+                                      ? "已拍照"
+                                      : k === "na"
+                                      ? "N/A"
+                                      : "未拍照"
+                                  }
+                                  className={
+                                    k === "ok"
+                                      ? "text-green-600"
+                                      : k === "na"
+                                      ? "text-gray-500"
+                                      : "text-red-600"
+                                  }
+                                />
+                                <div className="text-xs text-gray-600">
+                                  {k === "ok"
+                                    ? "OK"
+                                    : k === "na"
+                                    ? "N/A"
+                                    : "NG"}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      </form>
+      )}
     </Card>
   );
 }
