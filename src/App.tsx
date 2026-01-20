@@ -1,15 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-
-  // ===== 上傳進度（照片）=====
-  const [uploadProgress, setUploadProgress] = useState<{
-    total: number;
-    done: number;
-    active: boolean;
-  }>({
-    total: 0,
-    done: 0,
-    active: false,
-  });
 import { createClient } from "@supabase/supabase-js";
 
 // =============================
@@ -428,6 +417,24 @@ async function getSignedImageUrl(input?: string): Promise<string> {
 // =============================
 //  共用工具函式
 // =============================
+
+// =============================
+//  批次並行工具：限制同時執行數量（避免一次大量 upload）
+// =============================
+async function runInBatches<T>(
+  tasks: (() => Promise<T>)[],
+  batchSize: number
+): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize).map((fn) => fn());
+    const batchResults = await Promise.all(batch);
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+
 
 // 把中文項目名轉成安全檔名 item1 / item2 / ...
 function getSafeItemName(procItems: string[], item: string) {
@@ -1050,7 +1057,7 @@ if (
     const uploadedImages: Record<string, string> = {};
 
     // 逐項上傳（N/A 寫入 sentinel；其他有檔案才上傳）
-    const uploads = expectedItems.map(async (item) => {
+    const uploadTasks = expectedItems.map((item) => async () => {
       if (homeNA[item]) {
         uploadedImages[item] = NA_SENTINEL;
         return;
@@ -1069,7 +1076,8 @@ if (
       if (path) uploadedImages[item] = path;
     });
 
-    await Promise.all(uploads);
+    // 同時最多 6 張，其餘排隊
+    await runInBatches(uploadTasks, 6);
 
     // 產生表單 ID：製程代號-YYYYMMDDNNN（同日遞增）
     const d = new Date();
