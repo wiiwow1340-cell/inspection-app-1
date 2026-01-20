@@ -1735,7 +1735,7 @@ if (
       
       <NewReportPage
         visible={page === "home"}
-        user={user}
+        user={authUsername}
         processes={processes}
         newReport={newReport}
         setNewReport={setNewReport}
