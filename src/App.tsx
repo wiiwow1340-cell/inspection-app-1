@@ -735,6 +735,7 @@ export default function App() {
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // 新增上傳進度狀態
   const savingNewRef = useRef(false);
   const savingEditRef = useRef(false);
 
@@ -1056,24 +1057,35 @@ if (
     const expectedItems = selectedProcObj.items || [];
     const uploadedImages: Record<string, string> = {};
 
-    // 逐項上傳（N/A 寫入 sentinel；其他有檔案才上傳）
+    // --- 新增：初始化進度 ---
+    setUploadProgress(0);
+    let completedCount = 0;
+    const totalTasks = expectedItems.length;
+
     const uploadTasks = expectedItems.map((item) => async () => {
-      if (homeNA[item]) {
-        uploadedImages[item] = NA_SENTINEL;
-        return;
+      try {
+        if (homeNA[item]) {
+          uploadedImages[item] = NA_SENTINEL;
+          return;
+        }
+        const file = newImageFiles[item];
+        if (!file) return;
+
+        const path = await uploadImage(
+          selectedProcObj.code,
+          selectedModel,
+          sn,
+          { item, procItems: expectedItems },
+          file
+        );
+        if (path) {
+          uploadedImages[item] = path;
+        }
+      } finally {
+        // --- 新增：每完成一個項目就更新進度 ---
+        completedCount++;
+        setUploadProgress(Math.round((completedCount / totalTasks) * 100));
       }
-
-      const file = newImageFiles[item];
-      if (!file) return;
-
-      const path = await uploadImage(
-        selectedProcObj.code,
-        selectedModel,
-        sn,
-        { item, procItems: expectedItems },
-        file
-      );
-      if (path) uploadedImages[item] = path;
     });
 
     // 同時最多 6 張，其餘排隊
@@ -2884,38 +2896,56 @@ if (
 
             </div>
 
-            <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
-              <Button
-                className="flex-1"
-                variant="secondary"
-                onClick={() => setShowPreview(false)}
-                disabled={isSavingNew}
-              >
-                返回修改
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={isSavingNew}
-                onClick={async () => {
-                  // 防止連點：React 尚未 re-render 前，用 ref 先擋
-                  if (savingNewRef.current) return;
-                  savingNewRef.current = true;
-                  setIsSavingNew(true);
+            {/* --- 這是替換後的內容 --- */}
+            <div className="pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+              
+              {/* ✨ 新增進度條顯示 */}
+              {isSavingNew && (
+                <div className="mb-3 px-1">
+                  <div className="flex justify-between text-[10px] font-bold text-blue-600 mb-1">
+                    <span>圖片上傳中...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-gray-200">
+                    <div 
+                      className="bg-blue-600 h-full transition-all duration-300 ease-out" 
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
 
-                  try {
-                    const ok = await saveReport();
-                    if (ok) setShowPreview(false);
-                  } finally {
-                    savingNewRef.current = false;
-                    setIsSavingNew(false);
-                  }
-                }}
-              >
-                {isSavingNew ? "儲存中…" : "確認儲存"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  variant="secondary"
+                  onClick={() => setShowPreview(false)}
+                  disabled={isSavingNew}
+                >
+                  返回修改
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={isSavingNew}
+                  onClick={async () => {
+                    if (savingNewRef.current) return;
+                    savingNewRef.current = true;
+                    setIsSavingNew(true);
+
+                    try {
+                      const ok = await saveReport();
+                      if (ok) setShowPreview(false);
+                    } finally {
+                      savingNewRef.current = false;
+                      setIsSavingNew(false);
+                      setUploadProgress(0); // 結束後重置進度
+                    }
+                  }}
+                >
+                  {isSavingNew ? `儲存中 ${uploadProgress}%` : "確認儲存"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
       )}
 
       {/* 編輯儲存前預覽 Modal */}
