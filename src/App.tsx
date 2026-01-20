@@ -467,8 +467,7 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 // 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
-async function uploadImage(
-  processCode: string,
+async function uploadImage(processName: string,
   model: string,
   serial: string,
   info: { item: string; procItems: string[] },
@@ -482,9 +481,8 @@ async function uploadImage(
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
   const year = getYearFromSerial(serial);
-  const filePath = `${model}/${year}/${serial}/${processCode}/${fileName}`;
-
-  try {
+  const filePath = `${model}/${year}/${serial}/${processName}/${fileName}`;
+try {
     const { error } = await supabase.storage
       .from("photos")
       .upload(filePath, compressed, { upsert: true });
@@ -1043,6 +1041,12 @@ if (
       return false;
     }
 
+    const year = getYearFromSerial(sn);
+    if (!year) {
+      alert("序號前 2 碼必須是數字（用於建立西元年份資料夾，例如 24xxxx → 2024）");
+      return false;
+    }
+
     const expectedItems = selectedProcObj.items || [];
     const uploadedImages: Record<string, string> = {};
 
@@ -1057,7 +1061,7 @@ if (
       if (!file) return;
 
       const path = await uploadImage(
-        selectedProcObj.code,
+        selectedProcess,
         selectedModel,
         sn,
         { item, procItems: expectedItems },
