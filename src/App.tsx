@@ -1,3 +1,4 @@
+console.error("🔥 THIS IS NEW BUILD 2026-01-20 22:XX");
 import { useState, useEffect, useRef } from "react";
 import NewReportPage from "./ReportPage";
 import { createClient } from "@supabase/supabase-js";
