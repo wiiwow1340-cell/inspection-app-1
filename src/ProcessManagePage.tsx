@@ -1,7 +1,7 @@
 import React from "react";
-import { Card } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
+import { Card } from "./components/ui/card";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
 
 // Strategy Y：管理製程頁僅負責 UI 與使用者操作，
 // 所有 state 與 DB 存取皆由 App.tsx 傳入

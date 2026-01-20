@@ -1,6 +1,6 @@
 import React from "react";
-import { Card } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+import { Card } from "./components/ui/card";
+import { Button } from "./components/ui/button";
 
 // Strategy Y：僅負責查詢頁 UI 與互動，所有 state / DB 操作由 App.tsx 傳入
 
