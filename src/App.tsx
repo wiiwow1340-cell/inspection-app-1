@@ -467,7 +467,16 @@ async function uploadImage(
   processName: string,
   info: { item: string; procItems: string[] },
   file: File
-): Promise<string> {
+  ): Promise<string> {
+  console.log("DEBUG uploadImage", {
+  processCode,
+  model,
+  serial,
+  processName,
+  item: info.item,
+  fileName: file?.name
+  });
+
   if (!file) return "";
 
   const compressed = await compressImage(file);
@@ -1039,6 +1048,9 @@ if (
     const expectedItems = selectedProcObj.items || [];
     const uploadedImages: Record<string, string> = {};
 
+    console.log("DEBUG expectedItems", expectedItems);
+    console.log("DEBUG newImageFiles", newImageFiles);
+    console.log("DEBUG homeNA", homeNA);
     // 逐項上傳（N/A 寫入 sentinel；其他有檔案才上傳）
     const uploads = expectedItems.map(async (item) => {
       if (homeNA[item]) {
