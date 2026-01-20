@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import NewReportPage from "./ReportPage";
 import { createClient } from "@supabase/supabase-js";
-import QueryReportPage from "./QueryReportPage";
-import ProcessManagePage from "./ProcessManagePage";
+import React from "react";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -1739,6 +1738,8 @@ if (
         visible={page === "home"}
         user={authUsername}
         processes={processes}
+        newReport={newReport}
+        setNewReport={setNewReport}
         isSavingNew={isSavingNew}
         handleCapture={handleCapture}
         handleSave={saveReport}
@@ -1746,14 +1747,7 @@ if (
 
 
       {/* 查看報告頁 */}
-      {page === "reports" && (
-  <QueryReportPage
-    reports={reports}
-    setReports={setReports}
-    processes={processes}
-    productModels={productModels}
-  />
-)}
+      {page === "reports" && <QueryReportPage />}
       {/* 管理製程頁 */}
       {page === "manage" && (
         !isAdmin ? (
