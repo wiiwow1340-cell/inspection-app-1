@@ -187,6 +187,10 @@ export default function ReportPage({
 }: Props) {
   if (!visible) return null;
 
+  const safeReports = reports ?? [];
+  const safeProcessOptions = processOptions ?? [];
+  const safeModelOptions = modelOptions ?? [];
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -204,7 +208,7 @@ export default function ReportPage({
           onChange={(e) => setSelectedProcessFilter(e.target.value)}
         >
           <option value="">全部製程</option>
-          {processOptions.map((p) => (
+          {safeProcessOptions.map((p) => (
             <option key={p} value={p}>
               {p}
             </option>
@@ -217,7 +221,7 @@ export default function ReportPage({
           onChange={(e) => setSelectedModelFilter(e.target.value)}
         >
           <option value="">全部型號</option>
-          {modelOptions.map((m) => (
+          {safeModelOptions.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
@@ -236,11 +240,11 @@ export default function ReportPage({
       </div>
 
       {/* 報告列表 */}
-      {reports.length === 0 ? (
+      {safeReports.length === 0 ? (
         <p className="text-sm text-gray-600">尚無報告</p>
       ) : (
         <div className="space-y-3">
-          {reports.map((r) => {
+          {safeReports.map((r) => {
             const isOpen = expandedReportId === r.id;
             const isEditing = editingReportId === r.id;
             const status = computeReportStatus(r);

@@ -123,6 +123,10 @@ export default function HomePage({
 }: Props) {
   if (!visible) return null;
 
+  const safeProductModels = productModels ?? [];
+  const safeFilteredProcesses = filteredProcesses ?? [];
+  const safeItems = selectedProcObj?.items ?? [];
+
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold">新增檢驗資料</h2>
@@ -158,7 +162,7 @@ export default function HomePage({
             }`}
           >
             <option value="">請選擇型號</option>
-            {productModels.map((m) => (
+            {safeProductModels.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
@@ -179,7 +183,7 @@ export default function HomePage({
             }`}
           >
             <option value="">請選擇製程</option>
-            {filteredProcesses.map((p) => (
+            {safeFilteredProcesses.map((p) => (
               <option key={`${p.name}-${p.model}`} value={p.name}>
                 {p.name} ({p.code})
               </option>
@@ -195,7 +199,7 @@ export default function HomePage({
             <h3 className="font-semibold">檢驗照片</h3>
 
             {/* 讓每個項目呈現更接近你原本的「名稱 + 右側 N/A」視覺 */}
-            {selectedProcObj.items.map((it) => {
+            {safeItems.map((it) => {
               const isNA = !!homeNA[it];
               const preview = images[it];
 
