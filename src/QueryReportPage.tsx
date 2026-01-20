@@ -79,7 +79,7 @@ export default function QueryReportPage({
           onChange={(e) => setSelectedProcessFilter(e.target.value)}
         >
           <option value="">全部製程</option>
-          {processOptions.map((p) => (
+          {(processOptions || []).map((p) => (
             <option key={p} value={p}>
               {p}
             </option>
@@ -92,7 +92,7 @@ export default function QueryReportPage({
           onChange={(e) => setSelectedModelFilter(e.target.value)}
         >
           <option value="">全部型號</option>
-          {modelOptions.map((m) => (
+          {(modelOptions || []).map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
@@ -115,7 +115,7 @@ export default function QueryReportPage({
 
       {reports.length > 0 && (
         <div className="space-y-3">
-          {reports.map((r) => {
+          {(reports || []).map((r) => {
             const isOpen = expandedReportId === r.id;
 
             return (

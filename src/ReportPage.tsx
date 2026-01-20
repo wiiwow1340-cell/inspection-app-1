@@ -91,7 +91,7 @@ export default function NewReportPage({
             }`}
           >
             <option value="">請選擇型號</option>
-            {productModels.map((m) => (
+            {(productModels || []).map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
@@ -112,7 +112,7 @@ export default function NewReportPage({
             }`}
           >
             <option value="">請選擇製程</option>
-            {filteredProcesses.map((p) => (
+            {(filteredProcesses || []).map((p) => (
               <option key={`${p.name}-${p.model}`} value={p.name}>
                 {p.name} ({p.code})
               </option>
@@ -123,9 +123,9 @@ export default function NewReportPage({
           )}
         </div>
 
-        {selectedProcObj && selectedProcObj.items.length > 0 && (
+        {(selectedProcObj && selectedProcObj.items && selectedProcObj.items.length > 0) && (
           <div className="space-y-2 mt-2">
-            {selectedProcObj.items.map((item, idx) => (
+            {(selectedProcObj.items || []).map((item, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <span className="flex-1">{item}</span>
 
