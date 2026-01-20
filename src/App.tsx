@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import NewReportPage from "./NewReportPage";
+import NewReportPage from "./ReportPage";
 import { createClient } from "@supabase/supabase-js";
 
 // =============================
