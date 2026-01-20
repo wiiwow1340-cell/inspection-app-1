@@ -1648,7 +1648,28 @@ if (
     return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
   }
 
-  // =============================
+  
+// =============================
+//  管理製程：刪除確認（FIX）
+// =============================
+const confirmRemoveItem = (index: number) => {
+  if (!window.confirm("確定要刪除此檢驗項目嗎？")) return;
+  removeItem(index);
+};
+
+const confirmRemoveProcess = (proc: Process) => {
+  if (
+    !window.confirm(
+      `確定要刪除製程「${proc.name} (${proc.code})」嗎？\n（此動作無法復原）`
+    )
+  ) {
+    return;
+  }
+  removeProcess(proc);
+};
+
+
+// =============================
   //  主 UI
   // =============================
 
