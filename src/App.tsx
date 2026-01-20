@@ -464,6 +464,7 @@ async function uploadImage(
   processCode: string,
   model: string,
   serial: string,
+  processName: string,
   info: { item: string; procItems: string[] },
   file: File
 ): Promise<string> {
@@ -474,7 +475,8 @@ async function uploadImage(
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
   const fileName = `${safeItem}.jpg`;
-  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+  const safeProcessName = processName;
+  const filePath = `${processCode}/${model}/${serial}/${safeProcessName}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
@@ -1052,6 +1054,7 @@ if (
         selectedProcObj.code,
         selectedModel,
         sn,
+        selectedProcess,
         { item, procItems: expectedItems },
         file
       );
