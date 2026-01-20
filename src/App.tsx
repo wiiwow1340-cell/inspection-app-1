@@ -1050,6 +1050,13 @@ if (
     });
   };
 
+              {uploadProgress.active && (
+                <div className="text-sm text-gray-600 mb-2 text-center">
+                  📤 上傳照片中…（{uploadProgress.done} / {uploadProgress.total}）
+                </div>
+              )}
+
+
   // ===== 新增表單：確認儲存（上傳到 Storage + 寫 DB） =====
   const saveReport = async (): Promise<boolean> => {
     const sn = serial.trim();
@@ -2935,7 +2942,8 @@ if (
                   setIsSavingNew(true);
 
                   try {
-                    const ok = await saveReport();
+                    const ok = setUploadProgress((p)=>({ ...p, active: true }));
+                  await saveReport();
                     if (ok) setShowPreview(false);
                   } finally {
                     savingNewRef.current = false;
