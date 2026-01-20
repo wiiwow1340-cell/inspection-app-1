@@ -2896,10 +2896,10 @@ if (
 
             </div>
 
-            {/* --- 這是替換後的內容 --- */}
+            {/* --- 這是替換後的內容，請確保包含最後的兩個 </div> --- */}
             <div className="pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               
-              {/* ✨ 新增進度條顯示 */}
+              {/* ✨ 進度條顯示區 */}
               {isSavingNew && (
                 <div className="mb-3 px-1">
                   <div className="flex justify-between text-[10px] font-bold text-blue-600 mb-1">
@@ -2931,14 +2931,13 @@ if (
                     if (savingNewRef.current) return;
                     savingNewRef.current = true;
                     setIsSavingNew(true);
-
                     try {
                       const ok = await saveReport();
                       if (ok) setShowPreview(false);
                     } finally {
                       savingNewRef.current = false;
                       setIsSavingNew(false);
-                      setUploadProgress(0); // 結束後重置進度
+                      setUploadProgress(0);
                     }
                   }}
                 >
@@ -2946,6 +2945,8 @@ if (
                 </Button>
               </div>
             </div>
+          </div>
+        </div>
       )}
 
       {/* 編輯儲存前預覽 Modal */}
