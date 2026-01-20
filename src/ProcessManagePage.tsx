@@ -1,10 +1,74 @@
 import React from "react";
-import { Card } from "./components/ui/card";
-import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
 
 // Strategy Y：管理製程頁僅負責 UI 與使用者操作，
 // 所有 state 與 DB 存取皆由 App.tsx 傳入
+
+// =============================
+//  簡易 UI 元件：Button / Input / Card
+// =============================
+
+type ButtonVariant = "default" | "secondary" | "destructive";
+type ButtonSize = "default" | "sm";
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant | string;
+  size?: ButtonSize;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  variant = "default",
+  size = "default",
+  className = "",
+  ...props
+}) => {
+  const base =
+    "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+
+  const variantClass: Record<ButtonVariant, string> = {
+    default:
+      "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600",
+    secondary:
+      "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
+    destructive:
+      "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
+  };
+
+  const sizeClass: Record<ButtonSize, string> = {
+    default: "h-9 px-4 py-2",
+    sm: "h-8 px-3 text-xs",
+  };
+
+  const resolvedVariant: ButtonVariant =
+    variant === "secondary" || variant === "destructive"
+      ? (variant as ButtonVariant)
+      : "default";
+
+  return (
+    <button
+      className={`${base} ${variantClass[resolvedVariant]} ${sizeClass[size]} ${className}`}
+      {...props}
+    />
+  );
+};
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
+  <input
+    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+    {...props}
+  />
+);
+
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
+  <div
+    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+    {...props}
+  />
+);
 
 type Process = {
   name: string;
@@ -17,16 +81,12 @@ type Props = {
   visible: boolean;
   isAdmin: boolean;
   authUsername: string;
-
   processes: Process[];
 
-  // 建立 / 編輯製程
   newProcName: string;
   setNewProcName: (v: string) => void;
-
   newProcCode: string;
   setNewProcCode: (v: string) => void;
-
   newProcModel: string;
   setNewProcModel: (v: string) => void;
 
@@ -39,7 +99,6 @@ type Props = {
 
   editingIndex: number | null;
 
-  // 動作 callback（邏輯在 App）
   addItem: () => void;
   moveItemUp: (index: number) => void;
   moveItemDown: (index: number) => void;
@@ -127,98 +186,157 @@ export default function ProcessManagePage({
         />
       </div>
 
-      {/* 檢驗項目 */}
+      {/* 新增檢驗項目 */}
       <div className="space-y-2">
         <div className="flex gap-2">
           <Input
-            placeholder="新增檢驗項目"
+            placeholder="新增檢驗照片項目"
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
           />
           <Button type="button" onClick={addItem}>
-            新增
+            加入
           </Button>
         </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium">插入位置</label>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600 whitespace-nowrap">插入在</span>
           <select
-            className="w-full border p-2 rounded"
             value={insertAfter}
             onChange={(e) => setInsertAfter(e.target.value)}
+            className="border p-2 rounded flex-1 h-9"
           >
-            <option value="">插在最後</option>
+            <option value="last">最後</option>
             {items.map((it, idx) => (
-              <option key={idx} value={it}>
-                插在「{it}」後
+              <option key={`${it}-${idx}`} value={String(idx)}>
+                在「{it}」後
               </option>
             ))}
           </select>
         </div>
-
-
-        {items.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            {editingItemIndex === idx ? (
-              <>
-                <Input
-                  value={editingItemValue}
-                  onChange={(e) => setEditingItemValue(e.target.value)}
-                />
-                <Button size="sm" onClick={saveEditingItem}>
-                  儲存
-                </Button>
-                <Button size="sm" variant="secondary" onClick={cancelEditingItem}>
-                  取消
-                </Button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1">{item}</span>
-                <Button size="sm" onClick={() => startEditingItem(idx)}>
-                  編輯
-                </Button>
-                <Button size="sm" onClick={() => moveItemUp(idx)}>↑</Button>
-                <Button size="sm" onClick={() => moveItemDown(idx)}>↓</Button>
-                <Button size="sm" variant="destructive" onClick={() => removeItem(idx)}>
-                  刪除
-                </Button>
-              </>
-            )}
-          </div>
-        ))}
       </div>
 
-      {/* 操作 */}
+      {/* 項目清單 */}
+      {items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((it, idx) => {
+            const isEditing = editingItemIndex === idx;
+            return (
+              <div
+                key={`${it}-${idx}`}
+                className="border p-2 rounded flex items-center justify-between gap-2"
+              >
+                <div className="flex-1 min-w-0">
+                  {isEditing ? (
+                    <Input
+                      value={editingItemValue}
+                      onChange={(e) => setEditingItemValue(e.target.value)}
+                    />
+                  ) : (
+                    <div className="truncate">{it}</div>
+                  )}
+                </div>
+
+                <div className="flex gap-1 shrink-0">
+                  {isEditing ? (
+                    <>
+                      <Button size="sm" type="button" onClick={saveEditingItem}>
+                        儲存
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={cancelEditingItem}
+                      >
+                        取消
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => startEditingItem(idx)}
+                      >
+                        改名
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => moveItemUp(idx)}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        type="button"
+                        onClick={() => moveItemDown(idx)}
+                      >
+                        ↓
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                      >
+                        刪
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 儲存 / 取消 */}
       <div className="flex gap-2">
-        <Button onClick={saveProcess} className="flex-1">
-          {editingIndex !== null ? "更新製程" : "儲存製程"}
+        <Button type="button" className="flex-1" onClick={saveProcess}>
+          {editingIndex !== null ? "更新製程" : "新增製程"}
         </Button>
-        <Button variant="secondary" onClick={cancelManageCreate} className="flex-1">
+        <Button
+          type="button"
+          variant="secondary"
+          className="flex-1"
+          onClick={cancelManageCreate}
+        >
           取消
         </Button>
       </div>
 
-      {/* 既有製程列表 */}
-      <div className="space-y-2 mt-4">
+      {/* 既有製程清單 */}
+      <div className="pt-2 space-y-2">
         {processes.map((p, idx) => (
-          <div key={idx} className="flex items-center justify-between border p-2 rounded">
-            <div>
-              <div className="font-medium">{p.name}</div>
-              <div className="text-sm text-gray-600">
-                {p.code} / {p.model}
+          <div
+            key={`${p.name}-${p.model}-${idx}`}
+            className="border p-2 rounded"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold truncate">
+                  {p.name} ({p.code})
+                </div>
+                <div className="text-sm text-gray-600 truncate">型號：{p.model}</div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => startEditingProcess(idx)}>
-                編輯
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => removeProcess(p)}
-              >
-                刪除
-              </Button>
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" type="button" onClick={() => startEditingProcess(idx)}>
+                  編輯
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  type="button"
+                  onClick={() => removeProcess(p)}
+                >
+                  刪除
+                </Button>
+              </div>
             </div>
           </div>
         ))}

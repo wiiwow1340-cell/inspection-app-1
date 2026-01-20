@@ -1,8 +1,8 @@
-console.error("🔥 THIS IS NEW BUILD 2026-01-20 22:XX");
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import NewReportPage from "./ReportPage";
+import HomePage from "./HomePage";
+import ProcessManagePage from "./ProcessManagePage";
 import { createClient } from "@supabase/supabase-js";
-import React from "react";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -1734,275 +1734,97 @@ if (
       </div>
 
       {/* 新增檢驗資料頁 */}
-      
       <NewReportPage
         visible={page === "home"}
-        user={authUsername}
-        processes={processes}
-        newReport={newReport}
-        setNewReport={setNewReport}
-        isSavingNew={isSavingNew}
+        serial={serial}
+        setSerial={setSerial}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        selectedProcess={selectedProcess}
+        setSelectedProcess={setSelectedProcess}
+        productModels={productModels}
+        filteredProcesses={filteredProcesses}
+        selectedProcObj={selectedProcObj}
+        images={images}
+        homeNA={homeNA}
+        setHomeNA={setHomeNA}
         handleCapture={handleCapture}
-        handleSave={saveReport}
+        onSubmit={() => {
+          setPreviewIndex(0);
+          setShowPreview(true);
+        }}
+        onCancel={async () => {
+          const hasDirty =
+            serial.trim() ||
+            selectedModel ||
+            selectedProcess ||
+            Object.keys(newImageFiles).length > 0 ||
+            Object.keys(homeNA).length > 0;
+          if (hasDirty && !confirmDiscard()) return;
+          await resetNewReportState(true);
+        }}
       />
 
-
       {/* 查看報告頁 */}
-      {page === "reports" && <QueryReportPage />}
+      <HomePage
+        visible={page === "reports"}
+        reports={filteredReports}
+        selectedProcessFilter={selectedProcessFilter}
+        setSelectedProcessFilter={setSelectedProcessFilter}
+        selectedModelFilter={selectedModelFilter}
+        setSelectedModelFilter={setSelectedModelFilter}
+        selectedStatusFilter={selectedStatusFilter}
+        setSelectedStatusFilter={setSelectedStatusFilter}
+        onQuery={() => {
+          setQueryFilters({
+            process: selectedProcessFilter || "",
+            model: selectedModelFilter || "",
+            status: selectedStatusFilter || "",
+          });
+          setShowReports(true);
+        }}
+        expandedReportId={expandedReportId}
+        toggleExpandReport={toggleExpandReport}
+        toggleEditReport={toggleEditReport}
+        editingReportId={editingReportId}
+        processOptions={Array.from(new Set(processes.map((p) => p.name)))}
+        modelOptions={productModels}
+      />
+
       {/* 管理製程頁 */}
-      {page === "manage" && (
-        !isAdmin ? (
-          <Card className="p-4 space-y-3">
-          <h2 className="text-xl font-bold">管理製程</h2>
-          <p className="text-red-600">此頁僅限管理員帳號使用。</p>
-          <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
-        </Card>
-        ) : (
-        <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">管理製程</h2>
+      <ProcessManagePage
+        visible={page === "manage"}
+        isAdmin={isAdmin}
+        authUsername={authUsername}
+        processes={processes}
+        newProcName={newProcName}
+        setNewProcName={setNewProcName}
+        newProcCode={newProcCode}
+        setNewProcCode={setNewProcCode}
+        newProcModel={newProcModel}
+        setNewProcModel={setNewProcModel}
+        items={items}
+        newItem={newItem}
+        setNewItem={setNewItem}
+        insertAfter={insertAfter}
+        setInsertAfter={setInsertAfter}
+        editingIndex={editingIndex}
+        addItem={addItem}
+        moveItemUp={moveItemUp}
+        moveItemDown={moveItemDown}
+        removeItem={(index) => confirmRemoveItem(index)}
+        startEditingItem={startEditingItem}
+        editingItemIndex={editingItemIndex}
+        editingItemValue={editingItemValue}
+        setEditingItemValue={setEditingItemValue}
+        cancelEditingItem={cancelEditingItem}
+        saveEditingItem={saveEditingItem}
+        saveProcess={saveProcess}
+        cancelManageCreate={cancelManageCreate}
+        startEditingProcess={startEditingProcess}
+        removeProcess={confirmRemoveProcess}
+      />
 
-          <div className="space-y-4">
-            {/* 製程基本資料輸入 */}
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newProcName}
-                  placeholder="製程名稱"
-                  onChange={(e) => setNewProcName(e.target.value)}
-                />
-                <Input
-                  value={newProcCode}
-                  placeholder="製程代號"
-                  onChange={(e) => setNewProcCode(e.target.value)}
-                />
-              </div>
-              <Input
-                value={newProcModel}
-                placeholder="產品型號"
-                onChange={(e) => setNewProcModel(e.target.value)}
-              />
-            </div>
-
-            {/* 檢驗照片項目新增區（支援插入位置） */}
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newItem}
-                  placeholder="新增檢驗照片項目"
-                  onChange={(e) => setNewItem(e.target.value)}
-                />
-                <Button type="button" onClick={addItem}>
-                  加入
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap">
-                  插入在
-                </span>
-                <select
-                  value={insertAfter}
-                  onChange={(e) => setInsertAfter(e.target.value)}
-                  className="border p-2 rounded flex-1 h-9"
-                >
-                  <option value="last">最後</option>
-                  {items.map((it, idx) => (
-                    <option key={`${it}-${idx}`} value={String(idx)}>
-                      在「{it}」後
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* 項目列表（可刪除） */}
-            {items.map((i, idx) => (
-              <div
-                key={idx}
-                className="border p-2 rounded flex justify-between items-center"
-              >
-                {editingItemIndex === idx ? (
-                  <div className="flex-1 flex gap-2 items-center">
-                    <Input
-                      value={editingItemValue}
-                      onChange={(e) => setEditingItemValue(e.target.value)}
-                      className="h-9"
-                    />
-                    <Button type="button" size="sm" onClick={saveEditingItem}>
-                      儲存
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={cancelEditingItem}
-                    >
-                      取消
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="flex-1">{i}</span>
-                )}
-
-                <div className="flex gap-2">
-                  {editingItemIndex === idx ? null : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => startEditingItem(idx)}
-                      title="編輯名稱"
-                    >
-                      編輯
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => moveItemUp(idx)}
-                    disabled={idx === 0}
-                    title="上移"
-                  >
-                    ↑
-                  </Button>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => moveItemDown(idx)}
-                    disabled={idx === items.length - 1}
-                    title="下移"
-                  >
-                    ↓
-                  </Button>
-
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    type="button"
-                    onClick={() => setConfirmTarget({ type: "item", index: idx })}
-                  >
-                    刪除
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {/* 儲存 / 更新製程 */}
-            <div className="flex gap-2">
-              <Button onClick={saveProcess} className="flex-1" type="button">
-                {editingIndex !== null ? "更新製程" : "儲存製程"}
-              </Button>
-
-              {editingIndex === null ? (
-                <Button
-                  className="flex-1"
-                  type="button"
-                  variant="secondary"
-                  onClick={cancelManageCreate}
-                >
-                  取消新增
-                </Button>
-              ) : (
-                <Button
-                  className="flex-1"
-                  type="button"
-                  variant="secondary"
-                  onClick={async () => {
-                    if (!confirmDiscard("確定要取消編輯製程嗎？")) return;
-                    await resetManageState(false);
-                  }}
-                >
-                  取消編輯
-                </Button>
-              )}
-            </div>
-
-            {/* 已有製程列表（表格 + 可展開） */}
-            <div className="border rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr className="text-left">
-                    <th className="p-2 w-10"></th>
-                    <th className="p-2">製程名稱</th>
-                    <th className="p-2">製程代號</th>
-                    <th className="p-2">產品型號</th>
-                    <th className="p-2 w-32">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processes.map((p, idx) => {
-                    const isOpen = expandedProcessIndex === idx;
-                    return (
-                      <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
-                        <tr
-                          className="border-t hover:bg-gray-50 cursor-pointer"
-                          onClick={() =>
-                            setExpandedProcessIndex((prev) => (prev === idx ? null : idx))
-                          }
-                        >
-                          <td className="p-2">{isOpen ? "▼" : "▶"}</td>
-                          <td className="p-2">{p.name}</td>
-                          <td className="p-2">{p.code}</td>
-                          <td className="p-2">{p.model || "—"}</td>
-                          <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              <Button type="button" size="sm" onClick={() => startEditingProcess(idx)}>
-                                編輯
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setConfirmTarget({ type: "process", proc: p })}
-                              >
-                                刪除
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-
-                        {isOpen && (
-                          <tr className="border-t">
-                            <td className="p-0" colSpan={5}>
-                              <div className="p-3 bg-gray-50">
-                                <div className="font-semibold mb-2">檢驗項目</div>
-                                {p.items.length > 0 ? (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                    {p.items.map((item, iidx) => (
-                                      <div
-                                        key={iidx}
-                                        className="bg-white border rounded px-3 py-2"
-                                      >
-                                        {item}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-gray-500">尚未建立檢驗項目</div>
-                                )}
-                                <div className="text-xs text-gray-500 mt-2">
-                                  ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Card>
-        )
-      )}
-
-      
-      {/* 草稿恢復（UX-1） */}
       {showDraftPrompt && pendingDraft && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm w-full">

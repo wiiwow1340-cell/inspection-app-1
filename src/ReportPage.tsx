@@ -1,9 +1,74 @@
 import React from "react";
-import { Card } from "./components/ui/card";
-import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
 
 // Strategy Y：Page 僅負責 render，所有狀態與邏輯由 App.tsx 傳入
+
+// =============================
+//  簡易 UI 元件：Button / Input / Card
+//  （為了維持 4 檔結構，不依賴 shadcn / @/ 路徑）
+// =============================
+
+type ButtonVariant = "default" | "secondary" | "destructive";
+type ButtonSize = "default" | "sm";
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant | string;
+  size?: ButtonSize;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  variant = "default",
+  size = "default",
+  className = "",
+  ...props
+}) => {
+  const base =
+    "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+
+  const variantClass: Record<ButtonVariant, string> = {
+    default:
+      "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600",
+    secondary:
+      "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
+    destructive:
+      "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
+  };
+
+  const sizeClass: Record<ButtonSize, string> = {
+    default: "h-9 px-4 py-2",
+    sm: "h-8 px-3 text-xs",
+  };
+
+  const resolvedVariant: ButtonVariant =
+    variant === "secondary" || variant === "destructive"
+      ? (variant as ButtonVariant)
+      : "default";
+
+  return (
+    <button
+      className={`${base} ${variantClass[resolvedVariant]} ${sizeClass[size]} ${className}`}
+      {...props}
+    />
+  );
+};
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
+  <input
+    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+    {...props}
+  />
+);
+
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
+  <div
+    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+    {...props}
+  />
+);
 
 type Process = {
   name: string;
@@ -35,6 +100,7 @@ type Props = {
   handleCapture: (item: string, file: File | undefined) => void;
 
   onSubmit: () => void;
+  onCancel?: () => void;
 };
 
 export default function NewReportPage({
@@ -53,6 +119,7 @@ export default function NewReportPage({
   setHomeNA,
   handleCapture,
   onSubmit,
+  onCancel,
 }: Props) {
   if (!visible) return null;
 
@@ -91,7 +158,7 @@ export default function NewReportPage({
             }`}
           >
             <option value="">請選擇型號</option>
-            {(productModels || []).map((m) => (
+            {productModels.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
@@ -112,7 +179,7 @@ export default function NewReportPage({
             }`}
           >
             <option value="">請選擇製程</option>
-            {(filteredProcesses || []).map((p) => (
+            {filteredProcesses.map((p) => (
               <option key={`${p.name}-${p.model}`} value={p.name}>
                 {p.name} ({p.code})
               </option>
@@ -123,96 +190,68 @@ export default function NewReportPage({
           )}
         </div>
 
-        {(selectedProcObj && selectedProcObj.items && selectedProcObj.items.length > 0) && (
-          <div className="space-y-2 mt-2">
-            {(selectedProcObj.items || []).map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="flex-1">{item}</span>
-
-                <Button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById(`capture-${idx}`)?.click()
-                  }
-                  className="px-2 py-1"
+        {selectedProcObj && (
+          <div className="space-y-2">
+            <h3 className="font-semibold">檢驗照片</h3>
+            {selectedProcObj.items.map((it) => {
+              const isNA = !!homeNA[it];
+              const preview = images[it];
+              return (
+                <div
+                  key={it}
+                  className="border rounded p-3 space-y-2 bg-gray-50"
                 >
-                  拍照
-                </Button>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium break-all">{it}</div>
+                    <label className="flex items-center gap-2 text-sm text-gray-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={isNA}
+                        onChange={(e) =>
+                          setHomeNA((prev) => ({ ...prev, [it]: e.target.checked }))
+                        }
+                      />
+                      N/A
+                    </label>
+                  </div>
 
-                <Button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById(`upload-${idx}`)?.click()
-                  }
-                  className="px-2 py-1"
-                >
-                  上傳
-                </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={isNA}
+                    onChange={(e) => handleCapture(it, e.target.files?.[0])}
+                    className="block w-full text-sm"
+                  />
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  id={`capture-${idx}`}
-                  onChange={(e) =>
-                    handleCapture(item, e.target.files?.[0] || undefined)
-                  }
-                />
+                  {preview && !isNA && (
+                    <img
+                      src={preview}
+                      alt={it}
+                      className="w-full rounded border"
+                    />
+                  )}
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  id={`upload-${idx}`}
-                  onChange={(e) =>
-                    handleCapture(item, e.target.files?.[0] || undefined)
-                  }
-                />
-
-                {homeNA[item] ? (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                    onClick={() =>
-                      setHomeNA((prev) => {
-                        const next = { ...prev };
-                        delete next[item];
-                        return next;
-                      })
-                    }
-                  >
-                    <StatusIcon kind="na" />
-                  </button>
-                ) : images[item] ? (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                    onClick={() =>
-                      setHomeNA((prev) => ({ ...prev, [item]: true }))
-                    }
-                  >
-                    <StatusIcon kind="ok" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                    onClick={() =>
-                      setHomeNA((prev) => ({ ...prev, [item]: true }))
-                    }
-                  >
-                    <StatusIcon kind="ng" />
-                  </button>
-                )}
-              </div>
-            ))}
+                  {isNA && (
+                    <div className="text-sm text-gray-500">此項已標記為 N/A</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2">
           <Button type="submit" className="flex-1">
-            確認
+            確認儲存
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="flex-1"
+            onClick={() => (onCancel ? onCancel() : undefined)}
+          >
+            取消
           </Button>
         </div>
       </form>
