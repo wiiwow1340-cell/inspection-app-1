@@ -1860,7 +1860,6 @@ if (
                           </button>
 
                           {/* LEGACY JSX REMOVED (Phase A) */}
-      )}
 
       {/* 管理製程頁 */}
       {page === "manage" && (
