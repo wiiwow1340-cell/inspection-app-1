@@ -3008,6 +3008,11 @@ if (
               );
             })()}
             </div>
+            {isSavingEdit && (
+              <div className="text-sm text-gray-600 text-center py-2">
+                📤 上傳中… {uploadProgress}%
+              </div>
+            )}
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
                 className="flex-1"
@@ -3039,35 +3044,46 @@ if (
                     ...report.images,
                   };
 
-                  const uploads = expectedItems.map(async (item) => {
-                    if (editNA[item]) {
-                      uploadedImages[item] = NA_SENTINEL;
-                      return;
-                    }
-
-                    const file = editImageFiles[item];
-                    if (!file) {
-                      // 沒有新檔案：保留原本（若原本是 N/A 且已取消 N/A，則視為未拍）
-                      if (report.images?.[item] === NA_SENTINEL) {
-                        delete uploadedImages[item];
+                  setUploadProgress(0);
+                  let completedCount = 0;
+                  const totalTasks = expectedItems.length;
+                  
+                  const uploadTasks = expectedItems.map((item) => async () => {
+                    try {
+                      if (editNA[item]) {
+                        uploadedImages[item] = NA_SENTINEL;
+                        return;
                       }
-                      return;
-                    }
-
-                    const url = await uploadImage(
-                      processes.find((p) => p.name === report.process)?.code ||
-                        report.process,
-                      report.model,
-                      report.serial,
-                      { item, procItems: expectedItems },
-                      file
-                    );
-                    if (url) {
-                      uploadedImages[item] = url;
+                  
+                      const file = editImageFiles[item];
+                      if (!file) {
+                        if (report.images?.[item] === NA_SENTINEL) {
+                          delete uploadedImages[item];
+                        }
+                        return;
+                      }
+                  
+                      const url = await uploadImage(
+                        processes.find((p) => p.name === report.process)?.code ||
+                          report.process,
+                        report.model,
+                        report.serial,
+                        { item, procItems: expectedItems },
+                        file
+                      );
+                  
+                      if (url) {
+                        uploadedImages[item] = url;
+                      }
+                    } finally {
+                      completedCount++;
+                      setUploadProgress(
+                        Math.round((completedCount / totalTasks) * 100)
+                      );
                     }
                   });
-
-                  await Promise.all(uploads);
+                  
+                  await runInBatches(uploadTasks, 6);
 
                   // N/A：寫入 sentinel；若從 N/A 切回一般且未重新拍照，則保留原圖（若原本是 N/A 則變回未拍）
                   expectedItems.forEach((it) => {
