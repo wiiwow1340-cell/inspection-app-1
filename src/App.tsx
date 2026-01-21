@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
+import ManagePage from "./ManagePage";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -1845,8 +1846,55 @@ if (
         />
       )}
 
-      {/* 管理製程頁 */}
       {page === "manage" && (
+        <ManagePage
+          Card={Card}
+          Button={Button}
+          Input={Input}
+          isAdmin={isAdmin}
+          authUsername={authUsername}
+      
+          processes={processes}
+          newProcName={newProcName}
+          setNewProcName={setNewProcName}
+          newProcCode={newProcCode}
+          setNewProcCode={setNewProcCode}
+          newProcModel={newProcModel}
+          setNewProcModel={setNewProcModel}
+      
+          editingIndex={editingIndex}
+      
+          newItem={newItem}
+          setNewItem={setNewItem}
+          insertAfter={insertAfter}
+          setInsertAfter={setInsertAfter}
+          items={items}
+      
+          editingItemIndex={editingItemIndex}
+          editingItemValue={editingItemValue}
+          setEditingItemValue={setEditingItemValue}
+      
+          expandedProcessIndex={expandedProcessIndex}
+          setExpandedProcessIndex={setExpandedProcessIndex}
+      
+          addItem={addItem}
+          startEditingItem={startEditingItem}
+          saveEditingItem={saveEditingItem}
+          cancelEditingItem={cancelEditingItem}
+          moveItemUp={moveItemUp}
+          moveItemDown={moveItemDown}
+      
+          saveProcess={saveProcess}
+          cancelManageCreate={cancelManageCreate}
+          startEditingProcess={startEditingProcess}
+          setConfirmTarget={setConfirmTarget}
+          confirmDiscard={confirmDiscard}
+          resetManageState={resetManageState}
+        />
+      )}
+
+      {/* 管理製程頁 */}
+      {false && (
         !isAdmin ? (
           <Card className="p-4 space-y-3">
           <h2 className="text-xl font-bold">管理製程</h2>
