@@ -55,7 +55,7 @@ const ReportPage: React.FC<Props> = ({
 
   NA_SENTINEL,
 }) => {
-  // ===== 查詢 / 篩選狀態（移入 ReportPage）=====
+
   // UI 篩選條件（尚未套用）
   const [processFilter, setProcessFilter] = useState("");
   const [modelFilter, setModelFilter] = useState("");
