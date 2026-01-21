@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import HomePage from "./HomePage";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -1786,8 +1787,36 @@ if (
         </Button>
       </div>
 
-      {/* 新增檢驗資料頁 */}
       {page === "home" && (
+        <HomePage
+          serial={serial}
+          setSerial={setSerial}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          productModels={productModels}
+          filteredProcesses={filteredProcesses}
+          selectedProcObj={selectedProcObj}
+          images={images}
+          setImages={setImages}
+          newImageFiles={newImageFiles}
+          setNewImageFiles={setNewImageFiles}
+          homeNA={homeNA}
+          setHomeNA={setHomeNA}
+          handleCapture={handleCapture}
+          resetNewReportState={resetNewReportState}
+          setPreviewIndex={setPreviewIndex}
+          setShowPreview={setShowPreview}
+          Card={Card}
+          Button={Button}
+          Input={Input}
+          StatusIcon={StatusIcon}
+        />
+      )}
+      
+      {/* 新增檢驗資料頁 */}
+      {false && (
         <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold">新增檢驗資料</h2>
 
@@ -1827,7 +1856,7 @@ if (
                   setSelectedProcess("");
                   setImages({});
                   setNewImageFiles({});
-    setHomeNA({});
+                  setHomeNA({});
                 }}
                 className={`w-full border p-2 rounded ${
                   selectedModel ? "" : "border-red-500"
@@ -1854,7 +1883,7 @@ if (
                   setSelectedProcess(e.target.value);
                   setImages({});
                   setNewImageFiles({});
-    setHomeNA({});
+                  setHomeNA({});
                 }}
                 className={`w-full border p-2 rounded ${
                   selectedProcess ? "" : "border-red-500"
@@ -2345,7 +2374,7 @@ if (
                                   {/* ===== 展開區：檢視 or 編輯 ===== */}
                                   {editingReportId === r.id ? (
                                   <div className="space-y-2">
-{/* 應拍項目清單 + 拍照/上傳 */}
+                                  {/* 應拍項目清單 + 拍照/上傳 */}
                                     {(r.expected_items || []).map((item, idx) => (
                                       <div key={item} className="flex items-center gap-2">
                                         <span className="flex-1">{item}</span>
