@@ -179,6 +179,11 @@ const DEFAULT_PROCESSES: Process[] = [
 ];
 
 // =============================
+//  Supabase 連線設定
+// =============================
+
+
+// =============================
 //  Draft (IndexedDB) — 用於 Safari/手機「滑掉後可復原」
 // =============================
 
@@ -731,6 +736,8 @@ export default function App() {
   const [isSavingNew, setIsSavingNew] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0); // 新增上傳進度狀態
+  const [uploadDoneCount, setUploadDoneCount] = useState(0);
+  const [uploadTotalCount, setUploadTotalCount] = useState(0);
   const savingNewRef = useRef(false);
   const savingEditRef = useRef(false);
 
@@ -1056,6 +1063,8 @@ if (
     setUploadProgress(0);
     let completedCount = 0;
     const totalTasks = expectedItems.length;
+    setUploadDoneCount(0);
+    setUploadTotalCount(totalTasks);
 
     const uploadTasks = expectedItems.map((item) => async () => {
       try {
@@ -1079,6 +1088,7 @@ if (
       } finally {
         // --- 新增：每完成一個項目就更新進度 ---
         completedCount++;
+        setUploadDoneCount(completedCount);
         setUploadProgress(Math.round((completedCount / totalTasks) * 100));
       }
     });
@@ -2014,7 +2024,7 @@ if (
                 <div className="mb-3 px-1">
                   <div className="flex justify-between text-[10px] font-bold text-blue-600 mb-1">
                     <span>圖片上傳中...</span>
-                    <span>{uploadProgress}%</span>
+                    <span>{uploadDoneCount}/{uploadTotalCount}</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-gray-200">
                     <div 
@@ -2051,7 +2061,7 @@ if (
                     }
                   }}
                 >
-                  {isSavingNew ? `儲存中 ${uploadProgress}%` : "確認儲存"}
+                  {isSavingNew ? `儲存中 ${uploadDoneCount}/${uploadTotalCount}` : "確認儲存"}
                 </Button>
               </div>
             </div>
@@ -2120,7 +2130,7 @@ if (
             </div>
             {isSavingEdit && (
               <div className="text-sm text-gray-600 text-center py-2">
-                📤 上傳中… {uploadProgress}%
+                📤 上傳中… {uploadDoneCount}/{uploadTotalCount}
               </div>
             )}
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
@@ -2157,6 +2167,8 @@ if (
                   setUploadProgress(0);
                   let completedCount = 0;
                   const totalTasks = expectedItems.length;
+                  setUploadDoneCount(0);
+                  setUploadTotalCount(totalTasks);
                   
                   const uploadTasks = expectedItems.map((item) => async () => {
                     try {
@@ -2187,6 +2199,7 @@ if (
                       }
                     } finally {
                       completedCount++;
+                      setUploadDoneCount(completedCount);
                       setUploadProgress(
                         Math.round((completedCount / totalTasks) * 100)
                       );
