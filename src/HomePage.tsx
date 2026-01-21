@@ -158,6 +158,8 @@ export default function HomePage(props: any) {
                 {homeNA[item] ? (
                   <button
                     type="button"
+                    className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                    title="N/A（不適用）- 點一下恢復"
                     onClick={() =>
                       setHomeNA((prev: any) => {
                         const n = { ...prev };
@@ -171,6 +173,8 @@ export default function HomePage(props: any) {
                 ) : images[item] ? (
                   <button
                     type="button"
+                    className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                    title="已拍 - 點一下設為 N/A"
                     onClick={() =>
                       setHomeNA((prev: any) => ({ ...prev, [item]: true }))
                     }
@@ -180,6 +184,8 @@ export default function HomePage(props: any) {
                 ) : (
                   <button
                     type="button"
+                    className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                    title="未拍 - 點一下設為 N/A"
                     onClick={() =>
                       setHomeNA((prev: any) => ({ ...prev, [item]: true }))
                     }
