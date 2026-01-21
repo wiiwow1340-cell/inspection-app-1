@@ -677,9 +677,6 @@ export default function App() {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
 
-  // 查看報告：查詢後才顯示
-  const [showReports, setShowReports] = useState(false);
-
   // 管理製程用
   const [newProcName, setNewProcName] = useState("");
   const [newProcCode, setNewProcCode] = useState("");
@@ -2035,7 +2032,6 @@ if (
           processes={processes}
           reports={reports}
           filteredReports={filteredReports}
-          showReports={showReports}
           selectedProcessFilter={selectedProcessFilter}
           setSelectedProcessFilter={setSelectedProcessFilter}
           selectedModelFilter={selectedModelFilter}
@@ -2045,7 +2041,6 @@ if (
           fetchReportsFromDB={fetchReportsFromDB}
           setReports={setReports}
           setQueryFilters={setQueryFilters}
-          setShowReports={setShowReports}
           expandedReportId={expandedReportId}
           toggleExpandReport={toggleExpandReport}
           editingReportId={editingReportId}
@@ -2127,7 +2122,7 @@ if (
           </div>
 
           {/* 查詢後才顯示報告 */}
-          {showReports && (
+          (
             <>
               {filteredReports.length === 0 && <p>尚無報告</p>}
 
