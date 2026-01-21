@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 
 type Props = {
   Card: any;
@@ -7,18 +7,9 @@ type Props = {
 
   processes: any[];
   reports: any[];
-  filteredReports: any[];
-
-  selectedProcessFilter: string;
-  setSelectedProcessFilter: (v: string) => void;
-  selectedModelFilter: string;
-  setSelectedModelFilter: (v: string) => void;
-  selectedStatusFilter: string;
-  setSelectedStatusFilter: (v: string) => void;
 
   fetchReportsFromDB: () => Promise<any[]>;
   setReports: (r: any[]) => void;
-  setQueryFilters: (fn: any) => void;
 
   expandedReportId: string | null;
   toggleExpandReport: (id: string) => void;
@@ -43,18 +34,10 @@ const ReportPage: React.FC<Props> = ({
   StatusIcon,
 
   processes,
-  filteredReports,
-
-  selectedProcessFilter,
-  setSelectedProcessFilter,
-  selectedModelFilter,
-  setSelectedModelFilter,
-  selectedStatusFilter,
-  setSelectedStatusFilter,
+  reports,
 
   fetchReportsFromDB,
   setReports,
-  setQueryFilters,
 
   expandedReportId,
   toggleExpandReport,
@@ -72,6 +55,37 @@ const ReportPage: React.FC<Props> = ({
 
   NA_SENTINEL,
 }) => {
+  // ===== 查詢 / 篩選狀態（移入 ReportPage）=====
+  const [processFilter, setProcessFilter] = useState("");
+  const [modelFilter, setModelFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | "done" | "not">("");
+
+  // ===== 篩選後報告（本頁自行計算）=====
+  const filteredReports = useMemo(() => {
+    return reports.filter((r: any) => {
+      if (processFilter && r.process !== processFilter) return false;
+      if (modelFilter && r.model !== modelFilter) return false;
+
+      if (statusFilter) {
+        const expected = r.expected_items || [];
+        const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
+        const required = expected.filter((it: string) => !isItemNA(it));
+
+        if (statusFilter === "done") {
+          if (required.length === 0) return true;
+          if (!required.every((item: string) => !!r.images?.[item])) return false;
+        }
+
+        if (statusFilter === "not") {
+          if (required.length === 0) return false;
+          if (!required.some((item: string) => !r.images?.[item])) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [reports, processFilter, modelFilter, statusFilter, NA_SENTINEL]);
+
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold flex items-center justify-between">
@@ -79,33 +93,33 @@ const ReportPage: React.FC<Props> = ({
         <Button
           type="button"
           onClick={async () => {
-            const freshReports = await fetchReportsFromDB();
-            setReports(freshReports);
-            setQueryFilters((prev: any) => ({ ...prev }));
+            const fresh = await fetchReportsFromDB();
+            setReports(fresh);
           }}
         >
           查詢
         </Button>
       </h2>
 
+      {/* ===== 篩選列 ===== */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
-          value={selectedProcessFilter}
-          onChange={(e) => setSelectedProcessFilter(e.target.value)}
+          value={processFilter}
+          onChange={(e) => setProcessFilter(e.target.value)}
         >
           <option value="">全部製程</option>
-          {Array.from(new Set(processes.map((p) => p.name))).map((procName) => (
-            <option key={procName} value={procName}>
-              {procName}
+          {Array.from(new Set(processes.map((p) => p.name))).map((name) => (
+            <option key={name} value={name}>
+              {name}
             </option>
           ))}
         </select>
 
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
-          value={selectedModelFilter}
-          onChange={(e) => setSelectedModelFilter(e.target.value)}
+          value={modelFilter}
+          onChange={(e) => setModelFilter(e.target.value)}
         >
           <option value="">全部型號</option>
           {Array.from(new Set(processes.map((p) => p.model))).map((m) => (
@@ -117,8 +131,8 @@ const ReportPage: React.FC<Props> = ({
 
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
-          value={selectedStatusFilter}
-          onChange={(e) => setSelectedStatusFilter(e.target.value)}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
         >
           <option value="">全部狀態</option>
           <option value="done">已完成</option>
@@ -130,7 +144,7 @@ const ReportPage: React.FC<Props> = ({
 
       {filteredReports.length > 0 && (
         <div className="space-y-3">
-          {filteredReports.map((r) => {
+          {filteredReports.map((r: any) => {
             const expected = r.expected_items || [];
             const isDone =
               expected.length > 0 &&
