@@ -2122,7 +2122,7 @@ if (
           </div>
 
           {/* 查詢後才顯示報告 */}
-          (
+          {hasSearched && (
             <>
               {filteredReports.length === 0 && <p>尚無報告</p>}
 
