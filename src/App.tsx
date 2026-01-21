@@ -1814,7 +1814,8 @@ if (
           StatusIcon={StatusIcon}
         />
       )}
-      
+
+      {/* 舊 Home（已由 HomePage.tsx 取代，確認穩定後可刪） */}
       {/* 新增檢驗資料頁 */}
       {false && (
         <Card className="p-4 space-y-4">
