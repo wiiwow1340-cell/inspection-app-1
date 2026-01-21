@@ -1057,16 +1057,17 @@ if (
     }
 
     const expectedItems = selectedProcObj.items || [];
+    const uploadItems = expectedItems.filter((item) => homeNA[item] || newImageFiles[item]);
     const uploadedImages: Record<string, string> = {};
 
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
-    const totalTasks = expectedItems.length;
+    const totalTasks = uploadItems.length;
     setUploadDoneCount(0);
     setUploadTotalCount(totalTasks);
 
-    const uploadTasks = expectedItems.map((item) => async () => {
+    const uploadTasks = uploadItems.map((item) => async () => {
       try {
         if (homeNA[item]) {
           uploadedImages[item] = NA_SENTINEL;
@@ -2160,17 +2161,18 @@ if (
                   }
 
                   const expectedItems = report.expected_items || [];
+                  const uploadItems = expectedItems.filter((item) => editNA[item] || editImageFiles[item]);
                   const uploadedImages: Record<string, string> = {
                     ...report.images,
                   };
 
                   setUploadProgress(0);
                   let completedCount = 0;
-                  const totalTasks = expectedItems.length;
+                  const totalTasks = uploadItems.length;
                   setUploadDoneCount(0);
                   setUploadTotalCount(totalTasks);
                   
-                  const uploadTasks = expectedItems.map((item) => async () => {
+                  const uploadTasks = uploadItems.map((item) => async () => {
                     try {
                       if (editNA[item]) {
                         uploadedImages[item] = NA_SENTINEL;
