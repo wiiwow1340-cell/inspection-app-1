@@ -88,7 +88,6 @@ const ReportPage: React.FC<Props> = ({
         </Button>
       </h2>
 
-      {/* 篩選條件 */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
@@ -104,112 +103,7 @@ const ReportPage: React.FC<Props> = ({
         </select>
 
         <select
-          className="border p-2 rounded w-full sm:flex-1 min-w-0"import React from "react";
-
-type Props = {
-  Card: any;
-  Button: any;
-  StatusIcon: any;
-
-  processes: any[];
-  filteredReports: any[];
-
-  selectedProcessFilter: string;
-  setSelectedProcessFilter: (v: string) => void;
-  selectedModelFilter: string;
-  setSelectedModelFilter: (v: string) => void;
-  selectedStatusFilter: string;
-  setSelectedStatusFilter: (v: string) => void;
-
-  fetchReportsFromDB: () => Promise<any[]>;
-  setReports: (r: any[]) => void;
-  setQueryFilters: (fn: any) => void;
-
-  expandedReportId: string | null;
-  toggleExpandReport: (id: string) => void;
-  editingReportId: string | null;
-  toggleEditReport: (id: string) => void;
-
-  editImages: Record<string, any>;
-  editNA: Record<string, boolean>;
-  setEditNA: (fn: any) => void;
-  handleEditCapture: (item: string, file?: File) => void;
-
-  setSignedImg: (v: string) => void;
-  setEditPreviewIndex: (v: number) => void;
-  setShowEditPreview: (v: boolean) => void;
-
-  NA_SENTINEL: string;
-};
-
-const ReportPage: React.FC<Props> = ({
-  Card,
-  Button,
-  StatusIcon,
-
-  processes,
-  filteredReports,
-
-  selectedProcessFilter,
-  setSelectedProcessFilter,
-  selectedModelFilter,
-  setSelectedModelFilter,
-  selectedStatusFilter,
-  setSelectedStatusFilter,
-
-  fetchReportsFromDB,
-  setReports,
-  setQueryFilters,
-
-  expandedReportId,
-  toggleExpandReport,
-  editingReportId,
-  toggleEditReport,
-
-  editImages,
-  editNA,
-  setEditNA,
-  handleEditCapture,
-
-  setSignedImg,
-  setEditPreviewIndex,
-  setShowEditPreview,
-
-  NA_SENTINEL,
-}) => {
-  return (
-    <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold flex items-center justify-between">
-        <span>報告列表</span>
-        <Button
-          type="button"
-          onClick={async () => {
-            const fresh = await fetchReportsFromDB();
-            setReports(fresh);
-            setQueryFilters((prev: any) => ({ ...prev }));
-          }}
-        >
-          查詢
-        </Button>
-      </h2>
-
-      {/* 篩選 */}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <select
-          className="border p-2 rounded w-full sm:flex-1"
-          value={selectedProcessFilter}
-          onChange={(e) => setSelectedProcessFilter(e.target.value)}
-        >
-          <option value="">全部製程</option>
-          {Array.from(new Set(processes.map((p) => p.name))).map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="border p-2 rounded w-full sm:flex-1"
+          className="border p-2 rounded w-full sm:flex-1 min-w-0"
           value={selectedModelFilter}
           onChange={(e) => setSelectedModelFilter(e.target.value)}
         >
@@ -222,7 +116,7 @@ const ReportPage: React.FC<Props> = ({
         </select>
 
         <select
-          className="border p-2 rounded w-full sm:flex-1"
+          className="border p-2 rounded w-full sm:flex-1 min-w-0"
           value={selectedStatusFilter}
           onChange={(e) => setSelectedStatusFilter(e.target.value)}
         >
@@ -248,7 +142,6 @@ const ReportPage: React.FC<Props> = ({
 
             return (
               <div key={r.id} className="border rounded-lg overflow-hidden">
-                {/* Header */}
                 <button
                   type="button"
                   className="w-full text-left p-3 bg-white"
@@ -269,20 +162,21 @@ const ReportPage: React.FC<Props> = ({
                   </div>
 
                   <div className="mt-2 space-y-1 text-sm text-gray-700">
-                    <div className="flex justify-between">
-                      <div>製程名稱：{r.process}</div>
-                      <span className={isDone ? "text-green-600" : "text-gray-600"}>
-                        {isDone ? "已完成" : "未完成"}
-                      </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate">製程名稱：{r.process}</div>
+                      {isDone ? (
+                        <span className="text-green-600">已完成</span>
+                      ) : (
+                        <span className="text-gray-600">未完成</span>
+                      )}
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <div>型號：{r.model}</div>
-                      <div>序號：{r.serial}</div>
+                    <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+                      <div className="truncate">型號：{r.model}</div>
+                      <div className="truncate">序號：{r.serial}</div>
                     </div>
                   </div>
                 </button>
 
-                {/* 展開內容 */}
                 {isOpen && (
                   <div className="bg-gray-50 p-3">
                     {editingReportId === r.id ? (
@@ -320,11 +214,11 @@ const ReportPage: React.FC<Props> = ({
                             </Button>
 
                             <input
-                              id={`edit-capture-${r.id}-${idx}`}
                               type="file"
                               accept="image/*"
                               capture="environment"
                               className="hidden"
+                              id={`edit-capture-${r.id}-${idx}`}
                               onChange={(e) =>
                                 handleEditCapture(
                                   item,
@@ -334,10 +228,10 @@ const ReportPage: React.FC<Props> = ({
                             />
 
                             <input
-                              id={`edit-upload-${r.id}-${idx}`}
                               type="file"
                               accept="image/*"
                               className="hidden"
+                              id={`edit-upload-${r.id}-${idx}`}
                               onChange={(e) =>
                                 handleEditCapture(
                                   item,
@@ -388,6 +282,7 @@ const ReportPage: React.FC<Props> = ({
                         <div className="flex gap-2 mt-3">
                           <Button
                             className="flex-1"
+                            type="button"
                             onClick={() => {
                               setSignedImg("");
                               setEditPreviewIndex(0);
@@ -396,8 +291,10 @@ const ReportPage: React.FC<Props> = ({
                           >
                             確認
                           </Button>
+
                           <Button
                             className="flex-1"
+                            type="button"
                             variant="secondary"
                             onClick={() => toggleEditReport(r.id)}
                           >
@@ -415,11 +312,17 @@ const ReportPage: React.FC<Props> = ({
                             <div key={item} className="flex items-center gap-2">
                               <span className="flex-1">{item}</span>
                               {isNA ? (
-                                <StatusIcon kind="na" />
+                                <span className="text-gray-600">
+                                  <StatusIcon kind="na" />
+                                </span>
                               ) : hasImg ? (
-                                <StatusIcon kind="ok" />
+                                <span className="text-green-600">
+                                  <StatusIcon kind="ok" />
+                                </span>
                               ) : (
-                                <StatusIcon kind="ng" />
+                                <span className="text-gray-400">
+                                  <StatusIcon kind="ng" />
+                                </span>
                               )}
                             </div>
                           );
@@ -438,4 +341,3 @@ const ReportPage: React.FC<Props> = ({
 };
 
 export default ReportPage;
-
