@@ -67,6 +67,9 @@ const ReportPage: React.FC<Props> = ({
   const [appliedStatus, setAppliedStatus] = useState<"" | "done" | "not">("");
   const [hasQueried, setHasQueried] = useState(false);
 
+  // 編輯前快照，用於判斷是否有實際修改
+  const [editSnapshot, setEditSnapshot] = useState<any>(null);
+
   // ===== 篩選後報告（本頁自行計算）=====
   const filteredReports = useMemo(() => {
     if (!hasQueried) return [];
@@ -206,6 +209,12 @@ const ReportPage: React.FC<Props> = ({
                 {isOpen && (
                   <div className="bg-gray-50 p-3">
                     {editingReportId === r.id ? (
+                      (() => {
+                        if (!editSnapshot) {
+                          setEditSnapshot({ images: r.images, editNA: { ...editNA } });
+                        }
+                        return null;
+                      })(),
                       <div className="space-y-2">
                         {(r.expected_items || []).map((item: string, idx: number) => (
                           <div key={item} className="flex items-center gap-2">
@@ -322,7 +331,14 @@ const ReportPage: React.FC<Props> = ({
                             className="flex-1"
                             type="button"
                             variant="secondary"
-                            onClick={() => toggleEditReport(r.id)}
+                            onClick={() => {
+                              const dirty = JSON.stringify({ images: r.images, editNA }) !== JSON.stringify(editSnapshot);
+                              if (dirty) {
+                                if (!window.confirm("內容尚未儲存，確定要取消編輯嗎？")) return;
+                              }
+                              setEditSnapshot(null);
+                              toggleEditReport(r.id);
+                            }}
                           >
                             取消
                           </Button>
