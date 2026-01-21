@@ -711,18 +711,6 @@ export default function App() {
   const [showEditPreview, setShowEditPreview] = useState(false);
   const [editPreviewIndex, setEditPreviewIndex] = useState(0);
 
-  // 查看報告：篩選條件（UI 綁定）
-  const [selectedProcessFilter, setSelectedProcessFilter] = useState("");
-  const [selectedModelFilter, setSelectedModelFilter] = useState("");
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
-
-  // 查詢正式條件（按「查詢」後才生效）
-  const [queryFilters, setQueryFilters] = useState({
-    process: "",
-    model: "",
-    status: "",
-  });
-
   // 刪除確認 Modal 用
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget>(null);
 
@@ -968,34 +956,6 @@ if (
     processes.find(
       (p) => p.name === selectedProcess && p.model === selectedModel
     ) || null;
-
-  const filteredReports = reports.filter((r) => {
-    if (queryFilters.process && r.process !== queryFilters.process) return false;
-    if (queryFilters.model && r.model !== queryFilters.model) return false;
-
-    const expected = r.expected_items || [];
-    const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
-    const isItemDone = (item: string) => isItemNA(item) || !!r.images?.[item];
-
-    if (queryFilters.status === "done") {
-      // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return true;
-      if (!required.every((item) => !!r.images?.[item])) return false;
-    }
-
-    if (queryFilters.status === "not") {
-      // 未完成：存在「非 N/A」但尚未拍照的項目
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return false;
-      if (!required.some((item) => !r.images?.[item])) return false;
-    }
-
-    // 其他狀態：不過濾
-    return true;
-  });
-
-
 
   // ===== 拍照 / 上傳：新增頁（Home） =====
   const handleCapture = (item: string, file: File | undefined) => {
