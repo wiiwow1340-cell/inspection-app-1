@@ -1,14 +1,13 @@
-
 import React from "react";
 
-type ReportPageProps = {
+type Props = {
   Card: any;
   Button: any;
   StatusIcon: any;
 
   processes: any[];
+  reports: any[];
   filteredReports: any[];
-  showReports: boolean;
 
   selectedProcessFilter: string;
   setSelectedProcessFilter: (v: string) => void;
@@ -19,8 +18,7 @@ type ReportPageProps = {
 
   fetchReportsFromDB: () => Promise<any[]>;
   setReports: (r: any[]) => void;
-  setQueryFilters: (q: any) => void;
-  setShowReports: (v: boolean) => void;
+  setQueryFilters: (fn: any) => void;
 
   expandedReportId: string | null;
   toggleExpandReport: (id: string) => void;
@@ -29,7 +27,7 @@ type ReportPageProps = {
 
   editImages: Record<string, any>;
   editNA: Record<string, boolean>;
-  setEditNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setEditNA: (fn: any) => void;
   handleEditCapture: (item: string, file?: File) => void;
 
   setSignedImg: (v: string) => void;
@@ -39,38 +37,41 @@ type ReportPageProps = {
   NA_SENTINEL: string;
 };
 
-export default function ReportPage(props: ReportPageProps) {
-  const {
-    Card,
-    Button,
-    StatusIcon,
-    processes,
-    filteredReports,
-    showReports,
-    selectedProcessFilter,
-    setSelectedProcessFilter,
-    selectedModelFilter,
-    setSelectedModelFilter,
-    selectedStatusFilter,
-    setSelectedStatusFilter,
-    fetchReportsFromDB,
-    setReports,
-    setQueryFilters,
-    setShowReports,
-    expandedReportId,
-    toggleExpandReport,
-    editingReportId,
-    toggleEditReport,
-    editImages,
-    editNA,
-    setEditNA,
-    handleEditCapture,
-    setSignedImg,
-    setEditPreviewIndex,
-    setShowEditPreview,
-    NA_SENTINEL,
-  } = props;
+const ReportPage: React.FC<Props> = ({
+  Card,
+  Button,
+  StatusIcon,
 
+  processes,
+  filteredReports,
+
+  selectedProcessFilter,
+  setSelectedProcessFilter,
+  selectedModelFilter,
+  setSelectedModelFilter,
+  selectedStatusFilter,
+  setSelectedStatusFilter,
+
+  fetchReportsFromDB,
+  setReports,
+  setQueryFilters,
+
+  expandedReportId,
+  toggleExpandReport,
+  editingReportId,
+  toggleEditReport,
+
+  editImages,
+  editNA,
+  setEditNA,
+  handleEditCapture,
+
+  setSignedImg,
+  setEditPreviewIndex,
+  setShowEditPreview,
+
+  NA_SENTINEL,
+}) => {
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold flex items-center justify-between">
@@ -80,18 +81,14 @@ export default function ReportPage(props: ReportPageProps) {
           onClick={async () => {
             const freshReports = await fetchReportsFromDB();
             setReports(freshReports);
-            setQueryFilters({
-              process: selectedProcessFilter,
-              model: selectedModelFilter,
-              status: selectedStatusFilter,
-            });
-            setShowReports(true);
+            setQueryFilters((prev: any) => ({ ...prev }));
           }}
         >
           查詢
         </Button>
       </h2>
 
+      {/* 篩選條件 */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
@@ -130,64 +127,191 @@ export default function ReportPage(props: ReportPageProps) {
         </select>
       </div>
 
-      {showReports && (
-        <>
-          {filteredReports.length === 0 && <p>尚無報告</p>}
+      {/* 查詢結果（不再使用 showReports gate） */}
+      {filteredReports.length === 0 && <p>尚無報告</p>}
 
-          {filteredReports.length > 0 && (
-            <div className="sm:hidden space-y-3">
-              {filteredReports.map((r: any) => {
-                const expected = r.expected_items || [];
-                const isDone =
-                  expected.length > 0 &&
-                  expected.every(
-                    (item: string) =>
-                      r.images?.[item] === NA_SENTINEL ||
-                      !!r.images?.[item]
-                  );
-                const isOpen = expandedReportId === r.id;
+      {filteredReports.length > 0 && (
+        <div className="space-y-3">
+          {filteredReports.map((r) => {
+            const expected = r.expected_items || [];
+            const isDone =
+              expected.length > 0 &&
+              expected.every(
+                (item: string) =>
+                  r.images?.[item] === NA_SENTINEL || !!r.images?.[item]
+              );
+            const isOpen = expandedReportId === r.id;
 
-                return (
-                  <div key={r.id} className="border rounded-lg overflow-hidden">
-                    <button
+            return (
+              <div key={r.id} className="border rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  className="w-full text-left p-3 bg-white"
+                  onClick={() => toggleExpandReport(r.id)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold break-all">{r.id}</div>
+                    <Button
+                      size="sm"
                       type="button"
-                      className="w-full text-left p-3 bg-white"
-                      onClick={() => toggleExpandReport(r.id)}
+                      onClick={(e: any) => {
+                        e.stopPropagation();
+                        toggleEditReport(r.id);
+                      }}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold break-all">{r.id}</div>
-                        <StatusIcon
-                          kind={isDone ? "ok" : "ng"}
-                          title={isDone ? "已完成" : "未完成"}
-                        />
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {r.model} / {r.process}
-                      </div>
-                    </button>
+                      {editingReportId === r.id ? "編輯中" : "編輯"}
+                    </Button>
+                  </div>
 
-                    {isOpen && (
-                      <div className="p-3 border-t space-y-1 text-sm">
-                        {expected.map((item: string) => {
+                  <div className="mt-2 space-y-1 text-sm text-gray-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate">製程名稱：{r.process}</div>
+                      {isDone ? (
+                        <span className="text-green-600">已完成</span>
+                      ) : (
+                        <span className="text-gray-600">未完成</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+                      <div className="truncate">型號：{r.model}</div>
+                      <div className="truncate">序號：{r.serial}</div>
+                    </div>
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="bg-gray-50 p-3">
+                    {editingReportId === r.id ? (
+                      <div className="space-y-2">
+                        {(r.expected_items || []).map((item: string, idx: number) => (
+                          <div key={item} className="flex items-center gap-2">
+                            <span className="flex-1">{item}</span>
+
+                            <Button
+                              type="button"
+                              onClick={(e: any) => {
+                                e.stopPropagation();
+                                const input = document.getElementById(
+                                  `edit-capture-${r.id}-${idx}`
+                                ) as HTMLInputElement;
+                                input?.click();
+                              }}
+                            >
+                              拍照
+                            </Button>
+
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              id={`edit-capture-${r.id}-${idx}`}
+                              onChange={(e) =>
+                                handleEditCapture(
+                                  item,
+                                  e.target.files?.[0] || undefined
+                                )
+                              }
+                            />
+
+                            {editNA[item] ? (
+                              <button
+                                type="button"
+                                className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                                onClick={() =>
+                                  setEditNA((prev: any) => {
+                                    const next = { ...prev };
+                                    delete next[item];
+                                    return next;
+                                  })
+                                }
+                              >
+                                <StatusIcon kind="na" />
+                              </button>
+                            ) : editImages[item] ||
+                              (r.images[item] && r.images[item] !== NA_SENTINEL) ? (
+                              <button
+                                type="button"
+                                className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                onClick={() =>
+                                  setEditNA((prev: any) => ({ ...prev, [item]: true }))
+                                }
+                              >
+                                <StatusIcon kind="ok" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                                onClick={() =>
+                                  setEditNA((prev: any) => ({ ...prev, [item]: true }))
+                                }
+                              >
+                                <StatusIcon kind="ng" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            className="flex-1"
+                            type="button"
+                            onClick={() => {
+                              setSignedImg("");
+                              setEditPreviewIndex(0);
+                              setShowEditPreview(true);
+                            }}
+                          >
+                            確認
+                          </Button>
+
+                          <Button
+                            className="flex-1"
+                            type="button"
+                            variant="secondary"
+                            onClick={() => toggleEditReport(r.id)}
+                          >
+                            取消
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(r.expected_items || []).map((item: string) => {
                           const v = r.images?.[item];
-                          const kind =
-                            v === NA_SENTINEL ? "na" : v ? "ok" : "ng";
+                          const isNA = v === NA_SENTINEL;
+                          const hasImg = !!v && v !== NA_SENTINEL;
                           return (
                             <div key={item} className="flex items-center gap-2">
-                              <span className="flex-1 break-all">{item}</span>
-                              <StatusIcon kind={kind} />
+                              <span className="flex-1">{item}</span>
+                              {isNA ? (
+                                <span className="text-gray-600">
+                                  <StatusIcon kind="na" />
+                                </span>
+                              ) : hasImg ? (
+                                <span className="text-green-600">
+                                  <StatusIcon kind="ok" />
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">
+                                  <StatusIcon kind="ng" />
+                                </span>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </Card>
   );
-}
+};
+
+export default ReportPage;
