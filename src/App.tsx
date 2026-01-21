@@ -2161,7 +2161,15 @@ if (
                   }
 
                   const expectedItems = report.expected_items || [];
-                  const uploadItems = expectedItems.filter((item) => editNA[item] || editImageFiles[item]);
+                  const uploadItems = expectedItems.filter((item) => {
+                    const wasNA = report.images?.[item] === NA_SENTINEL;
+                    const isNA = !!editNA[item];
+                    const hasNewFile = !!editImageFiles[item];
+                    // 只計算「有變動」的項目：
+                    // 1) 新拍照
+                    // 2) NA 狀態有變（原本不是 NA，現在是 NA）
+                    return hasNewFile || (!wasNA && isNA);
+                  });
                   const uploadedImages: Record<string, string> = {
                     ...report.images,
                   };
