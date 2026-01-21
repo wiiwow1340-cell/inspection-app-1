@@ -711,18 +711,6 @@ export default function App() {
   const [showEditPreview, setShowEditPreview] = useState(false);
   const [editPreviewIndex, setEditPreviewIndex] = useState(0);
 
-  // 查看報告：篩選條件（UI 綁定）
-  const [selectedProcessFilter, setSelectedProcessFilter] = useState("");
-  const [selectedModelFilter, setSelectedModelFilter] = useState("");
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
-
-  // 查詢正式條件（按「查詢」後才生效）
-  const [queryFilters, setQueryFilters] = useState({
-    process: "",
-    model: "",
-    status: "",
-  });
-
   // 刪除確認 Modal 用
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget>(null);
 
