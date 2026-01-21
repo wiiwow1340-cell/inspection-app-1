@@ -56,27 +56,35 @@ const ReportPage: React.FC<Props> = ({
   NA_SENTINEL,
 }) => {
   // ===== 查詢 / 篩選狀態（移入 ReportPage）=====
+  // UI 篩選條件（尚未套用）
   const [processFilter, setProcessFilter] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "done" | "not">("");
 
+  // 已套用的查詢條件（按「查詢」才生效）
+  const [appliedProcess, setAppliedProcess] = useState("");
+  const [appliedModel, setAppliedModel] = useState("");
+  const [appliedStatus, setAppliedStatus] = useState<"" | "done" | "not">("");
+  const [hasQueried, setHasQueried] = useState(false);
+
   // ===== 篩選後報告（本頁自行計算）=====
   const filteredReports = useMemo(() => {
+    if (!hasQueried) return [];
     return reports.filter((r: any) => {
-      if (processFilter && r.process !== processFilter) return false;
-      if (modelFilter && r.model !== modelFilter) return false;
+      if (appliedProcess && r.process !== appliedProcess) return false;
+      if (appliedModel && r.model !== appliedModel) return false;
 
-      if (statusFilter) {
+      if (appliedStatus) {
         const expected = r.expected_items || [];
         const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
         const required = expected.filter((it: string) => !isItemNA(it));
 
-        if (statusFilter === "done") {
+        if (appliedStatus === "done") {
           if (required.length === 0) return true;
           if (!required.every((item: string) => !!r.images?.[item])) return false;
         }
 
-        if (statusFilter === "not") {
+        if (appliedStatus === "not") {
           if (required.length === 0) return false;
           if (!required.some((item: string) => !r.images?.[item])) return false;
         }
@@ -84,7 +92,7 @@ const ReportPage: React.FC<Props> = ({
 
       return true;
     });
-  }, [reports, processFilter, modelFilter, statusFilter, NA_SENTINEL]);
+  }, [reports, appliedProcess, appliedModel, appliedStatus, hasQueried, NA_SENTINEL]);
 
   return (
     <Card className="p-4 space-y-4">
@@ -95,6 +103,10 @@ const ReportPage: React.FC<Props> = ({
           onClick={async () => {
             const fresh = await fetchReportsFromDB();
             setReports(fresh);
+            setAppliedProcess(processFilter);
+            setAppliedModel(modelFilter);
+            setAppliedStatus(statusFilter);
+            setHasQueried(true);
           }}
         >
           查詢
