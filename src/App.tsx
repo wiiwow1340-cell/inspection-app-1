@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
+import ReportPage from "./ReportPage";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -2026,8 +2027,43 @@ if (
         </Card>
       )}
 
-      {/* 查看報告頁 */}
       {page === "reports" && (
+        <ReportPage
+          Card={Card}
+          Button={Button}
+          StatusIcon={StatusIcon}
+          processes={processes}
+          reports={reports}
+          filteredReports={filteredReports}
+          showReports={showReports}
+          selectedProcessFilter={selectedProcessFilter}
+          setSelectedProcessFilter={setSelectedProcessFilter}
+          selectedModelFilter={selectedModelFilter}
+          setSelectedModelFilter={setSelectedModelFilter}
+          selectedStatusFilter={selectedStatusFilter}
+          setSelectedStatusFilter={setSelectedStatusFilter}
+          fetchReportsFromDB={fetchReportsFromDB}
+          setReports={setReports}
+          setQueryFilters={setQueryFilters}
+          setShowReports={setShowReports}
+          expandedReportId={expandedReportId}
+          toggleExpandReport={toggleExpandReport}
+          editingReportId={editingReportId}
+          toggleEditReport={toggleEditReport}
+          editImages={editImages}
+          editNA={editNA}
+          setEditNA={setEditNA}
+          handleEditCapture={handleEditCapture}
+          setSignedImg={setSignedImg}
+          setEditPreviewIndex={setEditPreviewIndex}
+          setShowEditPreview={setShowEditPreview}
+          NA_SENTINEL={NA_SENTINEL}
+        />
+      )}
+
+      {/* 舊 Report（已由 ReportPage.tsx 取代，確認穩定後可刪） */}
+      {/* 查看報告頁 */}
+      {false && (
         <Card className="p-4 space-y-4">
           <h2 className="text-xl font-bold flex items-center justify-between">
             <span>報告列表</span>
