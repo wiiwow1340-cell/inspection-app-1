@@ -31,7 +31,7 @@ const Button: React.FC<ButtonProps> = ({
     default:
       "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600",
     secondary:
-      "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
+      "bg-slate-100 text-slate-700 hover:bg-slate-200 focus-visible:ring-slate-400",
     destructive:
       "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
   };
@@ -115,7 +115,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
   <div
-    className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+    className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}
     {...props}
   />
 );
@@ -606,7 +606,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22240%22%20height=%22240%22%20viewBox=%220%200%20240%20240%22%3E%3Cfilter%20id=%22noise%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.9%22%20numOctaves=%222%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22240%22%20height=%22240%22%20filter=%22url(%23noise)%22%20opacity=%220.4%22/%3E%3C/svg%3E')] opacity-[0.05]"
       />
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-8 -translate-y-24 sm:-translate-y-24">
         <div className="space-y-2 text-center">
           <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
             INSPECTION APP
@@ -1833,7 +1833,8 @@ useEffect(() => {
   // =============================
 
   return (
-    <div className="p-4 max-w-xl mx-auto space-y-4">
+    <div className="min-h-screen bg-slate-200/70 px-4 py-6">
+      <div className="p-4 max-w-xl mx-auto space-y-4 bg-sky-50/90 border border-sky-100/80 rounded-2xl shadow-sm">
       {/* 上方主選單 + 登出 */}
       <div className="flex justify-between items-center space-x-2">
         <div className="flex space-x-2">
@@ -1860,7 +1861,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 新增檢驗資料
               </span>
             </div>
@@ -1873,7 +1874,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 查看報告
               </span>
             </div>
@@ -1891,7 +1892,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 管理製程
               </span>
             </div>
@@ -2023,9 +2024,9 @@ useEffect(() => {
       {/* 草稿恢復（UX-1） */}
       {showDraftPrompt && pendingDraft && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full border border-slate-200">
             <p className="text-lg font-bold">偵測到未完成的作業</p>
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-sm text-slate-600 mt-2">
               來源：
               {pendingDraft.page === "home"
                 ? "新增檢驗資料"
@@ -2033,7 +2034,7 @@ useEffect(() => {
                 ? "查詢/編輯報告"
                 : "管理製程"}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               最後更新：{new Date(pendingDraft.updatedAt).toLocaleString()}
             </p>
 
@@ -2073,10 +2074,10 @@ useEffect(() => {
 {/* 新增儲存前預覽 Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col border border-slate-200">
             <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             <p className="text-lg font-bold">📷 照片預覽</p>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-slate-600">
               可左右切換照片（依檢驗項目順序顯示）
             </p>
 
@@ -2084,7 +2085,7 @@ useEffect(() => {
               const itemsList = selectedProcObj?.items || [];
               if (itemsList.length === 0) {
                 return (
-                  <p className="text-sm text-gray-500">目前沒有檢驗項目</p>
+                  <p className="text-sm text-slate-500">目前沒有檢驗項目</p>
                 );
               }
 
@@ -2098,7 +2099,7 @@ useEffect(() => {
                   <p className="font-medium">{currentItem}</p>
 
                   {homeNA[currentItem] ? (
-                    <p className="text-gray-600 text-sm">N/A（不適用）</p>
+                    <p className="text-slate-600 text-sm">N/A（不適用）</p>
                   ) : currentImgs.length > 0 ? (
                     <div className="grid gap-2">
                       {currentImgs.map((img, imgIndex) => (
@@ -2137,7 +2138,7 @@ useEffect(() => {
                     </Button>
                   </div>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     {safeIndex + 1} / {itemsList.length}
                   </p>
                 </div>
@@ -2147,7 +2148,7 @@ useEffect(() => {
             </div>
 
             {/* --- 這是替換後的內容，請確保包含最後的兩個 </div> --- */}
-            <div className="pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+            <div className="pt-3 mt-3 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
               
               {/* ✨ 進度條顯示區 */}
               {isSavingNew && (
@@ -2156,7 +2157,7 @@ useEffect(() => {
                     <span>圖片上傳中...</span>
                     <span>{uploadDoneCount}/{uploadTotalCount}</span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-gray-200">
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
                     <div 
                       className="bg-blue-600 h-full transition-all duration-300 ease-out" 
                       style={{ width: `${uploadProgress}%` }}
@@ -2202,7 +2203,7 @@ useEffect(() => {
       {/* 編輯儲存前預覽 Modal */}
       {showEditPreview && editingReportId && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full max-h-[90vh] flex flex-col border border-slate-200">
             <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             <p className="text-lg font-bold">📷 編輯照片預覽</p>
             {(() => {
@@ -2210,7 +2211,7 @@ useEffect(() => {
               const itemsList = report?.expected_items || [];
               if (!report || itemsList.length === 0) {
                 return (
-                  <p className="text-sm text-gray-500">沒有可預覽的項目</p>
+                  <p className="text-sm text-slate-500">沒有可預覽的項目</p>
                 );
               }
               const safeIndex = Math.min(editPreviewIndex, itemsList.length - 1);
@@ -2220,7 +2221,7 @@ useEffect(() => {
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
                   {editNA[item] ? (
-                    <p className="text-gray-600 text-sm">N/A（不適用）</p>
+                    <p className="text-slate-600 text-sm">N/A（不適用）</p>
                   ) : signedImg.length > 0 ? (
                     <div className="grid gap-2">
                       {signedImg.map((img, imgIndex) => (
@@ -2259,7 +2260,7 @@ useEffect(() => {
                       下一張 ➡
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     {safeIndex + 1} / {itemsList.length}
                   </p>
                 </div>
@@ -2267,11 +2268,11 @@ useEffect(() => {
             })()}
             </div>
             {isSavingEdit && (
-              <div className="text-sm text-gray-600 text-center py-2">
+              <div className="text-sm text-slate-600 text-center py-2">
                 📤 上傳中… {uploadDoneCount}/{uploadTotalCount}
               </div>
             )}
-            <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+            <div className="flex gap-2 pt-3 mt-3 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
               <Button
                 className="flex-1"
                 variant="secondary"
@@ -2448,9 +2449,9 @@ useEffect(() => {
       {/* 刪除確認 Modal */}
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded shadow w-72 space-y-4">
+          <div className="bg-white p-4 rounded shadow w-72 space-y-4 border border-slate-200">
             <p className="text-lg font-bold">⚠ 確定要刪除？</p>
-            <p className="text-sm text-gray-600">此動作無法復原。</p>
+            <p className="text-sm text-slate-600">此動作無法復原。</p>
             <div className="flex gap-2">
               <Button
                 className="flex-1"
@@ -2478,6 +2479,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

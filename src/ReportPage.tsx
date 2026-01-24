@@ -126,7 +126,7 @@ const ReportPage: React.FC<Props> = ({
 
   return (
     <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold flex items-center justify-between">
+      <h2 className="text-xl font-bold text-slate-900 flex items-center justify-between">
         <span>報告列表</span>
         <Button
           type="button"
@@ -146,7 +146,7 @@ const ReportPage: React.FC<Props> = ({
       {/* ===== 篩選列 ===== */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
-          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
           value={processFilter}
           onChange={(e) => setProcessFilter(e.target.value)}
         >
@@ -159,7 +159,7 @@ const ReportPage: React.FC<Props> = ({
         </select>
 
         <select
-          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
           value={modelFilter}
           onChange={(e) => setModelFilter(e.target.value)}
         >
@@ -172,7 +172,7 @@ const ReportPage: React.FC<Props> = ({
         </select>
 
         <select
-          className="border p-2 rounded w-full sm:flex-1 min-w-0"
+          className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter(e.target.value as "" | "done" | "not")
@@ -204,7 +204,7 @@ const ReportPage: React.FC<Props> = ({
             const isOpen = expandedReportId === r.id;
 
             return (
-              <div key={r.id} className="border rounded-lg overflow-hidden">
+              <div key={r.id} className="border border-slate-200 rounded-lg overflow-hidden">
                 <button
                   type="button"
                   className="w-full text-left p-3 bg-white"
@@ -224,16 +224,16 @@ const ReportPage: React.FC<Props> = ({
                     </Button>
                   </div>
 
-                  <div className="mt-2 space-y-1 text-sm text-gray-700">
+                  <div className="mt-2 space-y-1 text-sm text-slate-700">
                     <div className="flex items-center justify-between gap-2">
                       <div className="truncate">製程名稱：{r.process}</div>
                       {isDone ? (
                         <span className="text-green-600">已完成</span>
                       ) : (
-                        <span className="text-gray-600">未完成</span>
+                        <span className="text-slate-600">未完成</span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+                    <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
                       <div className="truncate">型號：{r.model}</div>
                       <div className="truncate">序號：{r.serial}</div>
                     </div>
@@ -241,7 +241,7 @@ const ReportPage: React.FC<Props> = ({
                 </button>
 
                 {isOpen && (
-                  <div className="bg-gray-50 p-3">
+                  <div className="bg-slate-50 p-3">
                     {editingReportId === r.id ? (
                       <div className="space-y-2">
                         {(r.expected_items || []).map((item: string, idx: number) => (
@@ -317,7 +317,7 @@ const ReportPage: React.FC<Props> = ({
                             {editNA[item] ? (
                               <button
                                 type="button"
-                                className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                                className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
                                 onClick={() =>
                                   setEditNA((prev) => {
                                     const next = { ...prev };
@@ -344,7 +344,7 @@ const ReportPage: React.FC<Props> = ({
                             ) : (
                               <button
                                 type="button"
-                                className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                                className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
                                 onClick={() =>
                                   setEditNA((prev) => ({ ...prev, [item]: true }))
                                 }
@@ -361,7 +361,7 @@ const ReportPage: React.FC<Props> = ({
                               const newCount = editImages[item]?.length || 0;
                               const total = existingCount + newCount;
                               return total > 1 ? (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-slate-500">
                                   {total} 張
                                 </span>
                               ) : null;
@@ -404,7 +404,7 @@ const ReportPage: React.FC<Props> = ({
                             <div key={item} className="flex items-center gap-2">
                               <span className="flex-1">{item}</span>
                               {isNA ? (
-                                <span className="text-gray-600">
+                                <span className="text-slate-600">
                                   <StatusIcon kind="na" />
                                 </span>
                               ) : hasImg ? (
@@ -412,12 +412,12 @@ const ReportPage: React.FC<Props> = ({
                                   <StatusIcon kind="ok" />
                                 </span>
                               ) : (
-                                <span className="text-gray-400">
+                                <span className="text-slate-400">
                                   <StatusIcon kind="ng" />
                                 </span>
                               )}
                               {Array.isArray(v) && v.length > 1 && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-slate-500">
                                   {v.length} 張
                                 </span>
                               )}
