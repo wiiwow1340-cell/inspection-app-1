@@ -314,7 +314,7 @@ export default function ManagePage({
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
             <table className="w-full min-w-max table-auto border-collapse">
               <thead className="bg-slate-50">
-                <tr className="border-b border-slate-200">
+                <tr className="border-b border-slate-200 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                   <th
                     className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
                   >
@@ -326,7 +326,7 @@ export default function ManagePage({
                     產品型號
                   </th>
                   <th
-                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap text-center`}
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap text-center sm:text-left`}
                   >
                     操作
                   </th>
@@ -344,7 +344,7 @@ export default function ManagePage({
                     <React.Fragment
                       key={`${p.name}-${p.code}-${p.model}-${idx}`}
                     >
-                      <tr className="border-t border-slate-200">
+                      <tr className="border-t border-slate-200 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <td
                           className={`${processCellBase} ${processRowCell} cursor-pointer`}
                           role="button"
