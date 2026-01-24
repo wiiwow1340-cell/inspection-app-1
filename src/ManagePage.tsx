@@ -313,24 +313,6 @@ export default function ManagePage({
         <div className="space-y-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
             <table className="w-full min-w-max table-auto border-collapse">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className={`${processCellBase} ${processHeaderCell}`}>
-                    製程名稱
-                  </th>
-                  <th className={`${processCellBase} ${processHeaderCell}`}>
-                    代號
-                  </th>
-                  <th className={`${processCellBase} ${processHeaderCell}`}>
-                    產品型號
-                  </th>
-                  <th
-                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
-                  >
-                    操作
-                  </th>
-                </tr>
-              </thead>
               <tbody>
                 {processes.map((p, idx) => {
                   const isOpen = expandedProcessIndex === idx;
@@ -359,13 +341,8 @@ export default function ManagePage({
                         >
                           <span className="font-semibold text-slate-900">
                             {p.name}
+                            {p.code ? `(${p.code})` : ""}
                           </span>
-                        </td>
-                        <td
-                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
-                          onClick={toggleRow}
-                        >
-                          {p.code}
                         </td>
                         <td
                           className={`${processCellBase} ${processRowCell} cursor-pointer`}
@@ -403,7 +380,7 @@ export default function ManagePage({
                       {isOpen && (
                         <tr className="border-t border-slate-200 bg-slate-50">
                           <td
-                            colSpan={4}
+                            colSpan={3}
                             className="px-3 py-3 text-xs sm:text-sm"
                           >
                             <div className="font-semibold mb-2">檢驗項目</div>
