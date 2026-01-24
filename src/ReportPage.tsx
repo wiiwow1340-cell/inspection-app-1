@@ -20,6 +20,16 @@ type Props = {
 
   processes: Process[];
   reports: Report[];
+  filteredReports?: Report[];
+  selectedProcessFilter?: string;
+  setSelectedProcessFilter?: React.Dispatch<React.SetStateAction<string>>;
+  selectedModelFilter?: string;
+  setSelectedModelFilter?: React.Dispatch<React.SetStateAction<string>>;
+  selectedStatusFilter?: string;
+  setSelectedStatusFilter?: React.Dispatch<React.SetStateAction<string>>;
+  setQueryFilters?: React.Dispatch<
+    React.SetStateAction<{ process: string; model: string; status: string }>
+  >;
 
   fetchReportsFromDB: () => Promise<Report[]>;
   setReports: React.Dispatch<React.SetStateAction<Report[]>>;
@@ -29,12 +39,12 @@ type Props = {
   editingReportId: string | null;
   toggleEditReport: (id: string) => void;
 
-  editImages: Record<string, string>;
+  editImages: Record<string, string[]>;
   editNA: Record<string, boolean>;
   setEditNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  handleEditCapture: (item: string, file?: File) => void;
+  handleEditCapture: (item: string, files?: FileList | File[]) => void;
 
-  setSignedImg: React.Dispatch<React.SetStateAction<string>>;
+  setSignedImg: React.Dispatch<React.SetStateAction<string[]>>;
   setEditPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowEditPreview: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -90,16 +100,23 @@ const ReportPage: React.FC<Props> = ({
       if (appliedStatus) {
         const expected = r.expected_items || [];
         const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
+        const hasItemImage = (item: string) => {
+          const value = r.images?.[item];
+          if (!value || value === NA_SENTINEL) return false;
+          return Array.isArray(value) ? value.length > 0 : true;
+        };
         const required = expected.filter((it: string) => !isItemNA(it));
 
         if (appliedStatus === "done") {
           if (required.length === 0) return true;
-          if (!required.every((item: string) => !!r.images?.[item])) return false;
+          if (!required.every((item: string) => hasItemImage(item)))
+            return false;
         }
 
         if (appliedStatus === "not") {
           if (required.length === 0) return false;
-          if (!required.some((item: string) => !r.images?.[item])) return false;
+          if (!required.some((item: string) => !hasItemImage(item)))
+            return false;
         }
       }
 
@@ -173,11 +190,16 @@ const ReportPage: React.FC<Props> = ({
         <div className="space-y-3">
           {filteredReports.map((r) => {
             const expected = r.expected_items || [];
+            const hasItemImage = (item: string) => {
+              const value = r.images?.[item];
+              if (!value || value === NA_SENTINEL) return false;
+              return Array.isArray(value) ? value.length > 0 : true;
+            };
             const isDone =
               expected.length > 0 &&
               expected.every(
                 (item: string) =>
-                  r.images?.[item] === NA_SENTINEL || !!r.images?.[item]
+                  r.images?.[item] === NA_SENTINEL || hasItemImage(item)
               );
             const isOpen = expandedReportId === r.id;
 
@@ -265,10 +287,13 @@ const ReportPage: React.FC<Props> = ({
                               className="hidden"
                               id={`edit-capture-${r.id}-${idx}`}
                               onChange={(e) =>
-                                handleEditCapture(
-                                  item,
-                                  e.target.files?.[0] || undefined
-                                )
+                                {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }
                               }
                             />
 
@@ -277,11 +302,15 @@ const ReportPage: React.FC<Props> = ({
                               accept="image/*"
                               className="hidden"
                               id={`edit-upload-${r.id}-${idx}`}
+                              multiple
                               onChange={(e) =>
-                                handleEditCapture(
-                                  item,
-                                  e.target.files?.[0] || undefined
-                                )
+                                {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }
                               }
                             />
 
@@ -299,8 +328,10 @@ const ReportPage: React.FC<Props> = ({
                               >
                                 <StatusIcon kind="na" />
                               </button>
-                            ) : editImages[item] ||
-                              (r.images[item] && r.images[item] !== NA_SENTINEL) ? (
+                            ) : (editImages[item]?.length || 0) > 0 ||
+                              (Array.isArray(r.images[item])
+                                ? r.images[item].length > 0
+                                : !!r.images[item] && r.images[item] !== NA_SENTINEL) ? (
                               <button
                                 type="button"
                                 className="w-8 h-8 inline-flex items-center justify-center text-green-600"
@@ -320,7 +351,21 @@ const ReportPage: React.FC<Props> = ({
                               >
                                 <StatusIcon kind="ng" />
                               </button>
-                            )}
+                              )}
+                            {(() => {
+                              const existingCount = Array.isArray(r.images[item])
+                                ? r.images[item].length
+                                : r.images[item] && r.images[item] !== NA_SENTINEL
+                                ? 1
+                                : 0;
+                              const newCount = editImages[item]?.length || 0;
+                              const total = existingCount + newCount;
+                              return total > 1 ? (
+                                <span className="text-xs text-gray-500">
+                                  {total} 張
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         ))}
 
@@ -329,7 +374,7 @@ const ReportPage: React.FC<Props> = ({
                             className="flex-1"
                             type="button"
                             onClick={() => {
-                              setSignedImg("");
+                              setSignedImg([]);
                               setEditPreviewIndex(0);
                               setShowEditPreview(true);
                             }}
@@ -352,7 +397,9 @@ const ReportPage: React.FC<Props> = ({
                         {(r.expected_items || []).map((item: string) => {
                           const v = r.images?.[item];
                           const isNA = v === NA_SENTINEL;
-                          const hasImg = !!v && v !== NA_SENTINEL;
+                          const hasImg = Array.isArray(v)
+                            ? v.length > 0
+                            : !!v && v !== NA_SENTINEL;
                           return (
                             <div key={item} className="flex items-center gap-2">
                               <span className="flex-1">{item}</span>
@@ -367,6 +414,11 @@ const ReportPage: React.FC<Props> = ({
                               ) : (
                                 <span className="text-gray-400">
                                   <StatusIcon kind="ng" />
+                                </span>
+                              )}
+                              {Array.isArray(v) && v.length > 1 && (
+                                <span className="text-xs text-gray-500">
+                                  {v.length} 張
                                 </span>
                               )}
                             </div>

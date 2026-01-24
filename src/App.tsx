@@ -127,6 +127,26 @@ type ConfirmTarget =
 
 // 影像狀態：不適用 (N/A) 以 sentinel 存在 images map 中
 const NA_SENTINEL = "__NA__";
+type ImageValue = string[] | string;
+
+const isNAValue = (value?: ImageValue) => value === NA_SENTINEL;
+const normalizeImageValue = (value?: ImageValue): string[] => {
+  if (!value || value === NA_SENTINEL) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const normalizeImagesMap = (images?: Record<string, ImageValue>) => {
+  const next: Record<string, ImageValue> = {};
+  Object.entries(images || {}).forEach(([key, value]) => {
+    if (value === NA_SENTINEL) {
+      next[key] = value;
+      return;
+    }
+    const list = normalizeImageValue(value);
+    if (list.length > 0) next[key] = list;
+  });
+  return next;
+};
 
 
 // =============================
@@ -178,7 +198,7 @@ type HomeDraftData = {
   // item -> { blob, name, type, lastModified }
   imageFiles: Record<
     string,
-    { blob: Blob; name: string; type: string; lastModified: number }
+    { blob: Blob; name: string; type: string; lastModified: number }[]
   >;
 };
 
@@ -191,7 +211,7 @@ type ReportsDraftData = {
   na: Record<string, boolean>;
   editImageFiles: Record<
     string,
-    { blob: Blob; name: string; type: string; lastModified: number }
+    { blob: Blob; name: string; type: string; lastModified: number }[]
   >;
 };
 
@@ -475,13 +495,25 @@ async function uploadImage(
 
   const { item, procItems } = info;
   const safeItem = getSafeItemName(procItems, item);
-  const fileName = `${safeItem}.jpg`;
+  const safeItemName = item
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^\p{L}\p{N}_-]/gu, "_") || safeItem;
+  const d = new Date();
+  const stamp = `${String(d.getFullYear()).slice(-2)}${String(
+    d.getMonth() + 1
+  ).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}${String(
+    d.getHours()
+  ).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(
+    d.getSeconds()
+  ).padStart(2, "0")}`;
+  const fileName = `${safeItemName}_${stamp}.jpg`;
   const filePath = `${processCode}/${model}/${serial}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
       .from("photos")
-      .upload(filePath, compressed, { upsert: true });
+      .upload(filePath, compressed, { upsert: false });
 
     if (error) {
       console.error("上傳圖片失敗（Storage）:", error.message);
@@ -536,7 +568,7 @@ async function fetchReportsFromDB(): Promise<Report[]> {
     serial: row.serial,
     model: row.model,
     process: row.process,
-    images: row.images || {},
+    images: normalizeImagesMap(row.images || {}),
     expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
   }));
 }
@@ -643,9 +675,9 @@ export default function App() {
   const [serial, setSerial] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedProcess, setSelectedProcess] = useState("");
-  const [images, setImages] = useState<Record<string, string>>({}); // 新增頁預覽用
+  const [images, setImages] = useState<Record<string, string[]>>({}); // 新增頁預覽用
   const [newImageFiles, setNewImageFiles] = useState<
-    Record<string, File | undefined>
+    Record<string, File[]>
   >({}); // 新增頁實際上傳用
 
   // ===== Draft / 恢復提示（三頁共用）=====
@@ -684,10 +716,10 @@ export default function App() {
   const [editNA, setEditNA] = useState<Record<string, boolean>>({});
 
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
-  const [editImages, setEditImages] = useState<Record<string, string>>({});
-  const [editImageFiles, setEditImageFiles] = useState<
-    Record<string, File | undefined>
-  >({});
+  const [editImages, setEditImages] = useState<Record<string, string[]>>({});
+  const [editImageFiles, setEditImageFiles] = useState<Record<string, File[]>>(
+    {}
+  );
 
   // 編輯儲存前預覽
   const [showEditPreview, setShowEditPreview] = useState(false);
@@ -711,7 +743,7 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [signedImg, setSignedImg] = useState<string>("");
+  const [signedImg, setSignedImg] = useState<string[]>([]);
 
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
@@ -723,53 +755,60 @@ export default function App() {
   const savingEditRef = useRef(false);
 
 useEffect(() => {
+  let isActive = true;
+
   if (!showEditPreview || !editingReportId) {
     return;
   }
 
   const report = reports.find((r) => r.id === editingReportId);
   if (!report) {
-    setSignedImg("");
+    setSignedImg([]);
     return;
   }
 
   const item = report.expected_items?.[editPreviewIndex];
   if (!item) {
-    setSignedImg("");
+    setSignedImg([]);
     return;
   }
 
-  const rawImg =
-  editImages[item] ||
-  report.images?.[item];
-
-  if (editNA[item] || rawImg === NA_SENTINEL) {
-    setSignedImg("");
+  if (editNA[item] || isNAValue(report.images?.[item])) {
+    setSignedImg([]);
     return;
   }
 
-if (!rawImg) {
-  setSignedImg("");
-  return;
-}
+  const existingImages = normalizeImageValue(report.images?.[item]);
+  const newPreviews = editImages[item] || [];
+  const combined = [...existingImages, ...newPreviews];
 
-// ✅ 新上傳的（data/blob/http）直接顯示，不要做 signed
-if (
-  rawImg.startsWith("data:") ||
-  rawImg.startsWith("blob:") ||
-  rawImg.startsWith("http://") ||
-  rawImg.startsWith("https://")
-) {
-  setSignedImg(rawImg);
-  return;
-}
+  if (combined.length === 0) {
+    setSignedImg([]);
+    return;
+  }
 
-// ✅ 舊照片（storage path）才去轉 signed URL
-(async () => {
-  const signed = await getSignedImageUrl(rawImg);
-  setSignedImg(signed);
-})();
+  (async () => {
+    const resolved = await Promise.all(
+      combined.map(async (raw) => {
+        if (
+          raw.startsWith("data:") ||
+          raw.startsWith("blob:") ||
+          raw.startsWith("http://") ||
+          raw.startsWith("https://")
+        ) {
+          return raw;
+        }
+        return getSignedImageUrl(raw);
+      })
+    );
+    if (isActive) {
+      setSignedImg(resolved.filter(Boolean));
+    }
+  })();
 
+  return () => {
+    isActive = false;
+  };
 }, [
   showEditPreview,
   editingReportId,
@@ -958,21 +997,22 @@ if (
     if (queryFilters.model && r.model !== queryFilters.model) return false;
 
     const expected = r.expected_items || [];
-    const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
-    const isItemDone = (item: string) => isItemNA(item) || !!r.images?.[item];
+    const isItemNA = (item: string) => isNAValue(r.images?.[item]);
+    const isItemDone = (item: string) =>
+      isItemNA(item) || normalizeImageValue(r.images?.[item]).length > 0;
 
     if (queryFilters.status === "done") {
       // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
       const required = expected.filter((it) => !isItemNA(it));
       if (required.length === 0) return true;
-      if (!required.every((item) => !!r.images?.[item])) return false;
+      if (!required.every((item) => isItemDone(item))) return false;
     }
 
     if (queryFilters.status === "not") {
       // 未完成：存在「非 N/A」但尚未拍照的項目
       const required = expected.filter((it) => !isItemNA(it));
       if (required.length === 0) return false;
-      if (!required.some((item) => !r.images?.[item])) return false;
+      if (!required.some((item) => !isItemDone(item))) return false;
     }
 
     // 其他狀態：不過濾
@@ -982,39 +1022,69 @@ if (
 
 
   // ===== 拍照 / 上傳：新增頁（Home） =====
-  const handleCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  const handleCapture = (
+    item: string,
+    files: FileList | File[] | undefined
+  ) => {
+    if (!files || files.length === 0) return;
 
-    // 預覽：用 blob URL（快且不吃記憶體）
-    const previewUrl = URL.createObjectURL(file);
+    const incoming = Array.from(files);
+    const previewUrls = incoming
+      .map((file) => {
+        try {
+          return URL.createObjectURL(file);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
 
     setImages((prev) => {
-      // 釋放舊的 blob URL（避免記憶體累積）
-      const old = prev[item];
-      if (old && typeof old === "string" && old.startsWith("blob:")) {
-        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
-      }
-      return { ...prev, [item]: previewUrl };
+      const next = [...(prev[item] || []), ...previewUrls];
+      return { ...prev, [item]: next };
     });
 
-    setNewImageFiles((prev) => ({ ...prev, [item]: file }));
+    setNewImageFiles((prev) => {
+      const next = [...(prev[item] || []), ...incoming];
+      return { ...prev, [item]: next };
+    });
+
+    // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
+    setHomeNA((prev) => {
+      if (!prev[item]) return prev;
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
   };
 
   // ===== 拍照 / 上傳：報告編輯（Reports - Edit mode） =====
-  const handleEditCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  const handleEditCapture = (
+    item: string,
+    files: FileList | File[] | undefined
+  ) => {
+    if (!files || files.length === 0) return;
 
-    const previewUrl = URL.createObjectURL(file);
+    const incoming = Array.from(files);
+    const previewUrls = incoming
+      .map((file) => {
+        try {
+          return URL.createObjectURL(file);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
 
     setEditImages((prev) => {
-      const old = prev[item];
-      if (old && typeof old === "string" && old.startsWith("blob:")) {
-        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
-      }
-      return { ...prev, [item]: previewUrl };
+      const next = [...(prev[item] || []), ...previewUrls];
+      return { ...prev, [item]: next };
     });
 
-    setEditImageFiles((prev) => ({ ...prev, [item]: file }));
+    setEditImageFiles((prev) => {
+      const next = [...(prev[item] || []), ...incoming];
+      return { ...prev, [item]: next };
+    });
 
     // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
     setEditNA((prev) => {
@@ -1038,41 +1108,59 @@ if (
     }
 
     const expectedItems = selectedProcObj.items || [];
-    const uploadItems = expectedItems.filter((item) => homeNA[item] || newImageFiles[item]);
-    const uploadedImages: Record<string, string> = {};
+    const uploadItems = expectedItems.filter(
+      (item) => homeNA[item] || (newImageFiles[item] || []).length > 0
+    );
+    const uploadedImages: Record<string, ImageValue> = {};
 
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
-    const totalTasks = uploadItems.length;
+    const totalTasks = uploadItems.reduce((total, item) => {
+      if (homeNA[item]) return total + 1;
+      return total + (newImageFiles[item]?.length || 0);
+    }, 0);
     setUploadDoneCount(0);
     setUploadTotalCount(totalTasks);
 
-    const uploadTasks = uploadItems.map((item) => async () => {
-      try {
-        if (homeNA[item]) {
-          uploadedImages[item] = NA_SENTINEL;
-          return;
-        }
-        const file = newImageFiles[item];
-        if (!file) return;
-
-        const path = await uploadImage(
-          selectedProcObj.code,
-          selectedModel,
-          sn,
-          { item, procItems: expectedItems },
-          file
-        );
-        if (path) {
-          uploadedImages[item] = path;
-        }
-      } finally {
-        // --- 新增：每完成一個項目就更新進度 ---
-        completedCount++;
-        setUploadDoneCount(completedCount);
-        setUploadProgress(Math.round((completedCount / totalTasks) * 100));
+    const uploadTasks = uploadItems.flatMap((item) => {
+      if (homeNA[item]) {
+        return [
+          async () => {
+            uploadedImages[item] = NA_SENTINEL;
+            completedCount++;
+            setUploadDoneCount(completedCount);
+            setUploadProgress(
+              Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
+            );
+          },
+        ];
       }
+
+      const files = newImageFiles[item] || [];
+      if (files.length === 0) return [];
+
+      uploadedImages[item] = [];
+      return files.map((file) => async () => {
+        try {
+          const path = await uploadImage(
+            selectedProcObj.code,
+            selectedModel,
+            sn,
+            { item, procItems: expectedItems },
+            file
+          );
+          if (path) {
+            (uploadedImages[item] as string[]).push(path);
+          }
+        } finally {
+          completedCount++;
+          setUploadDoneCount(completedCount);
+          setUploadProgress(
+            Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
+          );
+        }
+      });
     });
 
     // 同時最多 6 張，其餘排隊
@@ -1092,7 +1180,7 @@ if (
       serial: sn,
       model: selectedModel,
       process: selectedProcess,
-      images: uploadedImages,
+      images: normalizeImagesMap(uploadedImages),
       expected_items: expectedItems,
     };
 
@@ -1115,7 +1203,8 @@ if (
 
   const isReportEditDirty = (reportId: string | null) => {
     if (!reportId) return false;
-    if (Object.keys(editImageFiles).length > 0) return true;
+    if (Object.values(editImageFiles).some((files) => files.length > 0))
+      return true;
 
     const report = reports.find((rr) => rr.id === reportId);
     if (!report) {
@@ -1124,7 +1213,7 @@ if (
 
     const expected = report.expected_items || [];
     const originalNA = new Set(
-      expected.filter((it) => report.images?.[it] === NA_SENTINEL)
+      expected.filter((it) => isNAValue(report.images?.[it]))
     );
     const currentNA = new Set(
       Object.keys(editNA).filter((key) => editNA[key])
@@ -1153,7 +1242,7 @@ if (
         setEditNA({});
         setShowEditPreview(false);
         setEditPreviewIndex(0);
-        setSignedImg("");
+        setSignedImg([]);
       }
       return next;
     });
@@ -1167,12 +1256,12 @@ if (
     setEditImageFiles({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg("");
+    setSignedImg([]);
 
     // 初始化 N/A（從既有資料帶入）
     const nextNA: Record<string, boolean> = {};
     (report?.expected_items || []).forEach((it) => {
-      if (report?.images?.[it] === NA_SENTINEL) nextNA[it] = true;
+      if (isNAValue(report?.images?.[it])) nextNA[it] = true;
     });
     setEditNA(nextNA);
   };
@@ -1189,7 +1278,7 @@ if (
       setEditNA({});
       setShowEditPreview(false);
       setEditPreviewIndex(0);
-      setSignedImg("");
+      setSignedImg([]);
       setExpandedReportId(id);
       return;
     }
@@ -1205,12 +1294,14 @@ if (
 
   const getDraftId = () => draftKey(authUsername || "anon");
 
-  const revokePreviewUrls = (obj: Record<string, string>) => {
+  const revokePreviewUrls = (obj: Record<string, string[]>) => {
     try {
-      Object.values(obj).forEach((u) => {
-        if (typeof u === "string" && u.startsWith("blob:")) {
-          URL.revokeObjectURL(u);
-        }
+      Object.values(obj).forEach((list) => {
+        list.forEach((u) => {
+          if (typeof u === "string" && u.startsWith("blob:")) {
+            URL.revokeObjectURL(u);
+          }
+        });
       });
     } catch {
       // ignore
@@ -1244,6 +1335,7 @@ if (
         setEditNA({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
+    setSignedImg([]);
     if (alsoClearDraft) {
       try {
         await idbDel(getDraftId());
@@ -1280,13 +1372,15 @@ if (
         serial.trim() ||
         selectedModel ||
         selectedProcess ||
-        Object.keys(newImageFiles).length > 0 ||
+        Object.values(newImageFiles).some((files) => files.length > 0) ||
         Object.keys(homeNA).length > 0;
       if (!hasAnything) return null;
 
       const imageFiles: HomeDraftData["imageFiles"] = {};
       Object.entries(newImageFiles).forEach(([k, f]) => {
-        if (f) imageFiles[k] = fileToDraftBlob(f);
+        if (f && f.length > 0) {
+          imageFiles[k] = f.map((file) => fileToDraftBlob(file));
+        }
       });
 
       return {
@@ -1311,14 +1405,16 @@ if (
         queryFilters.model ||
         queryFilters.status ||
         editingReportId ||
-        Object.keys(editImageFiles).length > 0 ||
+        Object.values(editImageFiles).some((files) => files.length > 0) ||
         Object.keys(editNA).length > 0;
 
       if (!hasAnything) return null;
 
       const editImageFilesDraft: ReportsDraftData["editImageFiles"] = {};
       Object.entries(editImageFiles).forEach(([k, f]) => {
-        if (f) editImageFilesDraft[k] = fileToDraftBlob(f);
+        if (f && f.length > 0) {
+          editImageFilesDraft[k] = f.map((file) => fileToDraftBlob(file));
+        }
       });
 
       return {
@@ -1376,17 +1472,22 @@ if (
       setHomeNA(draft.data.na || {});
 
       // 還原照片檔（File）+ 預覽 blob URL
-      const nextFiles: Record<string, File | undefined> = {};
-      const nextPreviews: Record<string, string> = {};
+      const nextFiles: Record<string, File[]> = {};
+      const nextPreviews: Record<string, string[]> = {};
 
-      Object.entries(draft.data.imageFiles || {}).forEach(([item, fd]) => {
-        const file = draftBlobToFile(fd);
-        nextFiles[item] = file;
-        try {
-          nextPreviews[item] = URL.createObjectURL(file);
-        } catch {
-          // ignore
-        }
+      Object.entries(draft.data.imageFiles || {}).forEach(([item, fds]) => {
+        const list = Array.isArray(fds) ? fds : [fds];
+        const files = list.map((fd) => draftBlobToFile(fd));
+        nextFiles[item] = files;
+        const previews: string[] = [];
+        files.forEach((file) => {
+          try {
+            previews.push(URL.createObjectURL(file));
+          } catch {
+            // ignore
+          }
+        });
+        if (previews.length > 0) nextPreviews[item] = previews;
       });
 
       setNewImageFiles(nextFiles);
@@ -1407,16 +1508,21 @@ if (
         status: draft.data.queryFilters?.status || "",
       });
 
-      const nextFiles: Record<string, File | undefined> = {};
-      const nextPreviews: Record<string, string> = {};
-      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fd]) => {
-        const file = draftBlobToFile(fd);
-        nextFiles[item] = file;
-        try {
-          nextPreviews[item] = URL.createObjectURL(file);
-        } catch {
-          // ignore
-        }
+      const nextFiles: Record<string, File[]> = {};
+      const nextPreviews: Record<string, string[]> = {};
+      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fds]) => {
+        const list = Array.isArray(fds) ? fds : [fds];
+        const files = list.map((fd) => draftBlobToFile(fd));
+        nextFiles[item] = files;
+        const previews: string[] = [];
+        files.forEach((file) => {
+          try {
+            previews.push(URL.createObjectURL(file));
+          } catch {
+            // ignore
+          }
+        });
+        if (previews.length > 0) nextPreviews[item] = previews;
       });
 
       setEditImageFiles(nextFiles);
@@ -1726,7 +1832,7 @@ if (
                 (serial.trim() ||
                   selectedModel ||
                   selectedProcess ||
-                  Object.keys(newImageFiles).length > 0)
+                  Object.values(newImageFiles).some((files) => files.length > 0))
               ) {
                 const ok = window.confirm(
                   "目前有未完成的新增檢驗資料。\n要清除並重新開始嗎？"
@@ -1972,7 +2078,7 @@ if (
 
               const safeIndex = Math.min(previewIndex, itemsList.length - 1);
               const currentItem = itemsList[safeIndex];
-              const currentImg = currentItem ? images[currentItem] : null;
+              const currentImgs = currentItem ? images[currentItem] || [] : [];
               const isNA = currentItem ? !!homeNA[currentItem] : false;
 
               return (
@@ -1981,8 +2087,16 @@ if (
 
                   {homeNA[currentItem] ? (
                     <p className="text-gray-600 text-sm">N/A（不適用）</p>
-                  ) : currentImg ? (
-                    <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
+                  ) : currentImgs.length > 0 ? (
+                    <div className="grid gap-2">
+                      {currentImgs.map((img, imgIndex) => (
+                        <img
+                          key={`${currentItem}-${imgIndex}`}
+                          src={img}
+                          className="w-full max-h-[50vh] object-contain rounded border"
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
                   )}
@@ -2094,12 +2208,20 @@ if (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
                   {editNA[item] ? (
-  <p className="text-gray-600 text-sm">N/A（不適用）</p>
-) : signedImg ? (
-  <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
-) : (
-  <p className="text-red-500">尚未拍攝</p>
-)}
+                    <p className="text-gray-600 text-sm">N/A（不適用）</p>
+                  ) : signedImg.length > 0 ? (
+                    <div className="grid gap-2">
+                      {signedImg.map((img, imgIndex) => (
+                        <img
+                          key={`${item}-${imgIndex}`}
+                          src={img}
+                          className="w-full max-h-[50vh] object-contain rounded border"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-red-500">尚未拍攝</p>
+                  )}
 
 
 
@@ -2165,58 +2287,79 @@ if (
 
                   const expectedItems = report.expected_items || [];
                   const uploadItems = expectedItems.filter((item) => {
-                    const wasNA = report.images?.[item] === NA_SENTINEL;
+                    const wasNA = isNAValue(report.images?.[item]);
                     const isNA = !!editNA[item];
-                    const hasNewFile = !!editImageFiles[item];
+                    const hasNewFile =
+                      (editImageFiles[item] || []).length > 0;
                     // 只計算「有變動」的項目：
                     // 1) 新拍照
                     // 2) NA 狀態有變（原本不是 NA，現在是 NA）
                     return hasNewFile || (!wasNA && isNA);
                   });
-                  const uploadedImages: Record<string, string> = {
-                    ...report.images,
+                  const uploadedImages: Record<string, ImageValue> = {
+                    ...normalizeImagesMap(report.images),
                   };
 
                   setUploadProgress(0);
                   let completedCount = 0;
-                  const totalTasks = uploadItems.length;
+                  const totalTasks = uploadItems.reduce((total, item) => {
+                    if (editNA[item]) return total + 1;
+                    return total + (editImageFiles[item]?.length || 0);
+                  }, 0);
                   setUploadDoneCount(0);
                   setUploadTotalCount(totalTasks);
                   
-                  const uploadTasks = uploadItems.map((item) => async () => {
-                    try {
-                      if (editNA[item]) {
-                        uploadedImages[item] = NA_SENTINEL;
-                        return;
-                      }
-                  
-                      const file = editImageFiles[item];
-                      if (!file) {
-                        if (report.images?.[item] === NA_SENTINEL) {
-                          delete uploadedImages[item];
-                        }
-                        return;
-                      }
-                  
-                      const url = await uploadImage(
-                        processes.find((p) => p.name === report.process)?.code ||
-                          report.process,
-                        report.model,
-                        report.serial,
-                        { item, procItems: expectedItems },
-                        file
-                      );
-                  
-                      if (url) {
-                        uploadedImages[item] = url;
-                      }
-                    } finally {
-                      completedCount++;
-                      setUploadDoneCount(completedCount);
-                      setUploadProgress(
-                        Math.round((completedCount / totalTasks) * 100)
-                      );
+                  const uploadTasks = uploadItems.flatMap((item) => {
+                    if (editNA[item]) {
+                      return [
+                        async () => {
+                          uploadedImages[item] = NA_SENTINEL;
+                          completedCount++;
+                          setUploadDoneCount(completedCount);
+                          setUploadProgress(
+                            Math.round(
+                              (completedCount / Math.max(totalTasks, 1)) * 100
+                            )
+                          );
+                        },
+                      ];
                     }
+
+                    const files = editImageFiles[item] || [];
+                    if (files.length === 0) {
+                      if (isNAValue(report.images?.[item])) {
+                        delete uploadedImages[item];
+                      }
+                      return [];
+                    }
+
+                    const existing = normalizeImageValue(uploadedImages[item]);
+                    uploadedImages[item] = existing;
+
+                    return files.map((file) => async () => {
+                      try {
+                        const url = await uploadImage(
+                          processes.find((p) => p.name === report.process)
+                            ?.code || report.process,
+                          report.model,
+                          report.serial,
+                          { item, procItems: expectedItems },
+                          file
+                        );
+
+                        if (url) {
+                          (uploadedImages[item] as string[]).push(url);
+                        }
+                      } finally {
+                        completedCount++;
+                        setUploadDoneCount(completedCount);
+                        setUploadProgress(
+                          Math.round(
+                            (completedCount / Math.max(totalTasks, 1)) * 100
+                          )
+                        );
+                      }
+                    });
                   });
                   
                   await runInBatches(uploadTasks, 6);
@@ -2235,7 +2378,7 @@ if (
 
                   const updated: Report = {
                     ...report,
-                    images: uploadedImages,
+                    images: normalizeImagesMap(uploadedImages),
                     expected_items: expectedItems,
                   };
 
