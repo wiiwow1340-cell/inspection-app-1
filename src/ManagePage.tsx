@@ -100,7 +100,7 @@ export default function ManagePage({
 
   if (!isAdmin) {
     return (
-      <Card className="p-4 space-y-3">
+      <Card className="space-y-3 p-3 sm:p-4">
         <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
         <p className="text-red-600">此頁僅限管理員帳號使用。</p>
         <p className="text-sm text-slate-600">
@@ -134,7 +134,7 @@ export default function ManagePage({
   };
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="space-y-4 p-3 sm:p-4">
       <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
 
       <div className="space-y-4">
@@ -307,7 +307,7 @@ export default function ManagePage({
         </div>
 
         <div className="space-y-2">
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_auto] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:text-sm">
+          <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:text-sm">
             <div className="min-w-0">製程名稱</div>
             <div className="min-w-0">製程代號</div>
             <div className="min-w-0">產品型號</div>
@@ -320,20 +320,26 @@ export default function ManagePage({
                 key={`${p.name}-${p.code}-${p.model}-${idx}`}
                 className="border border-slate-200 rounded-lg bg-white"
               >
-                <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_auto] items-center gap-2 px-3 py-2 text-xs text-slate-700 sm:text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      type="button"
-                      className="shrink-0 text-blue-600"
-                      onClick={() =>
-                        setExpandedProcessIndex((prev) =>
-                          prev === idx ? null : idx
-                        )
-                      }
-                      aria-label={isOpen ? "收合製程" : "展開製程"}
-                    >
-                      {isOpen ? "▼" : "▶"}
-                    </button>
+                <div
+                  className="grid cursor-pointer grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-xs text-slate-700 sm:text-sm"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  onClick={() =>
+                    setExpandedProcessIndex((prev) =>
+                      prev === idx ? null : idx
+                    )
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setExpandedProcessIndex((prev) =>
+                        prev === idx ? null : idx
+                      );
+                    }
+                  }}
+                >
+                  <div className="min-w-0">
                     <span className="min-w-0 truncate font-semibold text-slate-900">
                       {p.name}
                     </span>
@@ -344,7 +350,10 @@ export default function ManagePage({
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => startEditingProcess(idx)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startEditingProcess(idx);
+                      }}
                     >
                       編輯
                     </Button>
@@ -352,9 +361,10 @@ export default function ManagePage({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      onClick={() =>
-                        setConfirmTarget({ type: "process", proc: p })
-                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setConfirmTarget({ type: "process", proc: p });
+                      }}
                     >
                       刪除
                     </Button>

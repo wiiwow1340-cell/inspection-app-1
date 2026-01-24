@@ -1833,8 +1833,8 @@ useEffect(() => {
   // =============================
 
   return (
-    <div className="min-h-screen bg-slate-200/70 px-4 py-6">
-      <div className="p-4 max-w-xl mx-auto space-y-4 bg-sky-50/90 border border-sky-100/80 rounded-2xl shadow-sm">
+    <div className="min-h-screen bg-slate-200/70 px-3 py-6 sm:px-4">
+      <div className="w-full max-w-5xl mx-auto space-y-4 rounded-2xl border border-sky-100/80 bg-sky-50/90 p-3 shadow-sm sm:p-4">
       {/* 上方主選單 + 登出 */}
       <div className="flex justify-between items-center space-x-2">
         <div className="flex space-x-2">
