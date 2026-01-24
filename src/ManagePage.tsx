@@ -313,6 +313,25 @@ export default function ManagePage({
         <div className="space-y-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
             <table className="w-full min-w-max table-auto border-collapse">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200">
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
+                  >
+                    製程名稱
+                  </th>
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
+                  >
+                    產品型號
+                  </th>
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap text-center`}
+                  >
+                    操作
+                  </th>
+                </tr>
+              </thead>
               <tbody>
                 {processes.map((p, idx) => {
                   const isOpen = expandedProcessIndex === idx;
