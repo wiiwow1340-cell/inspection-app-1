@@ -612,13 +612,14 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             使用公司帳號登入以進行檢驗與報告管理
           </p>
         </div>
-        <Card className="rounded-2xl border border-white/20 bg-white/90 p-6 space-y-4 shadow-2xl backdrop-blur-lg">
+        <Card className="rounded-2xl border border-white/30 bg-white/80 p-6 space-y-4 shadow-2xl backdrop-blur-lg">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">帳號</label>
             <Input
               placeholder="輸入帳號"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="bg-white text-[#111827] placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
@@ -628,6 +629,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="bg-white text-[#111827] placeholder:text-slate-500"
             />
           </div>
           {err && <p className="text-red-500 text-sm">{err}</p>}
