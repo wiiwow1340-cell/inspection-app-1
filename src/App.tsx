@@ -1855,7 +1855,7 @@ useEffect(() => {
               }
               setPage("home");
             }}
-          className="h-14 w-28 px-3"
+          className="h-14 px-3"
           >
 
 
@@ -1869,7 +1869,7 @@ useEffect(() => {
 
           </Button>
 
-          <Button onClick={() => setPage("reports")} className="h-14 w-24 px-3">
+          <Button onClick={() => setPage("reports")} className="h-14 px-3">
 
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
@@ -1886,7 +1886,7 @@ useEffect(() => {
             onClick={() => setPage("manage")}
             disabled={!isAdmin}
             title={!isAdmin ? "僅限管理員帳號使用" : ""}
-            className="h-14 w-24 px-3"
+            className="h-14 px-3"
           >
 
 
