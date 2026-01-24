@@ -312,6 +312,12 @@ export default function ManagePage({
         <div className="space-y-2">
           <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
             <table className="w-full table-fixed border-collapse">
+              <colgroup>
+                <col className="w-[38%]" />
+                <col className="w-[14%]" />
+                <col className="w-[26%]" />
+                <col className="w-[22%]" />
+              </colgroup>
               <thead className="bg-slate-50">
                 <tr>
                   <th className={`${processCellBase} ${processHeaderCell}`}>
@@ -375,10 +381,11 @@ export default function ManagePage({
                         <td
                           className={`${processCellBase} ${processRowCell} whitespace-nowrap`}
                         >
-                          <div className="flex items-center justify-start gap-2">
+                          <div className="flex items-center justify-start gap-1">
                             <Button
                               type="button"
                               size="sm"
+                              className="w-7 sm:w-auto writing-vertical sm:writing-normal"
                               onClick={() => startEditingProcess(idx)}
                             >
                               編輯
@@ -387,6 +394,7 @@ export default function ManagePage({
                               type="button"
                               size="sm"
                               variant="destructive"
+                              className="w-7 sm:w-auto writing-vertical sm:writing-normal"
                               onClick={() =>
                                 setConfirmTarget({ type: "process", proc: p })
                               }
