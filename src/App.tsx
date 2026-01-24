@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import HomePage from "./HomePage";
+import ReportPage from "./ReportPage";
+import ManagePage from "./ManagePage";
+import type { Process, Report } from "./types";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -54,7 +58,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
   <input
-    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
     {...props}
   />
 );
@@ -116,26 +120,6 @@ const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
   />
 );
 
-// =============================
-//  型別定義
-// =============================
-
-type Process = {
-  name: string;
-  code: string;
-  model: string;
-  items: string[];
-};
-
-type Report = {
-  id: string;
-  serial: string;
-  model: string;
-  process: string;
-  images: Record<string, string>; // { [itemName]: imageUrl }
-  expected_items: string[]; // 報告當下應該要拍的項目清單
-};
-
 type ConfirmTarget =
   | { type: "item"; index: number }
   | { type: "process"; proc: Process }
@@ -143,6 +127,26 @@ type ConfirmTarget =
 
 // 影像狀態：不適用 (N/A) 以 sentinel 存在 images map 中
 const NA_SENTINEL = "__NA__";
+type ImageValue = string[] | string;
+
+const isNAValue = (value?: ImageValue) => value === NA_SENTINEL;
+const normalizeImageValue = (value?: ImageValue): string[] => {
+  if (!value || value === NA_SENTINEL) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const normalizeImagesMap = (images?: Record<string, ImageValue>) => {
+  const next: Record<string, ImageValue> = {};
+  Object.entries(images || {}).forEach(([key, value]) => {
+    if (value === NA_SENTINEL) {
+      next[key] = value;
+      return;
+    }
+    const list = normalizeImageValue(value);
+    if (list.length > 0) next[key] = list;
+  });
+  return next;
+};
 
 
 // =============================
@@ -194,7 +198,7 @@ type HomeDraftData = {
   // item -> { blob, name, type, lastModified }
   imageFiles: Record<
     string,
-    { blob: Blob; name: string; type: string; lastModified: number }
+    { blob: Blob; name: string; type: string; lastModified: number }[]
   >;
 };
 
@@ -207,7 +211,7 @@ type ReportsDraftData = {
   na: Record<string, boolean>;
   editImageFiles: Record<
     string,
-    { blob: Blob; name: string; type: string; lastModified: number }
+    { blob: Blob; name: string; type: string; lastModified: number }[]
   >;
 };
 
@@ -436,10 +440,10 @@ async function runInBatches<T>(
 
 
 
-// 把中文項目名轉成安全檔名 item1 / item2 / ...
-function getSafeItemName(procItems: string[], item: string) {
+// 取得項目索引（1-based），確保每個項目有固定編號
+function getItemIndex(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
-  return index >= 0 ? `item${index + 1}` : "item";
+  return index >= 0 ? index + 1 : procItems.length + 1;
 }
 
 // 將圖片壓縮到最大邊 1600px，輸出 JPEG blob
@@ -482,22 +486,23 @@ async function uploadImage(
   processCode: string,
   model: string,
   serial: string,
-  info: { item: string; procItems: string[] },
+  info: { item: string; procItems: string[]; photoIndex: number },
   file: File
 ): Promise<string> {
   if (!file) return "";
 
   const compressed = await compressImage(file);
 
-  const { item, procItems } = info;
-  const safeItem = getSafeItemName(procItems, item);
-  const fileName = `${safeItem}.jpg`;
+  const { item, procItems, photoIndex } = info;
+  const itemIndex = getItemIndex(procItems, item);
+  const normalizedPhotoIndex = Math.max(1, photoIndex);
+  const fileName = `item${itemIndex}-${normalizedPhotoIndex}.jpg`;
   const filePath = `${processCode}/${model}/${serial}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
       .from("photos")
-      .upload(filePath, compressed, { upsert: true });
+      .upload(filePath, compressed, { upsert: false });
 
     if (error) {
       console.error("上傳圖片失敗（Storage）:", error.message);
@@ -552,7 +557,7 @@ async function fetchReportsFromDB(): Promise<Report[]> {
     serial: row.serial,
     model: row.model,
     process: row.process,
-    images: row.images || {},
+    images: normalizeImagesMap(row.images || {}),
     expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
   }));
 }
@@ -596,31 +601,51 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="p-4 max-w-sm mx-auto space-y-4">
-      <Card className="p-4 space-y-3">
-        <h2 className="text-xl font-bold">🔐 請先登入</h2>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">帳號</label>
-          <Input
-            placeholder="例如：MGCQA1"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 text-slate-100 flex items-center justify-center px-4 py-12 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22240%22%20height=%22240%22%20viewBox=%220%200%20240%20240%22%3E%3Cfilter%20id=%22noise%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.9%22%20numOctaves=%222%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22240%22%20height=%22240%22%20filter=%22url(%23noise)%22%20opacity=%220.4%22/%3E%3C/svg%3E')] opacity-[0.05]"
+      />
+      <div className="w-full max-w-md space-y-8">
+        <div className="space-y-2 text-center">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
+            INSPECTION APP
+          </p>
+          <h1 className="text-3xl font-semibold text-white">檢驗作業登入</h1>
+          <p className="text-sm text-slate-200">
+            使用公司帳號登入以進行檢驗與報告管理
+          </p>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">密碼</label>
-          <Input
-            placeholder="輸入密碼"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        {err && <p className="text-red-500 text-sm">{err}</p>}
-        <Button onClick={handleLogin} disabled={loading} className="w-full">
-          {loading ? "登入中..." : "登入"}
-        </Button>
-      </Card>
+        <Card className="rounded-2xl border border-white/30 bg-white/15 p-6 space-y-4 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-100">帳號</label>
+            <Input
+              placeholder="輸入帳號"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="bg-white text-[#111827] placeholder:text-slate-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-100">密碼</label>
+            <Input
+              placeholder="輸入密碼"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-white text-[#111827] placeholder:text-slate-500"
+            />
+          </div>
+          {err && <p className="text-red-500 text-sm">{err}</p>}
+          <Button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500"
+          >
+            {loading ? "登入中..." : "登入"}
+          </Button>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -659,9 +684,9 @@ export default function App() {
   const [serial, setSerial] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedProcess, setSelectedProcess] = useState("");
-  const [images, setImages] = useState<Record<string, string>>({}); // 新增頁預覽用
+  const [images, setImages] = useState<Record<string, string[]>>({}); // 新增頁預覽用
   const [newImageFiles, setNewImageFiles] = useState<
-    Record<string, File | undefined>
+    Record<string, File[]>
   >({}); // 新增頁實際上傳用
 
   // ===== Draft / 恢復提示（三頁共用）=====
@@ -674,9 +699,6 @@ export default function App() {
   // 製程 / 報告資料
   const [processes, setProcesses] = useState<Process[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
-
-  // 查看報告：查詢後才顯示
-  const [showReports, setShowReports] = useState(false);
 
   // 管理製程用
   const [newProcName, setNewProcName] = useState("");
@@ -703,10 +725,10 @@ export default function App() {
   const [editNA, setEditNA] = useState<Record<string, boolean>>({});
 
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
-  const [editImages, setEditImages] = useState<Record<string, string>>({});
-  const [editImageFiles, setEditImageFiles] = useState<
-    Record<string, File | undefined>
-  >({});
+  const [editImages, setEditImages] = useState<Record<string, string[]>>({});
+  const [editImageFiles, setEditImageFiles] = useState<Record<string, File[]>>(
+    {}
+  );
 
   // 編輯儲存前預覽
   const [showEditPreview, setShowEditPreview] = useState(false);
@@ -730,63 +752,72 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [signedImg, setSignedImg] = useState<string>("");
+  const [signedImg, setSignedImg] = useState<string[]>([]);
 
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0); // 新增上傳進度狀態
+  const [uploadDoneCount, setUploadDoneCount] = useState(0);
+  const [uploadTotalCount, setUploadTotalCount] = useState(0);
   const savingNewRef = useRef(false);
   const savingEditRef = useRef(false);
 
 useEffect(() => {
+  let isActive = true;
+
   if (!showEditPreview || !editingReportId) {
     return;
   }
 
   const report = reports.find((r) => r.id === editingReportId);
   if (!report) {
-    setSignedImg("");
+    setSignedImg([]);
     return;
   }
 
   const item = report.expected_items?.[editPreviewIndex];
   if (!item) {
-    setSignedImg("");
+    setSignedImg([]);
     return;
   }
 
-  const rawImg =
-  editImages[item] ||
-  report.images?.[item];
-
-  if (editNA[item] || rawImg === NA_SENTINEL) {
-    setSignedImg("");
+  if (editNA[item] || isNAValue(report.images?.[item])) {
+    setSignedImg([]);
     return;
   }
 
-if (!rawImg) {
-  setSignedImg("");
-  return;
-}
+  const existingImages = normalizeImageValue(report.images?.[item]);
+  const newPreviews = editImages[item] || [];
+  const combined = [...existingImages, ...newPreviews];
 
-// ✅ 新上傳的（data/blob/http）直接顯示，不要做 signed
-if (
-  rawImg.startsWith("data:") ||
-  rawImg.startsWith("blob:") ||
-  rawImg.startsWith("http://") ||
-  rawImg.startsWith("https://")
-) {
-  setSignedImg(rawImg);
-  return;
-}
+  if (combined.length === 0) {
+    setSignedImg([]);
+    return;
+  }
 
-// ✅ 舊照片（storage path）才去轉 signed URL
-(async () => {
-  const signed = await getSignedImageUrl(rawImg);
-  setSignedImg(signed);
-})();
+  (async () => {
+    const resolved = await Promise.all(
+      combined.map(async (raw) => {
+        if (
+          raw.startsWith("data:") ||
+          raw.startsWith("blob:") ||
+          raw.startsWith("http://") ||
+          raw.startsWith("https://")
+        ) {
+          return raw;
+        }
+        return getSignedImageUrl(raw);
+      })
+    );
+    if (isActive) {
+      setSignedImg(resolved.filter(Boolean));
+    }
+  })();
 
+  return () => {
+    isActive = false;
+  };
 }, [
   showEditPreview,
   editingReportId,
@@ -975,21 +1006,22 @@ if (
     if (queryFilters.model && r.model !== queryFilters.model) return false;
 
     const expected = r.expected_items || [];
-    const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
-    const isItemDone = (item: string) => isItemNA(item) || !!r.images?.[item];
+    const isItemNA = (item: string) => isNAValue(r.images?.[item]);
+    const isItemDone = (item: string) =>
+      isItemNA(item) || normalizeImageValue(r.images?.[item]).length > 0;
 
     if (queryFilters.status === "done") {
       // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
       const required = expected.filter((it) => !isItemNA(it));
       if (required.length === 0) return true;
-      if (!required.every((item) => !!r.images?.[item])) return false;
+      if (!required.every((item) => isItemDone(item))) return false;
     }
 
     if (queryFilters.status === "not") {
       // 未完成：存在「非 N/A」但尚未拍照的項目
       const required = expected.filter((it) => !isItemNA(it));
       if (required.length === 0) return false;
-      if (!required.some((item) => !r.images?.[item])) return false;
+      if (!required.some((item) => !isItemDone(item))) return false;
     }
 
     // 其他狀態：不過濾
@@ -999,39 +1031,69 @@ if (
 
 
   // ===== 拍照 / 上傳：新增頁（Home） =====
-  const handleCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  const handleCapture = (
+    item: string,
+    files: FileList | File[] | undefined
+  ) => {
+    if (!files || files.length === 0) return;
 
-    // 預覽：用 blob URL（快且不吃記憶體）
-    const previewUrl = URL.createObjectURL(file);
+    const incoming = Array.from(files);
+    const previewUrls = incoming
+      .map((file) => {
+        try {
+          return URL.createObjectURL(file);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
 
     setImages((prev) => {
-      // 釋放舊的 blob URL（避免記憶體累積）
-      const old = prev[item];
-      if (old && typeof old === "string" && old.startsWith("blob:")) {
-        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
-      }
-      return { ...prev, [item]: previewUrl };
+      const next = [...(prev[item] || []), ...previewUrls];
+      return { ...prev, [item]: next };
     });
 
-    setNewImageFiles((prev) => ({ ...prev, [item]: file }));
+    setNewImageFiles((prev) => {
+      const next = [...(prev[item] || []), ...incoming];
+      return { ...prev, [item]: next };
+    });
+
+    // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
+    setHomeNA((prev) => {
+      if (!prev[item]) return prev;
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
   };
 
   // ===== 拍照 / 上傳：報告編輯（Reports - Edit mode） =====
-  const handleEditCapture = (item: string, file: File | undefined) => {
-    if (!file) return;
+  const handleEditCapture = (
+    item: string,
+    files: FileList | File[] | undefined
+  ) => {
+    if (!files || files.length === 0) return;
 
-    const previewUrl = URL.createObjectURL(file);
+    const incoming = Array.from(files);
+    const previewUrls = incoming
+      .map((file) => {
+        try {
+          return URL.createObjectURL(file);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
 
     setEditImages((prev) => {
-      const old = prev[item];
-      if (old && typeof old === "string" && old.startsWith("blob:")) {
-        try { URL.revokeObjectURL(old); } catch { /* ignore */ }
-      }
-      return { ...prev, [item]: previewUrl };
+      const next = [...(prev[item] || []), ...previewUrls];
+      return { ...prev, [item]: next };
     });
 
-    setEditImageFiles((prev) => ({ ...prev, [item]: file }));
+    setEditImageFiles((prev) => {
+      const next = [...(prev[item] || []), ...incoming];
+      return { ...prev, [item]: next };
+    });
 
     // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
     setEditNA((prev) => {
@@ -1055,37 +1117,62 @@ if (
     }
 
     const expectedItems = selectedProcObj.items || [];
-    const uploadedImages: Record<string, string> = {};
+    const photoEntries = Object.entries(newImageFiles).filter(
+      ([, files]) => files.length > 0
+    );
+    const photoItemSet = new Set(photoEntries.map(([item]) => item));
+    const uploadItems = expectedItems.filter(
+      (item) => homeNA[item] || photoItemSet.has(item)
+    );
+    const uploadedImages: Record<string, ImageValue> = {};
 
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
-    const totalTasks = expectedItems.length;
+    const totalTasks =
+      photoEntries.reduce((total, [, files]) => total + files.length, 0) +
+      Object.keys(homeNA).filter((item) => homeNA[item]).length;
+    setUploadDoneCount(0);
+    setUploadTotalCount(totalTasks);
 
-    const uploadTasks = expectedItems.map((item) => async () => {
-      try {
-        if (homeNA[item]) {
-          uploadedImages[item] = NA_SENTINEL;
-          return;
-        }
-        const file = newImageFiles[item];
-        if (!file) return;
-
-        const path = await uploadImage(
-          selectedProcObj.code,
-          selectedModel,
-          sn,
-          { item, procItems: expectedItems },
-          file
-        );
-        if (path) {
-          uploadedImages[item] = path;
-        }
-      } finally {
-        // --- 新增：每完成一個項目就更新進度 ---
-        completedCount++;
-        setUploadProgress(Math.round((completedCount / totalTasks) * 100));
+    const uploadTasks = uploadItems.flatMap((item) => {
+      if (homeNA[item]) {
+        return [
+          async () => {
+            uploadedImages[item] = NA_SENTINEL;
+            completedCount++;
+            setUploadDoneCount(completedCount);
+            setUploadProgress(
+              Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
+            );
+          },
+        ];
       }
+
+      const files = newImageFiles[item] || [];
+      if (files.length === 0) return [];
+
+      uploadedImages[item] = [];
+      return files.map((file, fileIndex) => async () => {
+        try {
+          const path = await uploadImage(
+            selectedProcObj.code,
+            selectedModel,
+            sn,
+            { item, procItems: expectedItems, photoIndex: fileIndex + 1 },
+            file
+          );
+          if (path) {
+            (uploadedImages[item] as string[]).push(path);
+          }
+        } finally {
+          completedCount++;
+          setUploadDoneCount(completedCount);
+          setUploadProgress(
+            Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
+          );
+        }
+      });
     });
 
     // 同時最多 6 張，其餘排隊
@@ -1105,7 +1192,7 @@ if (
       serial: sn,
       model: selectedModel,
       process: selectedProcess,
-      images: uploadedImages,
+      images: normalizeImagesMap(uploadedImages),
       expected_items: expectedItems,
     };
 
@@ -1126,16 +1213,39 @@ if (
     return true;
   };
 
+  const isReportEditDirty = (reportId: string | null) => {
+    if (!reportId) return false;
+    if (Object.values(editImageFiles).some((files) => files.length > 0))
+      return true;
+
+    const report = reports.find((rr) => rr.id === reportId);
+    if (!report) {
+      return Object.keys(editNA).length > 0;
+    }
+
+    const expected = report.expected_items || [];
+    const originalNA = new Set(
+      expected.filter((it) => isNAValue(report.images?.[it]))
+    );
+    const currentNA = new Set(
+      Object.keys(editNA).filter((key) => editNA[key])
+    );
+
+    if (originalNA.size !== currentNA.size) return true;
+    for (const item of originalNA) {
+      if (!currentNA.has(item)) return true;
+    }
+
+    return false;
+  };
+
   // ===== 查看報告：列表列點擊展開（只檢視，不等於編輯）=====
   const toggleExpandReport = (id: string) => {
     setExpandedReportId((prev) => {
       const next = prev === id ? null : id;
       // 若正在編輯同一張，收合前需確認
       if (next === null && editingReportId === id) {
-        const hasDirty =
-          Object.keys(editImageFiles).length > 0 ||
-          Object.keys(editNA).length > 0;
-        if (hasDirty && !confirmDiscard()) return prev;
+        if (isReportEditDirty(id) && !confirmDiscard()) return prev;
 
         revokePreviewUrls(editImages);
         setEditingReportId(null);
@@ -1144,7 +1254,7 @@ if (
         setEditNA({});
         setShowEditPreview(false);
         setEditPreviewIndex(0);
-        setSignedImg("");
+        setSignedImg([]);
       }
       return next;
     });
@@ -1158,22 +1268,19 @@ if (
     setEditImageFiles({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg("");
+    setSignedImg([]);
 
     // 初始化 N/A（從既有資料帶入）
     const nextNA: Record<string, boolean> = {};
     (report?.expected_items || []).forEach((it) => {
-      if (report?.images?.[it] === NA_SENTINEL) nextNA[it] = true;
+      if (isNAValue(report?.images?.[it])) nextNA[it] = true;
     });
     setEditNA(nextNA);
   };
 
   const toggleEditReport = (id: string) => {
     if (editingReportId === id) {
-      const hasDirty =
-        Object.keys(editImageFiles).length > 0 ||
-        Object.keys(editNA).length > 0;
-      if (hasDirty && !confirmDiscard()) return;
+      if (isReportEditDirty(id) && !confirmDiscard()) return;
 
       // 取消編輯：保留展開（回到檢視模式）
       revokePreviewUrls(editImages);
@@ -1183,7 +1290,7 @@ if (
       setEditNA({});
       setShowEditPreview(false);
       setEditPreviewIndex(0);
-      setSignedImg("");
+      setSignedImg([]);
       setExpandedReportId(id);
       return;
     }
@@ -1199,12 +1306,14 @@ if (
 
   const getDraftId = () => draftKey(authUsername || "anon");
 
-  const revokePreviewUrls = (obj: Record<string, string>) => {
+  const revokePreviewUrls = (obj: Record<string, string[]>) => {
     try {
-      Object.values(obj).forEach((u) => {
-        if (typeof u === "string" && u.startsWith("blob:")) {
-          URL.revokeObjectURL(u);
-        }
+      Object.values(obj).forEach((list) => {
+        list.forEach((u) => {
+          if (typeof u === "string" && u.startsWith("blob:")) {
+            URL.revokeObjectURL(u);
+          }
+        });
       });
     } catch {
       // ignore
@@ -1238,6 +1347,7 @@ if (
         setEditNA({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
+    setSignedImg([]);
     if (alsoClearDraft) {
       try {
         await idbDel(getDraftId());
@@ -1274,13 +1384,15 @@ if (
         serial.trim() ||
         selectedModel ||
         selectedProcess ||
-        Object.keys(newImageFiles).length > 0 ||
+        Object.values(newImageFiles).some((files) => files.length > 0) ||
         Object.keys(homeNA).length > 0;
       if (!hasAnything) return null;
 
       const imageFiles: HomeDraftData["imageFiles"] = {};
       Object.entries(newImageFiles).forEach(([k, f]) => {
-        if (f) imageFiles[k] = fileToDraftBlob(f);
+        if (f && f.length > 0) {
+          imageFiles[k] = f.map((file) => fileToDraftBlob(file));
+        }
       });
 
       return {
@@ -1305,14 +1417,16 @@ if (
         queryFilters.model ||
         queryFilters.status ||
         editingReportId ||
-        Object.keys(editImageFiles).length > 0 ||
+        Object.values(editImageFiles).some((files) => files.length > 0) ||
         Object.keys(editNA).length > 0;
 
       if (!hasAnything) return null;
 
       const editImageFilesDraft: ReportsDraftData["editImageFiles"] = {};
       Object.entries(editImageFiles).forEach(([k, f]) => {
-        if (f) editImageFilesDraft[k] = fileToDraftBlob(f);
+        if (f && f.length > 0) {
+          editImageFilesDraft[k] = f.map((file) => fileToDraftBlob(file));
+        }
       });
 
       return {
@@ -1370,17 +1484,22 @@ if (
       setHomeNA(draft.data.na || {});
 
       // 還原照片檔（File）+ 預覽 blob URL
-      const nextFiles: Record<string, File | undefined> = {};
-      const nextPreviews: Record<string, string> = {};
+      const nextFiles: Record<string, File[]> = {};
+      const nextPreviews: Record<string, string[]> = {};
 
-      Object.entries(draft.data.imageFiles || {}).forEach(([item, fd]) => {
-        const file = draftBlobToFile(fd);
-        nextFiles[item] = file;
-        try {
-          nextPreviews[item] = URL.createObjectURL(file);
-        } catch {
-          // ignore
-        }
+      Object.entries(draft.data.imageFiles || {}).forEach(([item, fds]) => {
+        const list = Array.isArray(fds) ? fds : [fds];
+        const files = list.map((fd) => draftBlobToFile(fd));
+        nextFiles[item] = files;
+        const previews: string[] = [];
+        files.forEach((file) => {
+          try {
+            previews.push(URL.createObjectURL(file));
+          } catch {
+            // ignore
+          }
+        });
+        if (previews.length > 0) nextPreviews[item] = previews;
       });
 
       setNewImageFiles(nextFiles);
@@ -1401,16 +1520,21 @@ if (
         status: draft.data.queryFilters?.status || "",
       });
 
-      const nextFiles: Record<string, File | undefined> = {};
-      const nextPreviews: Record<string, string> = {};
-      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fd]) => {
-        const file = draftBlobToFile(fd);
-        nextFiles[item] = file;
-        try {
-          nextPreviews[item] = URL.createObjectURL(file);
-        } catch {
-          // ignore
-        }
+      const nextFiles: Record<string, File[]> = {};
+      const nextPreviews: Record<string, string[]> = {};
+      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fds]) => {
+        const list = Array.isArray(fds) ? fds : [fds];
+        const files = list.map((fd) => draftBlobToFile(fd));
+        nextFiles[item] = files;
+        const previews: string[] = [];
+        files.forEach((file) => {
+          try {
+            previews.push(URL.createObjectURL(file));
+          } catch {
+            // ignore
+          }
+        });
+        if (previews.length > 0) nextPreviews[item] = previews;
       });
 
       setEditImageFiles(nextFiles);
@@ -1569,8 +1693,11 @@ if (
   };
 
   const cancelEditingItem = () => {
-    const hasDirty = editingItemValue.trim();
-    if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
+    if (editingItemIndex !== null) {
+      const original = items[editingItemIndex] ?? "";
+      const hasDirty = editingItemValue.trim() !== original.trim();
+      if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
+    }
     setEditingItemIndex(null);
     setEditingItemValue("");
   };
@@ -1717,7 +1844,7 @@ if (
                 (serial.trim() ||
                   selectedModel ||
                   selectedProcess ||
-                  Object.keys(newImageFiles).length > 0)
+                  Object.values(newImageFiles).some((files) => files.length > 0))
               ) {
                 const ok = window.confirm(
                   "目前有未完成的新增檢驗資料。\n要清除並重新開始嗎？"
@@ -1786,997 +1913,112 @@ if (
         </Button>
       </div>
 
-      {/* 新增檢驗資料頁 */}
       {page === "home" && (
-        <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">新增檢驗資料</h2>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!serial || !selectedModel || !selectedProcess) {
-                alert("請先輸入序號、選擇型號與製程");
-                return;
-              }
-              setPreviewIndex(0);
-              setShowPreview(true);
-            }}
-            className="space-y-4"
-          >
-            {/* 序號 */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">序號</label>
-              <Input
-                placeholder="輸入序號"
-                value={serial}
-                onChange={(e) => setSerial(e.target.value)}
-                className={serial ? "" : "border-red-500"}
-              />
-              {!serial && (
-                <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
-            </div>
-
-            {/* 產品型號 */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">產品型號</label>
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  setSelectedModel(e.target.value);
-                  setSelectedProcess("");
-                  setImages({});
-                  setNewImageFiles({});
-    setHomeNA({});
-                }}
-                className={`w-full border p-2 rounded ${
-                  selectedModel ? "" : "border-red-500"
-                }`}
-              >
-                <option value="">請選擇型號</option>
-                {productModels.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-              {!selectedModel && (
-                <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
-            </div>
-
-            {/* 製程 */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">製程</label>
-              <select
-                value={selectedProcess}
-                onChange={(e) => {
-                  setSelectedProcess(e.target.value);
-                  setImages({});
-                  setNewImageFiles({});
-    setHomeNA({});
-                }}
-                className={`w-full border p-2 rounded ${
-                  selectedProcess ? "" : "border-red-500"
-                }`}
-              >
-                <option value="">請選擇製程</option>
-                {filteredProcesses.map((p) => (
-                  <option key={`${p.name}-${p.model}`} value={p.name}>
-                    {p.name} ({p.code})
-                  </option>
-                ))}
-              </select>
-              {!selectedProcess && (
-                <p className="text-red-500 text-sm">此欄位為必填</p>
-              )}
-            </div>
-
-            {/* 檢驗項目 + 拍照/上傳按鈕 */}
-            {selectedProcObj && selectedProcObj.items.length > 0 && (
-              <div className="space-y-2 mt-2">
-                {selectedProcObj.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="flex-1">{item}</span>
-
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById(
-                          `capture-${idx}`
-                        ) as HTMLInputElement;
-                        input?.click();
-                      }}
-                      className="px-2 py-1"
-                    >
-                      拍照
-                    </Button>
-
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById(
-                          `upload-${idx}`
-                        ) as HTMLInputElement;
-                        input?.click();
-                      }}
-                      className="px-2 py-1"
-                    >
-                      上傳
-                    </Button>
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      id={`capture-${idx}`}
-                      onChange={(e) =>
-                        handleCapture(
-                          item,
-                          e.target.files?.[0] || undefined
-                        )
-                      }
-                    />
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      id={`upload-${idx}`}
-                      onChange={(e) =>
-                        handleCapture(
-                          item,
-                          e.target.files?.[0] || undefined
-                        )
-                      }
-                    />
-
-                    {homeNA[item] ? (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                        title="N/A（不適用）- 點一下恢復"
-                        onClick={() =>
-                          setHomeNA((prev) => {
-                            const next = { ...prev };
-                            delete next[item];
-                            return next;
-                          })
-                        }
-                      >
-                        <StatusIcon kind="na" title="N/A" />
-                      </button>
-                    ) : images[item] ? (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                        title="已拍 - 點一下設為 N/A"
-                        onClick={() =>
-                          setHomeNA((prev) => ({ ...prev, [item]: true }))
-                        }
-                      >
-                        <StatusIcon kind="ok" title="已拍" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                        title="未拍 - 點一下設為 N/A"
-                        onClick={() =>
-                          setHomeNA((prev) => ({ ...prev, [item]: true }))
-                        }
-                      >
-                        <StatusIcon kind="ng" title="未拍" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2 mt-4">
-              <Button type="submit" className="flex-1">
-                確認
-              </Button>
-              <Button
-                type="button"
-                className="flex-1"
-                variant="secondary"
-                onClick={async () => {
-                  const ok = window.confirm("確定要取消新增嗎？\n（已輸入的資料與照片將會清除）");
-                  if (!ok) return;
-                  await resetNewReportState(true);
-                }}
-              >
-                取消新增
-              </Button>
-            </div>
-          </form>
-        </Card>
+        <HomePage
+          serial={serial}
+          setSerial={setSerial}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          productModels={productModels}
+          filteredProcesses={filteredProcesses}
+          selectedProcObj={selectedProcObj}
+          images={images}
+          setImages={setImages}
+          newImageFiles={newImageFiles}
+          setNewImageFiles={setNewImageFiles}
+          homeNA={homeNA}
+          setHomeNA={setHomeNA}
+          handleCapture={handleCapture}
+          resetNewReportState={resetNewReportState}
+          setPreviewIndex={setPreviewIndex}
+          setShowPreview={setShowPreview}
+          Card={Card}
+          Button={Button}
+          Input={Input}
+          StatusIcon={StatusIcon}
+        />
       )}
 
-      {/* 查看報告頁 */}
       {page === "reports" && (
-        <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold flex items-center justify-between">
-            <span>報告列表</span>
-            <Button
-              type="button"
-              onClick={async () => {
-                // 查詢時一律重新從 DB 讀取，避免前端快取殘影（DB-only）
-                const freshReports = await fetchReportsFromDB();
-                setReports(freshReports);
-                setQueryFilters({
-                  process: selectedProcessFilter,
-                  model: selectedModelFilter,
-                  status: selectedStatusFilter,
-                });
-                setShowReports(true);
-              }}
-            >
-              查詢
-            </Button>
-          </h2>
-
-          {/* 篩選條件 */}
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <select
-              className="border p-2 rounded w-full sm:flex-1 min-w-0"
-              value={selectedProcessFilter}
-              onChange={(e) => setSelectedProcessFilter(e.target.value)}
-            >
-              <option value="">全部製程</option>
-              {Array.from(new Set(processes.map((p) => p.name))).map(
-                (procName) => (
-                  <option key={procName} value={procName}>
-                    {procName}
-                  </option>
-                )
-              )}
-            </select>
-
-            <select
-              className="border p-2 rounded w-full sm:flex-1 min-w-0"
-              value={selectedModelFilter}
-              onChange={(e) => setSelectedModelFilter(e.target.value)}
-            >
-              <option value="">全部型號</option>
-              {Array.from(new Set(processes.map((p) => p.model))).map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded w-full sm:flex-1 min-w-0"
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            >
-              <option value="">全部狀態</option>
-              <option value="done">已完成</option>
-              <option value="not">未完成</option>
-            </select>
-          </div>
-
-          {/* 查詢後才顯示報告 */}
-          {showReports && (
-            <>
-              {filteredReports.length === 0 && <p>尚無報告</p>}
-
-              {filteredReports.length > 0 && (
-                <>
-                  {/* Mobile：改為卡片式列表，避免左右滑動 */}
-                  <div className="sm:hidden space-y-3">
-                    {filteredReports.map((r) => {
-                      const expected = r.expected_items || [];
-                      const isDone =
-                        expected.length > 0 &&
-                        expected.every((item) => r.images?.[item] === NA_SENTINEL || !!r.images?.[item]);
-                      const isOpen = expandedReportId === r.id;
-
-                      return (
-                        <div key={r.id} className="border rounded-lg overflow-hidden">
-                          {/* Header（點擊展開/收合） */}
-                          <button
-                            type="button"
-                            className="w-full text-left p-3 bg-white"
-                            onClick={() => toggleExpandReport(r.id)}
-                            title="點擊展開/收合"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="font-semibold break-all">{r.id}</div>
-                              <Button
-                                size="sm"
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleEditReport(r.id);
-                                }}
-                                title={editingReportId === r.id ? "目前編輯中" : "編輯"}
-                              >
-                                {editingReportId === r.id ? "編輯中" : "編輯"}
-                              </Button>
-                            </div>
-
-                            <div className="mt-2 space-y-1 text-sm text-gray-700">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="truncate">製程名稱：{r.process}</div>
-                                {isDone ? <span className="text-sm text-green-600"><span className="hidden sm:inline text-green-600">已完成</span><span className="sm:hidden text-green-600">狀態：已完成</span></span> : <span className="text-sm text-gray-600"><span className="hidden sm:inline text-gray-600">未完成</span><span className="sm:hidden text-gray-600">狀態：未完成</span></span>}
-                              </div>
-                              <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
-                                <div className="truncate">型號：{r.model}</div>
-                                <div className="truncate">序號：{r.serial}</div>
-                              </div>
-                              <div className="text-xs text-gray-500">{isOpen ? "▼ 已展開" : "▶ 點此展開"}</div>
-                            </div>
-                          </button>
-
-                          {/* 展開內容（沿用既有 render） */}
-                          {isOpen && (
-                            <div className="bg-gray-50 p-3">
-                              {editingReportId === r.id ? (
-                                <div className="space-y-2">
-                                  {(r.expected_items || []).map((item, idx) => (
-                                    <div key={item} className="flex items-center gap-2">
-                                      <span className="flex-1">{item}</span>
-
-                                      <Button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const input = document.getElementById(
-                                            `edit-capture-${r.id}-${idx}`
-                                          ) as HTMLInputElement;
-                                          input?.click();
-                                        }}
-                                        className="px-2 py-1"
-                                      >
-                                        拍照
-                                      </Button>
-
-                                      <Button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const input = document.getElementById(
-                                            `edit-upload-${r.id}-${idx}`
-                                          ) as HTMLInputElement;
-                                          input?.click();
-                                        }}
-                                        className="px-2 py-1"
-                                      >
-                                        上傳
-                                      </Button>
-
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        className="hidden"
-                                        id={`edit-capture-${r.id}-${idx}`}
-                                        onChange={(e) =>
-                                          handleEditCapture(
-                                            item,
-                                            e.target.files?.[0] || undefined
-                                          )
-                                        }
-                                      />
-
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        id={`edit-upload-${r.id}-${idx}`}
-                                        onChange={(e) =>
-                                          handleEditCapture(
-                                            item,
-                                            e.target.files?.[0] || undefined
-                                          )
-                                        }
-                                      />
-
-                                      {editNA[item] ? (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                                          title="N/A（不適用）- 點一下恢復"
-                                          onClick={() =>
-                                            setEditNA((prev) => {
-                                              const next = { ...prev };
-                                              delete next[item];
-                                              return next;
-                                            })
-                                          }
-                                        >
-                                          <StatusIcon kind="na" title="N/A" />
-                                        </button>
-                                      ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                          title="已拍 - 點一下設為 N/A"
-                                          onClick={() =>
-                                            setEditNA((prev) => ({ ...prev, [item]: true }))
-                                          }
-                                        >
-                                          <StatusIcon kind="ok" title="已拍" />
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                                          title="未拍 - 點一下設為 N/A"
-                                          onClick={() =>
-                                            setEditNA((prev) => ({ ...prev, [item]: true }))
-                                          }
-                                        >
-                                          <StatusIcon kind="ng" title="未拍" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-
-                                  <div className="flex gap-2 mt-3">
-                                    <Button
-                                      className="flex-1"
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSignedImg("");
-                                        setEditPreviewIndex(0);
-                                        setShowEditPreview(true);
-                                      }}
-                                    >
-                                      確認
-                                    </Button>
-
-                                    <Button
-                                      className="flex-1"
-                                      type="button"
-                                      variant="secondary"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleEditReport(r.id);
-                                      }}
-                                    >
-                                      取消
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  {(r.expected_items || []).map((item) => {
-                                    const v = r.images?.[item];
-                                    const isNA = v === NA_SENTINEL;
-                                    const hasImg = !!v && v !== NA_SENTINEL;
-                                    return (
-                                      <div key={item} className="flex items-center gap-2">
-                                        <span className="flex-1">{item}</span>
-                                        {isNA ? (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
-                                            <StatusIcon kind="na" title="N/A" />
-                                          </span>
-                                        ) : hasImg ? (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
-                                            <StatusIcon kind="ok" title="已拍" />
-                                          </span>
-                                        ) : (
-                                          <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
-                                            <StatusIcon kind="ng" title="未拍" />
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                  <div className="text-xs text-gray-500 pt-2">
-                                    ※ 此處為檢視模式；如需修改，請按上方「編輯」。
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Desktop：保留表格 */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left py-2 px-2 whitespace-nowrap">表單編號</th>
-                        <th className="text-left py-2 px-2 whitespace-nowrap">製程名稱</th>
-                        <th className="text-left py-2 px-2 whitespace-nowrap">產品型號</th>
-                        <th className="text-left py-2 px-2 whitespace-nowrap">序號</th>
-                        <th className="text-left py-2 px-2 whitespace-nowrap">狀態</th>
-                        <th className="text-left py-2 px-2 whitespace-nowrap">編輯按鈕</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {filteredReports.map((r) => {
-                        const expected = r.expected_items || [];
-                        const isDone =
-                          expected.length > 0 &&
-                          expected.every((item) => r.images?.[item] === NA_SENTINEL || !!r.images?.[item]);
-
-                        return (
-                          <React.Fragment key={r.id}>
-                            <tr
-                              className="border-b hover:bg-gray-50 cursor-pointer"
-                              onClick={() => toggleExpandReport(r.id)}
-                              title="點擊展開/收合"
-                            >
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                {r.id}
-                              </td>
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                {r.process}
-                              </td>
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                {r.model}
-                              </td>
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                {r.serial}
-                              </td>
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                {isDone ? <span className="text-green-600"><span className="hidden sm:inline text-green-600">已完成</span><span className="sm:hidden text-green-600">狀態：已完成</span></span> : <span className="text-gray-600"><span className="hidden sm:inline text-gray-600">未完成</span><span className="sm:hidden text-gray-600">狀態：未完成</span></span>}
-                              </td>
-                              <td className="py-2 px-2 whitespace-nowrap">
-                                <Button
-                                  size="sm"
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleEditReport(r.id);
-                                  }}
-                                >
-                                  {editingReportId === r.id ? "編輯中" : "編輯"}
-                                </Button>
-                              </td>
-                            </tr>
-
-                            {expandedReportId === r.id && (
-                              <tr className="border-b bg-gray-50">
-                                <td colSpan={6} className="p-3">
-                                  {/* ===== 展開區：檢視 or 編輯 ===== */}
-                                  {editingReportId === r.id ? (
-                                  <div className="space-y-2">
-{/* 應拍項目清單 + 拍照/上傳 */}
-                                    {(r.expected_items || []).map((item, idx) => (
-                                      <div key={item} className="flex items-center gap-2">
-                                        <span className="flex-1">{item}</span>
-
-                                        <Button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const input = document.getElementById(
-                                              `edit-capture-${r.id}-${idx}`
-                                            ) as HTMLInputElement;
-                                            input?.click();
-                                          }}
-                                          className="px-2 py-1"
-                                        >
-                                          拍照
-                                        </Button>
-
-                                        <Button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const input = document.getElementById(
-                                              `edit-upload-${r.id}-${idx}`
-                                            ) as HTMLInputElement;
-                                            input?.click();
-                                          }}
-                                          className="px-2 py-1"
-                                        >
-                                          上傳
-                                        </Button>
-
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          capture="environment"
-                                          className="hidden"
-                                          id={`edit-capture-${r.id}-${idx}`}
-                                          onChange={(e) =>
-                                            handleEditCapture(
-                                              item,
-                                              e.target.files?.[0] || undefined
-                                            )
-                                          }
-                                        />
-
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          id={`edit-upload-${r.id}-${idx}`}
-                                          onChange={(e) =>
-                                            handleEditCapture(
-                                              item,
-                                              e.target.files?.[0] || undefined
-                                            )
-                                          }
-                                        />
-
-                                        {editNA[item] ? (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
-                                            title="N/A（不適用）- 點一下恢復"
-                                            onClick={() =>
-                                              setEditNA((prev) => {
-                                                const next = { ...prev };
-                                                delete next[item];
-                                                return next;
-                                              })
-                                            }
-                                          >
-                                            <StatusIcon kind="na" title="N/A" />
-                                          </button>
-                                        ) : (editImages[item] || (r.images[item] && r.images[item] !== NA_SENTINEL)) ? (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                            title="已拍 - 點一下設為 N/A"
-                                            onClick={() =>
-                                              setEditNA((prev) => ({ ...prev, [item]: true }))
-                                            }
-                                          >
-                                            <StatusIcon kind="ok" title="已拍" />
-                                          </button>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
-                                            title="未拍 - 點一下設為 N/A"
-                                            onClick={() =>
-                                              setEditNA((prev) => ({ ...prev, [item]: true }))
-                                            }
-                                          >
-                                            <StatusIcon kind="ng" title="未拍" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-
-                                    <div className="flex gap-2 mt-3">
-                                      <Button
-                                        className="flex-1"
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSignedImg("");
-                                          setEditPreviewIndex(0);
-                                          setShowEditPreview(true);
-                                        }}
-                                      >
-                                        確認
-                                      </Button>
-
-                                      <Button
-                                        className="flex-1"
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // 收合 + 清除編輯暫存
-                                          toggleEditReport(r.id);
-                                        }}
-                                      >
-                                        取消
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {(r.expected_items || []).map((item) => {
-                                        const v = r.images?.[item];
-                                        const isNA = v === NA_SENTINEL;
-                                        const hasImg = !!v && v !== NA_SENTINEL;
-                                        return (
-                                          <div key={item} className="flex items-center gap-2">
-                                            <span className="flex-1">{item}</span>
-                                            {isNA ? (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-600">
-                                                <StatusIcon kind="na" title="N/A" />
-                                              </span>
-                                            ) : hasImg ? (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-green-600">
-                                                <StatusIcon kind="ok" title="已拍" />
-                                              </span>
-                                            ) : (
-                                              <span className="w-8 h-8 inline-flex items-center justify-center text-gray-400">
-                                                <StatusIcon kind="ng" title="未拍" />
-                                              </span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                      <div className="text-xs text-gray-500 pt-2">
-                                        ※ 此處為檢視模式；如需修改，請按右側「編輯」。
-                                      </div>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </Card>
+        <ReportPage
+          Card={Card}
+          Button={Button}
+          StatusIcon={StatusIcon}
+          processes={processes}
+          reports={reports}
+          filteredReports={filteredReports}
+          selectedProcessFilter={selectedProcessFilter}
+          setSelectedProcessFilter={setSelectedProcessFilter}
+          selectedModelFilter={selectedModelFilter}
+          setSelectedModelFilter={setSelectedModelFilter}
+          selectedStatusFilter={selectedStatusFilter}
+          setSelectedStatusFilter={setSelectedStatusFilter}
+          fetchReportsFromDB={fetchReportsFromDB}
+          setReports={setReports}
+          setQueryFilters={setQueryFilters}
+          expandedReportId={expandedReportId}
+          toggleExpandReport={toggleExpandReport}
+          editingReportId={editingReportId}
+          toggleEditReport={toggleEditReport}
+          editImages={editImages}
+          editNA={editNA}
+          setEditNA={setEditNA}
+          handleEditCapture={handleEditCapture}
+          setSignedImg={setSignedImg}
+          setEditPreviewIndex={setEditPreviewIndex}
+          setShowEditPreview={setShowEditPreview}
+          NA_SENTINEL={NA_SENTINEL}
+        />
       )}
 
-      {/* 管理製程頁 */}
       {page === "manage" && (
-        !isAdmin ? (
-          <Card className="p-4 space-y-3">
-          <h2 className="text-xl font-bold">管理製程</h2>
-          <p className="text-red-600">此頁僅限管理員帳號使用。</p>
-          <p className="text-sm text-gray-600">目前登入：{authUsername || "未知"}</p>
-        </Card>
-        ) : (
-        <Card className="p-4 space-y-4">
-          <h2 className="text-xl font-bold">管理製程</h2>
-
-          <div className="space-y-4">
-            {/* 製程基本資料輸入 */}
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newProcName}
-                  placeholder="製程名稱"
-                  onChange={(e) => setNewProcName(e.target.value)}
-                />
-                <Input
-                  value={newProcCode}
-                  placeholder="製程代號"
-                  onChange={(e) => setNewProcCode(e.target.value)}
-                />
-              </div>
-              <Input
-                value={newProcModel}
-                placeholder="產品型號"
-                onChange={(e) => setNewProcModel(e.target.value)}
-              />
-              {editingIndex !== null && (
-                <div className="text-xs text-gray-500">
-                  ※ 目前為「編輯製程」模式，修改後請按「更新製程」
-                </div>
-              )}
-            </div>
-
-            {/* 檢驗照片項目新增區（支援插入位置） */}
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newItem}
-                  placeholder="新增檢驗照片項目"
-                  onChange={(e) => setNewItem(e.target.value)}
-                />
-                <Button type="button" onClick={addItem}>
-                  加入
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap">
-                  插入在
-                </span>
-                <select
-                  value={insertAfter}
-                  onChange={(e) => setInsertAfter(e.target.value)}
-                  className="border p-2 rounded flex-1 h-9"
-                >
-                  <option value="last">最後</option>
-                  {items.map((it, idx) => (
-                    <option key={`${it}-${idx}`} value={String(idx)}>
-                      在「{it}」後
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* 項目列表（可刪除） */}
-            {items.map((i, idx) => (
-              <div
-                key={idx}
-                className="border p-2 rounded flex justify-between items-center"
-              >
-                {editingItemIndex === idx ? (
-                  <div className="flex-1 flex gap-2 items-center">
-                    <Input
-                      value={editingItemValue}
-                      onChange={(e) => setEditingItemValue(e.target.value)}
-                      className="h-9"
-                    />
-                    <Button type="button" size="sm" onClick={saveEditingItem}>
-                      儲存
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={cancelEditingItem}
-                    >
-                      取消
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="flex-1">{i}</span>
-                )}
-
-                <div className="flex gap-2">
-                  {editingItemIndex === idx ? null : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => startEditingItem(idx)}
-                      title="編輯名稱"
-                    >
-                      編輯
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => moveItemUp(idx)}
-                    disabled={idx === 0}
-                    title="上移"
-                  >
-                    ↑
-                  </Button>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => moveItemDown(idx)}
-                    disabled={idx === items.length - 1}
-                    title="下移"
-                  >
-                    ↓
-                  </Button>
-
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    type="button"
-                    onClick={() => setConfirmTarget({ type: "item", index: idx })}
-                  >
-                    刪除
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {/* 儲存 / 更新製程 */}
-            <div className="flex gap-2">
-              <Button onClick={saveProcess} className="flex-1" type="button">
-                {editingIndex !== null ? "更新製程" : "儲存製程"}
-              </Button>
-
-              {editingIndex === null ? (
-                <Button
-                  className="flex-1"
-                  type="button"
-                  variant="secondary"
-                  onClick={cancelManageCreate}
-                >
-                  取消新增
-                </Button>
-              ) : (
-                <Button
-                  className="flex-1"
-                  type="button"
-                  variant="secondary"
-                  onClick={async () => {
-                    if (!confirmDiscard("確定要取消編輯製程嗎？")) return;
-                    await resetManageState(false);
-                  }}
-                >
-                  取消編輯
-                </Button>
-              )}
-            </div>
-
-            {/* 已有製程列表（表格 + 可展開） */}
-            <div className="border rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr className="text-left">
-                    <th className="p-2 w-10"></th>
-                    <th className="p-2">製程名稱</th>
-                    <th className="p-2">製程代號</th>
-                    <th className="p-2">產品型號</th>
-                    <th className="p-2 w-32">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processes.map((p, idx) => {
-                    const isOpen = expandedProcessIndex === idx;
-                    return (
-                      <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
-                        <tr
-                          className="border-t hover:bg-gray-50 cursor-pointer"
-                          onClick={() =>
-                            setExpandedProcessIndex((prev) => (prev === idx ? null : idx))
-                          }
-                        >
-                          <td className="p-2">{isOpen ? "▼" : "▶"}</td>
-                          <td className="p-2">{p.name}</td>
-                          <td className="p-2">{p.code}</td>
-                          <td className="p-2">{p.model || "—"}</td>
-                          <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              <Button type="button" size="sm" onClick={() => startEditingProcess(idx)}>
-                                編輯
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setConfirmTarget({ type: "process", proc: p })}
-                              >
-                                刪除
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-
-                        {isOpen && (
-                          <tr className="border-t">
-                            <td className="p-0" colSpan={5}>
-                              <div className="p-3 bg-gray-50">
-                                <div className="font-semibold mb-2">檢驗項目</div>
-                                {p.items.length > 0 ? (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                    {p.items.map((item, iidx) => (
-                                      <div
-                                        key={iidx}
-                                        className="bg-white border rounded px-3 py-2"
-                                      >
-                                        {item}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-gray-500">尚未建立檢驗項目</div>
-                                )}
-                                <div className="text-xs text-gray-500 mt-2">
-                                  ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Card>
-        )
+        <ManagePage
+          Card={Card}
+          Button={Button}
+          Input={Input}
+          isAdmin={isAdmin}
+          authUsername={authUsername}
+      
+          processes={processes}
+          newProcName={newProcName}
+          setNewProcName={setNewProcName}
+          newProcCode={newProcCode}
+          setNewProcCode={setNewProcCode}
+          newProcModel={newProcModel}
+          setNewProcModel={setNewProcModel}
+      
+          editingIndex={editingIndex}
+      
+          newItem={newItem}
+          setNewItem={setNewItem}
+          insertAfter={insertAfter}
+          setInsertAfter={setInsertAfter}
+          items={items}
+      
+          editingItemIndex={editingItemIndex}
+          editingItemValue={editingItemValue}
+          setEditingItemValue={setEditingItemValue}
+      
+          expandedProcessIndex={expandedProcessIndex}
+          setExpandedProcessIndex={setExpandedProcessIndex}
+      
+          addItem={addItem}
+          startEditingItem={startEditingItem}
+          saveEditingItem={saveEditingItem}
+          cancelEditingItem={cancelEditingItem}
+          moveItemUp={moveItemUp}
+          moveItemDown={moveItemDown}
+      
+          saveProcess={saveProcess}
+          cancelManageCreate={cancelManageCreate}
+          startEditingProcess={startEditingProcess}
+          setConfirmTarget={setConfirmTarget}
+          confirmDiscard={confirmDiscard}
+          resetManageState={resetManageState}
+        />
       )}
-
       
       {/* 草稿恢復（UX-1） */}
       {showDraftPrompt && pendingDraft && (
@@ -2848,7 +2090,7 @@ if (
 
               const safeIndex = Math.min(previewIndex, itemsList.length - 1);
               const currentItem = itemsList[safeIndex];
-              const currentImg = currentItem ? images[currentItem] : null;
+              const currentImgs = currentItem ? images[currentItem] || [] : [];
               const isNA = currentItem ? !!homeNA[currentItem] : false;
 
               return (
@@ -2857,8 +2099,16 @@ if (
 
                   {homeNA[currentItem] ? (
                     <p className="text-gray-600 text-sm">N/A（不適用）</p>
-                  ) : currentImg ? (
-                    <img src={currentImg} className="w-full max-h-[50vh] object-contain rounded border" />
+                  ) : currentImgs.length > 0 ? (
+                    <div className="grid gap-2">
+                      {currentImgs.map((img, imgIndex) => (
+                        <img
+                          key={`${currentItem}-${imgIndex}`}
+                          src={img}
+                          className="w-full max-h-[50vh] object-contain rounded border"
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-red-500 text-sm">尚未拍攝</p>
                   )}
@@ -2904,7 +2154,7 @@ if (
                 <div className="mb-3 px-1">
                   <div className="flex justify-between text-[10px] font-bold text-blue-600 mb-1">
                     <span>圖片上傳中...</span>
-                    <span>{uploadProgress}%</span>
+                    <span>{uploadDoneCount}/{uploadTotalCount}</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden border border-gray-200">
                     <div 
@@ -2941,7 +2191,7 @@ if (
                     }
                   }}
                 >
-                  {isSavingNew ? `儲存中 ${uploadProgress}%` : "確認儲存"}
+                  {isSavingNew ? `儲存中 ${uploadDoneCount}/${uploadTotalCount}` : "確認儲存"}
                 </Button>
               </div>
             </div>
@@ -2970,12 +2220,20 @@ if (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
                   {editNA[item] ? (
-  <p className="text-gray-600 text-sm">N/A（不適用）</p>
-) : signedImg ? (
-  <img src={signedImg} className="w-full max-h-[50vh] object-contain rounded border" />
-) : (
-  <p className="text-red-500">尚未拍攝</p>
-)}
+                    <p className="text-gray-600 text-sm">N/A（不適用）</p>
+                  ) : signedImg.length > 0 ? (
+                    <div className="grid gap-2">
+                      {signedImg.map((img, imgIndex) => (
+                        <img
+                          key={`${item}-${imgIndex}`}
+                          src={img}
+                          className="w-full max-h-[50vh] object-contain rounded border"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-red-500">尚未拍攝</p>
+                  )}
 
 
 
@@ -3010,7 +2268,7 @@ if (
             </div>
             {isSavingEdit && (
               <div className="text-sm text-gray-600 text-center py-2">
-                📤 上傳中… {uploadProgress}%
+                📤 上傳中… {uploadDoneCount}/{uploadTotalCount}
               </div>
             )}
             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
@@ -3040,47 +2298,93 @@ if (
                   }
 
                   const expectedItems = report.expected_items || [];
-                  const uploadedImages: Record<string, string> = {
-                    ...report.images,
-                  };
+                  const normalizedReportImages = normalizeImagesMap(
+                    report.images
+                  );
+                  const uploadItems = expectedItems.filter((item) => {
+                    const wasNA = isNAValue(normalizedReportImages[item]);
+                    const isNA = !!editNA[item];
+                    const hasNewFile =
+                      (editImageFiles[item] || []).length > 0;
+                    // 只計算「有變動」的項目：
+                    // 1) 新拍照
+                    // 2) NA 狀態有變（原本不是 NA，現在是 NA）
+                    return hasNewFile || (!wasNA && isNA);
+                  });
+                  const uploadedImages: Record<string, ImageValue> = {};
+                  expectedItems.forEach((item) => {
+                    if (editNA[item]) {
+                      uploadedImages[item] = NA_SENTINEL;
+                      return;
+                    }
+                    const existing = normalizeImageValue(
+                      normalizedReportImages[item]
+                    );
+                    if (existing.length > 0) {
+                      uploadedImages[item] = [...existing];
+                    }
+                  });
 
                   setUploadProgress(0);
                   let completedCount = 0;
-                  const totalTasks = expectedItems.length;
+                  const totalTasks = uploadItems.reduce((total, item) => {
+                    if (editNA[item]) return total + 1;
+                    return total + (editImageFiles[item]?.length || 0);
+                  }, 0);
+                  setUploadDoneCount(0);
+                  setUploadTotalCount(totalTasks);
                   
-                  const uploadTasks = expectedItems.map((item) => async () => {
-                    try {
-                      if (editNA[item]) {
-                        uploadedImages[item] = NA_SENTINEL;
-                        return;
-                      }
-                  
-                      const file = editImageFiles[item];
-                      if (!file) {
-                        if (report.images?.[item] === NA_SENTINEL) {
-                          delete uploadedImages[item];
-                        }
-                        return;
-                      }
-                  
-                      const url = await uploadImage(
-                        processes.find((p) => p.name === report.process)?.code ||
-                          report.process,
-                        report.model,
-                        report.serial,
-                        { item, procItems: expectedItems },
-                        file
-                      );
-                  
-                      if (url) {
-                        uploadedImages[item] = url;
-                      }
-                    } finally {
-                      completedCount++;
-                      setUploadProgress(
-                        Math.round((completedCount / totalTasks) * 100)
-                      );
+                  const uploadTasks = uploadItems.flatMap((item) => {
+                    if (editNA[item]) {
+                      return [
+                        async () => {
+                          uploadedImages[item] = NA_SENTINEL;
+                          completedCount++;
+                          setUploadDoneCount(completedCount);
+                          setUploadProgress(
+                            Math.round(
+                              (completedCount / Math.max(totalTasks, 1)) * 100
+                            )
+                          );
+                        },
+                      ];
                     }
+
+                    const files = editImageFiles[item] || [];
+                    if (files.length === 0) return [];
+
+                    const existing = normalizeImageValue(uploadedImages[item]);
+                    const baseIndex = existing.length;
+                    uploadedImages[item] = [...existing];
+
+                    return files.map((file, fileIndex) => async () => {
+                      try {
+                        const url = await uploadImage(
+                          processes.find((p) => p.name === report.process)
+                            ?.code || report.process,
+                          report.model,
+                          report.serial,
+                          {
+                            item,
+                            procItems: expectedItems,
+                            photoIndex: baseIndex + fileIndex + 1,
+                          },
+                          file
+                        );
+
+                        if (url) {
+                          (uploadedImages[item] as string[]).push(url);
+                        }
+                      } finally {
+                        completedCount++;
+                        setUploadDoneCount(completedCount);
+                        setUploadProgress(
+                          Math.round(
+                            (completedCount / Math.max(totalTasks, 1)) * 100
+                          )
+                        );
+                      }
+                    });
                   });
                   
                   await runInBatches(uploadTasks, 6);
@@ -3099,7 +2403,7 @@ if (
 
                   const updated: Report = {
                     ...report,
-                    images: uploadedImages,
+                    images: normalizeImagesMap(uploadedImages),
                     expected_items: expectedItems,
                   };
 
