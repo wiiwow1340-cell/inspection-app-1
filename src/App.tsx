@@ -440,10 +440,10 @@ async function runInBatches<T>(
 
 
 
-// 把中文項目名轉成安全檔名 item1 / item2 / ...
-function getSafeItemName(procItems: string[], item: string) {
+// 取得項目索引（1-based），確保每個項目有固定編號
+function getItemIndex(procItems: string[], item: string) {
   const index = procItems.indexOf(item);
-  return index >= 0 ? `item${index + 1}` : "item";
+  return index >= 0 ? index + 1 : procItems.length + 1;
 }
 
 // 將圖片壓縮到最大邊 1600px，輸出 JPEG blob
@@ -486,28 +486,17 @@ async function uploadImage(
   processCode: string,
   model: string,
   serial: string,
-  info: { item: string; procItems: string[] },
+  info: { item: string; procItems: string[]; photoIndex: number },
   file: File
 ): Promise<string> {
   if (!file) return "";
 
   const compressed = await compressImage(file);
 
-  const { item, procItems } = info;
-  const safeItem = getSafeItemName(procItems, item);
-  const safeItemName = item
-    .trim()
-    .replace(/\s+/g, "_")
-    .replace(/[^\p{L}\p{N}_-]/gu, "_") || safeItem;
-  const d = new Date();
-  const stamp = `${String(d.getFullYear()).slice(-2)}${String(
-    d.getMonth() + 1
-  ).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}${String(
-    d.getHours()
-  ).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(
-    d.getSeconds()
-  ).padStart(2, "0")}`;
-  const fileName = `${safeItemName}_${stamp}.jpg`;
+  const { item, procItems, photoIndex } = info;
+  const itemIndex = getItemIndex(procItems, item);
+  const normalizedPhotoIndex = Math.max(1, photoIndex);
+  const fileName = `item${itemIndex}-${normalizedPhotoIndex}.jpg`;
   const filePath = `${processCode}/${model}/${serial}/${fileName}`;
 
   try {
@@ -1108,18 +1097,21 @@ useEffect(() => {
     }
 
     const expectedItems = selectedProcObj.items || [];
+    const photoEntries = Object.entries(newImageFiles).filter(
+      ([, files]) => files.length > 0
+    );
+    const photoItemSet = new Set(photoEntries.map(([item]) => item));
     const uploadItems = expectedItems.filter(
-      (item) => homeNA[item] || (newImageFiles[item] || []).length > 0
+      (item) => homeNA[item] || photoItemSet.has(item)
     );
     const uploadedImages: Record<string, ImageValue> = {};
 
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
-    const totalTasks = uploadItems.reduce((total, item) => {
-      if (homeNA[item]) return total + 1;
-      return total + (newImageFiles[item]?.length || 0);
-    }, 0);
+    const totalTasks =
+      photoEntries.reduce((total, [, files]) => total + files.length, 0) +
+      Object.keys(homeNA).filter((item) => homeNA[item]).length;
     setUploadDoneCount(0);
     setUploadTotalCount(totalTasks);
 
@@ -1141,13 +1133,13 @@ useEffect(() => {
       if (files.length === 0) return [];
 
       uploadedImages[item] = [];
-      return files.map((file) => async () => {
+      return files.map((file, fileIndex) => async () => {
         try {
           const path = await uploadImage(
             selectedProcObj.code,
             selectedModel,
             sn,
-            { item, procItems: expectedItems },
+            { item, procItems: expectedItems, photoIndex: fileIndex + 1 },
             file
           );
           if (path) {
@@ -2336,14 +2328,18 @@ useEffect(() => {
                     const existing = normalizeImageValue(uploadedImages[item]);
                     uploadedImages[item] = existing;
 
-                    return files.map((file) => async () => {
+                    return files.map((file, fileIndex) => async () => {
                       try {
                         const url = await uploadImage(
                           processes.find((p) => p.name === report.process)
                             ?.code || report.process,
                           report.model,
                           report.serial,
-                          { item, procItems: expectedItems },
+                          {
+                            item,
+                            procItems: expectedItems,
+                            photoIndex: fileIndex + 1,
+                          },
                           file
                         );
 
