@@ -1,31 +1,81 @@
 import React from "react";
+import type { Process } from "./types";
 
-export default function HomePage(props: any) {
-  const {
-    serial,
-    setSerial,
-    selectedModel,
-    setSelectedModel,
-    selectedProcess,
-    setSelectedProcess,
-    productModels,
-    filteredProcesses,
-    selectedProcObj,
-    images,
-    setImages,
-    newImageFiles,
-    setNewImageFiles,
-    homeNA,
-    setHomeNA,
-    handleCapture,
-    resetNewReportState,
-    setPreviewIndex,
-    setShowPreview,
-    Card,
-    Button,
-    Input,
-    StatusIcon,
-  } = props;
+type ButtonComponent = React.ComponentType<
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?: string;
+    size?: string;
+    className?: string;
+  }
+>;
+
+type InputComponent = React.ComponentType<
+  React.InputHTMLAttributes<HTMLInputElement> & { className?: string }
+>;
+
+type CardComponent = React.ComponentType<
+  React.HTMLAttributes<HTMLDivElement> & { className?: string }
+>;
+
+type StatusIconComponent = React.ComponentType<{
+  kind: "ok" | "ng" | "na";
+  className?: string;
+  title?: string;
+}>;
+
+type HomePageProps = {
+  serial: string;
+  setSerial: React.Dispatch<React.SetStateAction<string>>;
+  selectedModel: string;
+  setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
+  selectedProcess: string;
+  setSelectedProcess: React.Dispatch<React.SetStateAction<string>>;
+  productModels: string[];
+  filteredProcesses: Process[];
+  selectedProcObj: Process | null;
+  images: Record<string, string>;
+  setImages: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  newImageFiles: Record<string, File | undefined>;
+  setNewImageFiles: React.Dispatch<
+    React.SetStateAction<Record<string, File | undefined>>
+  >;
+  homeNA: Record<string, boolean>;
+  setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  handleCapture: (item: string, file: File | undefined) => void;
+  resetNewReportState: (shouldResetSerial: boolean) => Promise<void>;
+  setPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
+  setShowPreview: React.Dispatch<React.SetStateAction<boolean>>;
+  Card: CardComponent;
+  Button: ButtonComponent;
+  Input: InputComponent;
+  StatusIcon: StatusIconComponent;
+};
+
+export default function HomePage({
+  serial,
+  setSerial,
+  selectedModel,
+  setSelectedModel,
+  selectedProcess,
+  setSelectedProcess,
+  productModels,
+  filteredProcesses,
+  selectedProcObj,
+  images,
+  setImages,
+  newImageFiles,
+  setNewImageFiles,
+  homeNA,
+  setHomeNA,
+  handleCapture,
+  resetNewReportState,
+  setPreviewIndex,
+  setShowPreview,
+  Card,
+  Button,
+  Input,
+  StatusIcon,
+}: HomePageProps) {
 
   return (
     <Card className="p-4 space-y-4">
@@ -96,7 +146,7 @@ export default function HomePage(props: any) {
             }`}
           >
             <option value="">請選擇製程</option>
-            {filteredProcesses.map((p: any) => (
+            {filteredProcesses.map((p) => (
               <option key={`${p.name}-${p.model}`} value={p.name}>
                 {p.name} ({p.code})
               </option>
@@ -161,7 +211,7 @@ export default function HomePage(props: any) {
                     className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
                     title="N/A（不適用）- 點一下恢復"
                     onClick={() =>
-                      setHomeNA((prev: any) => {
+                      setHomeNA((prev) => {
                         const n = { ...prev };
                         delete n[item];
                         return n;
@@ -176,7 +226,7 @@ export default function HomePage(props: any) {
                     className="w-8 h-8 inline-flex items-center justify-center text-green-600"
                     title="已拍 - 點一下設為 N/A"
                     onClick={() =>
-                      setHomeNA((prev: any) => ({ ...prev, [item]: true }))
+                      setHomeNA((prev) => ({ ...prev, [item]: true }))
                     }
                   >
                     <StatusIcon kind="ok" />
@@ -187,7 +237,7 @@ export default function HomePage(props: any) {
                     className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
                     title="未拍 - 點一下設為 N/A"
                     onClick={() =>
-                      setHomeNA((prev: any) => ({ ...prev, [item]: true }))
+                      setHomeNA((prev) => ({ ...prev, [item]: true }))
                     }
                   >
                     <StatusIcon kind="ng" />
