@@ -33,15 +33,15 @@ type HomePageProps = {
   productModels: string[];
   filteredProcesses: Process[];
   selectedProcObj: Process | null;
-  images: Record<string, string>;
-  setImages: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  newImageFiles: Record<string, File | undefined>;
+  images: Record<string, string[]>;
+  setImages: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  newImageFiles: Record<string, File[]>;
   setNewImageFiles: React.Dispatch<
-    React.SetStateAction<Record<string, File | undefined>>
+    React.SetStateAction<Record<string, File[]>>
   >;
   homeNA: Record<string, boolean>;
   setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  handleCapture: (item: string, file: File | undefined) => void;
+  handleCapture: (item: string, files: FileList | File[] | undefined) => void;
   resetNewReportState: (shouldResetSerial: boolean) => Promise<void>;
   setPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowPreview: React.Dispatch<React.SetStateAction<boolean>>;
@@ -191,18 +191,21 @@ export default function HomePage({
                   capture="environment"
                   id={`capture-${idx}`}
                   className="hidden"
-                  onChange={(e) =>
-                    handleCapture(item, e.target.files?.[0])
-                  }
+                  onChange={(e) => {
+                    handleCapture(item, e.target.files);
+                    e.currentTarget.value = "";
+                  }}
                 />
                 <input
                   type="file"
                   accept="image/*"
                   id={`upload-${idx}`}
                   className="hidden"
-                  onChange={(e) =>
-                    handleCapture(item, e.target.files?.[0])
-                  }
+                  multiple
+                  onChange={(e) => {
+                    handleCapture(item, e.target.files);
+                    e.currentTarget.value = "";
+                  }}
                 />
 
                 {homeNA[item] ? (
@@ -220,7 +223,7 @@ export default function HomePage({
                   >
                     <StatusIcon kind="na" />
                   </button>
-                ) : images[item] ? (
+                ) : (images[item]?.length || 0) > 0 ? (
                   <button
                     type="button"
                     className="w-8 h-8 inline-flex items-center justify-center text-green-600"
@@ -243,6 +246,11 @@ export default function HomePage({
                     <StatusIcon kind="ng" />
                   </button>
                 )}
+                {(images[item]?.length || 0) > 1 && (
+                  <span className="text-xs text-gray-500">
+                    {images[item]?.length} 張
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -261,7 +269,7 @@ export default function HomePage({
                 serial.trim() ||
                 selectedModel ||
                 selectedProcess ||
-                Object.keys(newImageFiles).length > 0 ||
+                Object.values(newImageFiles).some((files) => files.length > 0) ||
                 Object.keys(homeNA).length > 0;
               if (
                 hasDirty &&
