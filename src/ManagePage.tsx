@@ -370,9 +370,9 @@ export default function ManagePage({
                           {p.model || "—"}
                         </td>
                         <td
-                          className={`${processCellBase} ${processRowCell} whitespace-nowrap`}
+                          className={`${processCellBase} ${processRowCell} whitespace-nowrap text-center pr-4 sm:pr-3`}
                         >
-                          <div className="flex items-center justify-start gap-1">
+                          <div className="flex items-center justify-center gap-1">
                             <Button
                               type="button"
                               size="sm"
