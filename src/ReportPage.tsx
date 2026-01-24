@@ -250,12 +250,12 @@ const ReportPage: React.FC<Props> = ({
                     {editingReportId === r.id ? (
                       <div className="space-y-2">
                         {(r.expected_items || []).map((item: string, idx: number) => (
-                          <div key={item} className="flex items-center gap-2">
+                          <div key={item} className="flex items-center gap-1.5 sm:gap-2">
                             <span className="flex-1">{item}</span>
 
                             <Button
                               type="button"
-                              className="px-2 py-1"
+                              className="px-2 py-1 text-xs whitespace-nowrap"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
@@ -271,7 +271,7 @@ const ReportPage: React.FC<Props> = ({
 
                             <Button
                               type="button"
-                              className="px-2 py-1"
+                              className="px-2 py-1 text-xs whitespace-nowrap"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
