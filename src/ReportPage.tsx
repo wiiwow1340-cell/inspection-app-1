@@ -237,6 +237,9 @@ const ReportPage: React.FC<Props> = ({
                       <div className="truncate">型號：{r.model}</div>
                       <div className="truncate">序號：{r.serial}</div>
                     </div>
+                    <div className="text-xs text-slate-400">
+                      點擊以展開檢驗項目
+                    </div>
                   </div>
                 </button>
 
