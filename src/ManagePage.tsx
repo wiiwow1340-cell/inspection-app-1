@@ -306,8 +306,8 @@ export default function ManagePage({
           )}
         </div>
 
-        <div className="border border-slate-200 rounded overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="border border-slate-200 rounded overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-slate-50">
               <tr className="text-left">
                 <th className="p-2 w-10"></th>
