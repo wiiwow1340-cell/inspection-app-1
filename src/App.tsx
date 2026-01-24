@@ -2278,8 +2278,11 @@ useEffect(() => {
                   }
 
                   const expectedItems = report.expected_items || [];
+                  const normalizedReportImages = normalizeImagesMap(
+                    report.images
+                  );
                   const uploadItems = expectedItems.filter((item) => {
-                    const wasNA = isNAValue(report.images?.[item]);
+                    const wasNA = isNAValue(normalizedReportImages[item]);
                     const isNA = !!editNA[item];
                     const hasNewFile =
                       (editImageFiles[item] || []).length > 0;
@@ -2288,9 +2291,19 @@ useEffect(() => {
                     // 2) NA 狀態有變（原本不是 NA，現在是 NA）
                     return hasNewFile || (!wasNA && isNA);
                   });
-                  const uploadedImages: Record<string, ImageValue> = {
-                    ...normalizeImagesMap(report.images),
-                  };
+                  const uploadedImages: Record<string, ImageValue> = {};
+                  expectedItems.forEach((item) => {
+                    if (editNA[item]) {
+                      uploadedImages[item] = NA_SENTINEL;
+                      return;
+                    }
+                    const existing = normalizeImageValue(
+                      normalizedReportImages[item]
+                    );
+                    if (existing.length > 0) {
+                      uploadedImages[item] = [...existing];
+                    }
+                  });
 
                   setUploadProgress(0);
                   let completedCount = 0;
@@ -2318,15 +2331,11 @@ useEffect(() => {
                     }
 
                     const files = editImageFiles[item] || [];
-                    if (files.length === 0) {
-                      if (isNAValue(report.images?.[item])) {
-                        delete uploadedImages[item];
-                      }
-                      return [];
-                    }
+                    if (files.length === 0) return [];
 
                     const existing = normalizeImageValue(uploadedImages[item]);
-                    uploadedImages[item] = existing;
+                    const baseIndex = existing.length;
+                    uploadedImages[item] = [...existing];
 
                     return files.map((file, fileIndex) => async () => {
                       try {
@@ -2338,7 +2347,7 @@ useEffect(() => {
                           {
                             item,
                             procItems: expectedItems,
-                            photoIndex: fileIndex + 1,
+                            photoIndex: baseIndex + fileIndex + 1,
                           },
                           file
                         );
