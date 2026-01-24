@@ -409,7 +409,7 @@ export default function ManagePage({
                         <tr className="border-t border-slate-200 bg-slate-50">
                           <td
                             colSpan={4}
-                            className="px-4 py-3 px-3 py-3 text-xs sm:text-sm"
+                            className="px-3 py-3 text-xs sm:text-sm"
                           >
                             <div className="font-semibold mb-2">檢驗項目</div>
                             {p.items.length > 0 ? (
