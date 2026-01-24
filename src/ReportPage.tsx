@@ -211,7 +211,12 @@ const ReportPage: React.FC<Props> = ({
                   onClick={() => toggleExpandReport(r.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold break-all">{r.id}</div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-500 mt-0.5">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <div className="font-semibold break-all">{r.id}</div>
+                    </div>
                     <Button
                       size="sm"
                       type="button"
@@ -236,9 +241,6 @@ const ReportPage: React.FC<Props> = ({
                     <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
                       <div className="truncate">型號：{r.model}</div>
                       <div className="truncate">序號：{r.serial}</div>
-                    </div>
-                    <div className="flex justify-end text-xs text-slate-400">
-                      {isOpen ? "▼" : "▶"}
                     </div>
                   </div>
                 </button>
