@@ -312,9 +312,9 @@ export default function ManagePage({
           <div
             className={`grid ${processGridCols} items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:text-sm`}
           >
-            <div className="min-w-0 text-left">製程名稱</div>
-            <div className="min-w-0 text-left">製程代號</div>
-            <div className="min-w-0 text-left">產品型號</div>
+            <div className="min-w-0 justify-self-start text-left">製程名稱</div>
+            <div className="min-w-0 justify-self-start text-left">製程代號</div>
+            <div className="min-w-0 justify-self-start text-left">產品型號</div>
             <div className="hidden text-right sm:block">操作</div>
           </div>
           {processes.map((p, idx) => {
@@ -343,13 +343,15 @@ export default function ManagePage({
                     }
                   }}
                 >
-                  <div className="min-w-0 text-left">
+                  <div className="min-w-0 justify-self-start text-left">
                     <span className="min-w-0 truncate font-semibold text-slate-900">
                       {p.name}
                     </span>
                   </div>
-                  <div className="min-w-0 truncate text-left">{p.code}</div>
-                  <div className="min-w-0 truncate text-left">
+                  <div className="min-w-0 justify-self-start truncate text-left">
+                    {p.code}
+                  </div>
+                  <div className="min-w-0 justify-self-start truncate text-left">
                     {p.model || "—"}
                   </div>
                   <div className="col-span-full flex w-full flex-col items-center gap-2 sm:col-span-1 sm:w-auto sm:flex-row sm:justify-end">
