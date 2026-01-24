@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
 import ManagePage from "./ManagePage";
+import type { Process, Report } from "./types";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -118,26 +119,6 @@ const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
     {...props}
   />
 );
-
-// =============================
-//  型別定義
-// =============================
-
-type Process = {
-  name: string;
-  code: string;
-  model: string;
-  items: string[];
-};
-
-type Report = {
-  id: string;
-  serial: string;
-  model: string;
-  process: string;
-  images: Record<string, string>; // { [itemName]: imageUrl }
-  expected_items: string[]; // 報告當下應該要拍的項目清單
-};
 
 type ConfirmTarget =
   | { type: "item"; index: number }
