@@ -125,7 +125,7 @@ const ReportPage: React.FC<Props> = ({
   }, [reports, appliedProcess, appliedModel, appliedStatus, hasQueried, NA_SENTINEL]);
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="space-y-4 p-3 sm:p-4">
       <h2 className="text-xl font-bold text-slate-900 flex items-center justify-between">
         <span>報告列表</span>
         <Button
