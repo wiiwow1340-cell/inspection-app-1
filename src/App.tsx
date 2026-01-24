@@ -601,28 +601,25 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 text-slate-100 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md space-y-8">
         <div className="space-y-2 text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
-            Inspection App
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
+            INSPECTION APP
           </p>
           <h1 className="text-3xl font-semibold text-white">檢驗作業登入</h1>
-          <p className="text-sm text-slate-300">
-            請使用公司帳號登入以進行檢驗與報告管理。
+          <p className="text-sm text-slate-200">
+            使用公司帳號登入以進行檢驗與報告管理
           </p>
         </div>
-        <Card className="p-6 space-y-4 shadow-xl">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-slate-900">🔐 請先登入</h2>
-            <p className="text-sm text-slate-500">請輸入帳號與密碼繼續。</p>
-          </div>
+        <Card className="rounded-2xl border border-white/20 bg-white/90 p-6 space-y-4 shadow-2xl backdrop-blur-lg">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">帳號</label>
             <Input
-              placeholder="例如：MGCQA1"
+              placeholder="輸入帳號"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="bg-white/90"
             />
           </div>
           <div className="space-y-2">
@@ -632,10 +629,15 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="bg-white/90"
             />
           </div>
           {err && <p className="text-red-500 text-sm">{err}</p>}
-          <Button onClick={handleLogin} disabled={loading} className="w-full">
+          <Button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500"
+          >
             {loading ? "登入中..." : "登入"}
           </Button>
         </Card>
