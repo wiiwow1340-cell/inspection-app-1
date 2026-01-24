@@ -101,6 +101,7 @@ export default function ManagePage({
     "px-3 py-2 text-xs sm:text-sm whitespace-nowrap align-middle";
   const processHeaderCell = "font-semibold text-slate-600 text-left";
   const processRowCell = "text-slate-700 text-left";
+  const processActionCell = "text-center px-4 sm:px-3";
 
   if (!isAdmin) {
     return (
@@ -326,7 +327,7 @@ export default function ManagePage({
                     產品型號
                   </th>
                   <th
-                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap text-center`}
+                    className={`${processCellBase} ${processHeaderCell} ${processActionCell} whitespace-nowrap`}
                   >
                     操作
                   </th>
@@ -370,9 +371,9 @@ export default function ManagePage({
                           {p.model || "—"}
                         </td>
                         <td
-                          className={`${processCellBase} ${processRowCell} whitespace-nowrap`}
+                          className={`${processCellBase} ${processRowCell} ${processActionCell} whitespace-nowrap`}
                         >
-                          <div className="flex items-center justify-start gap-1">
+                          <div className="flex items-center justify-center gap-1">
                             <Button
                               type="button"
                               size="sm"
