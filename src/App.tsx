@@ -611,7 +611,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
             INSPECTION APP
           </p>
-          <h1 className="text-3xl font-semibold text-white">檢驗作業登入</h1>
+          <h1 className="text-3xl font-semibold text-white">檢驗作業系統</h1>
           <p className="text-sm text-slate-200">
             使用公司帳號登入以進行檢驗與報告管理
           </p>
