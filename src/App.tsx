@@ -616,7 +616,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             使用公司帳號登入以進行檢驗與報告管理
           </p>
         </div>
-        <Card className="rounded-2xl border border-white/30 bg-white/15 p-6 space-y-4 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl">
+        <Card className="rounded-2xl border border-white/20 bg-white/70 p-6 space-y-4 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-100">帳號</label>
             <Input
