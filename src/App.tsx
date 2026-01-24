@@ -1861,7 +1861,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 新增檢驗資料
               </span>
             </div>
@@ -1874,7 +1874,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 查看報告
               </span>
             </div>
@@ -1892,7 +1892,7 @@ useEffect(() => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
               
-              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight">
+              <span className="text-xs sm:text-sm text-center sm:text-left leading-tight whitespace-nowrap">
                 管理製程
               </span>
             </div>
