@@ -314,50 +314,51 @@ export default function ManagePage({
                 key={`${p.name}-${p.code}-${p.model}-${idx}`}
                 className="border border-slate-200 rounded-lg"
               >
-                <div className="p-3 space-y-3">
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() =>
-                      setExpandedProcessIndex((prev) =>
-                        prev === idx ? null : idx
-                      )
-                    }
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-slate-500 mt-0.5">
-                        {isOpen ? "▼" : "▶"}
-                      </span>
-                      <div className="space-y-1 text-sm text-slate-700">
-                        <div className="font-semibold break-all">
-                          製程名稱：{p.name}
-                        </div>
-                        <div className="break-all">製程代號：{p.code}</div>
-                        <div className="break-all">
-                          產品型號：{p.model || "—"}
-                        </div>
-                      </div>
+                <div className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => startEditingProcess(idx)}
+                      >
+                        編輯
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          setConfirmTarget({ type: "process", proc: p })
+                        }
+                      >
+                        刪除
+                      </Button>
                     </div>
-                  </button>
-
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
+                    <button
                       type="button"
-                      size="sm"
-                      onClick={() => startEditingProcess(idx)}
-                    >
-                      編輯
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
+                      className="flex-1 text-left"
                       onClick={() =>
-                        setConfirmTarget({ type: "process", proc: p })
+                        setExpandedProcessIndex((prev) =>
+                          prev === idx ? null : idx
+                        )
                       }
                     >
-                      刪除
-                    </Button>
+                      <div className="flex items-start gap-3">
+                        <span className="text-slate-500 mt-0.5">
+                          {isOpen ? "▼" : "▶"}
+                        </span>
+                        <div className="space-y-1 text-sm text-slate-700">
+                          <div className="font-semibold break-all">
+                            製程名稱：{p.name}
+                          </div>
+                          <div className="break-all">製程代號：{p.code}</div>
+                          <div className="break-all">
+                            產品型號：{p.model || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
