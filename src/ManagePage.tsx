@@ -311,7 +311,7 @@ export default function ManagePage({
         </div>
 
         <div className="space-y-2">
-          <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
             <table className="w-full min-w-max table-auto border-collapse">
               <tbody>
                 {processes.map((p, idx) => {
@@ -357,7 +357,7 @@ export default function ManagePage({
                             <Button
                               type="button"
                               size="sm"
-                              className="writing-vertical"
+                              className="writing-vertical px-1 py-1 text-xs leading-tight"
                               onClick={() => startEditingProcess(idx)}
                             >
                               編輯
@@ -366,7 +366,7 @@ export default function ManagePage({
                               type="button"
                               size="sm"
                               variant="destructive"
-                              className="writing-vertical"
+                              className="writing-vertical px-1 py-1 text-xs leading-tight"
                               onClick={() =>
                                 setConfirmTarget({ type: "process", proc: p })
                               }
