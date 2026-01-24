@@ -316,25 +316,6 @@ export default function ManagePage({
               >
                 <div className="p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => startEditingProcess(idx)}
-                      >
-                        編輯
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          setConfirmTarget({ type: "process", proc: p })
-                        }
-                      >
-                        刪除
-                      </Button>
-                    </div>
                     <button
                       type="button"
                       className="flex-1 text-left"
@@ -359,6 +340,25 @@ export default function ManagePage({
                         </div>
                       </div>
                     </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => startEditingProcess(idx)}
+                      >
+                        編輯
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          setConfirmTarget({ type: "process", proc: p })
+                        }
+                      >
+                        刪除
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
