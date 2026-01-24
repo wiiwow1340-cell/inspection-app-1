@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { Process, Report } from "./types";
 
 type Props = {
@@ -79,23 +79,6 @@ const ReportPage: React.FC<Props> = ({
   const [appliedModel, setAppliedModel] = useState("");
   const [appliedStatus, setAppliedStatus] = useState<"" | "done" | "not">("");
   const [hasQueried, setHasQueried] = useState(false);
-
-  // 編輯前快照，用於判斷是否有實際修改
-  const [editSnapshot, setEditSnapshot] = useState<{
-    images: Record<string, string>;
-    editNA: Record<string, boolean>;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!editingReportId) {
-      setEditSnapshot(null);
-      return;
-    }
-    if (editSnapshot) return;
-    const report = reports.find((item) => item.id === editingReportId);
-    if (!report) return;
-    setEditSnapshot({ images: report.images, editNA: { ...editNA } });
-  }, [editingReportId, reports, editNA, editSnapshot]);
 
   // ===== 篩選後報告（本頁自行計算）=====
   const filteredReports = useMemo(() => {
@@ -358,17 +341,7 @@ const ReportPage: React.FC<Props> = ({
                             className="flex-1"
                             type="button"
                             variant="secondary"
-                            onClick={() => {
-                              const dirty = editSnapshot
-                                ? JSON.stringify({ images: r.images, editNA }) !==
-                                  JSON.stringify(editSnapshot)
-                                : true;
-                              if (dirty) {
-                                if (!window.confirm("內容尚未儲存，確定要取消編輯嗎？")) return;
-                              }
-                              setEditSnapshot(null);
-                              toggleEditReport(r.id);
-                            }}
+                            onClick={() => toggleEditReport(r.id)}
                           >
                             取消
                           </Button>

@@ -257,10 +257,21 @@ export default function HomePage({
             variant="secondary"
             className="flex-1"
             onClick={async () => {
-              const ok = window.confirm(
-                "確定要取消新增嗎？\n（已輸入的資料與照片將會清除）"
-              );
-              if (ok) await resetNewReportState(true);
+              const hasDirty =
+                serial.trim() ||
+                selectedModel ||
+                selectedProcess ||
+                Object.keys(newImageFiles).length > 0 ||
+                Object.keys(homeNA).length > 0;
+              if (
+                hasDirty &&
+                !window.confirm(
+                  "確定要取消新增嗎？\n（已輸入的資料與照片將會清除）"
+                )
+              ) {
+                return;
+              }
+              await resetNewReportState(true);
             }}
           >
             取消新增
