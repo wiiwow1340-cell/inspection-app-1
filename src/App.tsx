@@ -1113,16 +1113,38 @@ if (
     return true;
   };
 
+  const isReportEditDirty = (reportId: string | null) => {
+    if (!reportId) return false;
+    if (Object.keys(editImageFiles).length > 0) return true;
+
+    const report = reports.find((rr) => rr.id === reportId);
+    if (!report) {
+      return Object.keys(editNA).length > 0;
+    }
+
+    const expected = report.expected_items || [];
+    const originalNA = new Set(
+      expected.filter((it) => report.images?.[it] === NA_SENTINEL)
+    );
+    const currentNA = new Set(
+      Object.keys(editNA).filter((key) => editNA[key])
+    );
+
+    if (originalNA.size !== currentNA.size) return true;
+    for (const item of originalNA) {
+      if (!currentNA.has(item)) return true;
+    }
+
+    return false;
+  };
+
   // ===== 查看報告：列表列點擊展開（只檢視，不等於編輯）=====
   const toggleExpandReport = (id: string) => {
     setExpandedReportId((prev) => {
       const next = prev === id ? null : id;
       // 若正在編輯同一張，收合前需確認
       if (next === null && editingReportId === id) {
-        const hasDirty =
-          Object.keys(editImageFiles).length > 0 ||
-          Object.keys(editNA).length > 0;
-        if (hasDirty && !confirmDiscard()) return prev;
+        if (isReportEditDirty(id) && !confirmDiscard()) return prev;
 
         revokePreviewUrls(editImages);
         setEditingReportId(null);
@@ -1157,10 +1179,7 @@ if (
 
   const toggleEditReport = (id: string) => {
     if (editingReportId === id) {
-      const hasDirty =
-        Object.keys(editImageFiles).length > 0 ||
-        Object.keys(editNA).length > 0;
-      if (hasDirty && !confirmDiscard()) return;
+      if (isReportEditDirty(id) && !confirmDiscard()) return;
 
       // 取消編輯：保留展開（回到檢視模式）
       revokePreviewUrls(editImages);
@@ -1556,8 +1575,11 @@ if (
   };
 
   const cancelEditingItem = () => {
-    const hasDirty = editingItemValue.trim();
-    if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
+    if (editingItemIndex !== null) {
+      const original = items[editingItemIndex] ?? "";
+      const hasDirty = editingItemValue.trim() !== original.trim();
+      if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
+    }
     setEditingItemIndex(null);
     setEditingItemValue("");
   };

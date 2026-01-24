@@ -110,6 +110,29 @@ export default function ManagePage({
     );
   }
 
+  const isEditingProcessDirty = () => {
+    if (editingIndex === null) return false;
+    const original = processes[editingIndex];
+    if (!original) return true;
+
+    if (newProcName.trim() !== original.name) return true;
+    if (newProcCode.trim() !== original.code) return true;
+    if (newProcModel.trim() !== (original.model || "")) return true;
+
+    const originalItems = original.items || [];
+    if (items.length !== originalItems.length) return true;
+    if (items.some((item, idx) => item !== originalItems[idx])) return true;
+
+    if (newItem.trim()) return true;
+
+    if (editingItemIndex !== null) {
+      const originalItem = items[editingItemIndex] ?? "";
+      if (editingItemValue.trim() !== originalItem.trim()) return true;
+    }
+
+    return false;
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold">管理製程</h2>
@@ -265,7 +288,12 @@ export default function ManagePage({
               type="button"
               variant="secondary"
               onClick={async () => {
-                if (!confirmDiscard("確定要取消編輯製程嗎？")) return;
+                if (
+                  isEditingProcessDirty() &&
+                  !confirmDiscard("確定要取消編輯製程嗎？")
+                ) {
+                  return;
+                }
                 await resetManageState(false);
               }}
             >
