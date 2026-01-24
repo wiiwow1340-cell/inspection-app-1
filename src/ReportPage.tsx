@@ -357,20 +357,6 @@ const ReportPage: React.FC<Props> = ({
                                 <StatusIcon kind="ng" />
                               </button>
                               )}
-                            {(() => {
-                              const existingCount = Array.isArray(r.images[item])
-                                ? r.images[item].length
-                                : r.images[item] && r.images[item] !== NA_SENTINEL
-                                ? 1
-                                : 0;
-                              const newCount = editImages[item]?.length || 0;
-                              const total = existingCount + newCount;
-                              return total > 1 ? (
-                                <span className="text-xs text-slate-500">
-                                  {total} 張
-                                </span>
-                              ) : null;
-                            })()}
                           </div>
                         ))}
 
@@ -419,11 +405,6 @@ const ReportPage: React.FC<Props> = ({
                               ) : (
                                 <span className="text-slate-400">
                                   <StatusIcon kind="ng" />
-                                </span>
-                              )}
-                              {Array.isArray(v) && v.length > 1 && (
-                                <span className="text-xs text-slate-500">
-                                  {v.length} 張
                                 </span>
                               )}
                             </div>
