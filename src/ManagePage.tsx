@@ -97,10 +97,9 @@ export default function ManagePage({
   confirmDiscard,
   resetManageState,
 }: ManagePageProps) {
-  const processGridCols = "grid-cols-[1fr_auto_auto_auto]";
   const processCellBase = "min-w-0 px-3 py-2 text-xs sm:text-sm";
   const processHeaderCell = "font-semibold text-slate-600";
-  const processRowCell = "border-t border-slate-200 text-slate-700";
+  const processRowCell = "text-slate-700";
 
   if (!isAdmin) {
     return (
@@ -312,115 +311,126 @@ export default function ManagePage({
 
         <div className="space-y-2">
           <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-            <div className="bg-slate-50">
-              <div
-                className={`grid ${processGridCols} items-center gap-x-2`}
-              >
-                <div className={`${processCellBase} ${processHeaderCell}`}>
-                  製程名稱
-                </div>
-                <div className={`${processCellBase} ${processHeaderCell}`}>
-                  製程代號
-                </div>
-                <div className={`${processCellBase} ${processHeaderCell}`}>
-                  產品型號
-                </div>
-                <div
-                  className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
-                >
-                  操作
-                </div>
-              </div>
-            </div>
+            <table className="w-full table-fixed border-collapse">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className={`${processCellBase} ${processHeaderCell}`}>
+                    製程名稱
+                  </th>
+                  <th className={`${processCellBase} ${processHeaderCell}`}>
+                    製程代號
+                  </th>
+                  <th className={`${processCellBase} ${processHeaderCell}`}>
+                    產品型號
+                  </th>
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
+                  >
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {processes.map((p, idx) => {
+                  const isOpen = expandedProcessIndex === idx;
+                  const toggleRow = () =>
+                    setExpandedProcessIndex((prev) =>
+                      prev === idx ? null : idx
+                    );
 
-            {processes.map((p, idx) => {
-              const isOpen = expandedProcessIndex === idx;
-              const toggleRow = () =>
-                setExpandedProcessIndex((prev) =>
-                  prev === idx ? null : idx
-                );
-
-              return (
-                <div
-                  key={`${p.name}-${p.code}-${p.model}-${idx}`}
-                  className={`grid ${processGridCols} items-center gap-x-2`}
-                >
-                  <div
-                    className={`${processCellBase} ${processRowCell} cursor-pointer`}
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={isOpen}
-                    onClick={toggleRow}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        toggleRow();
-                      }
-                    }}
-                  >
-                    <span className="min-w-0 truncate font-semibold text-slate-900">
-                      {p.name}
-                    </span>
-                  </div>
-                  <div
-                    className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
-                    onClick={toggleRow}
-                  >
-                    {p.code}
-                  </div>
-                  <div
-                    className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
-                    onClick={toggleRow}
-                  >
-                    {p.model || "—"}
-                  </div>
-                  <div
-                    className={`${processCellBase} ${processRowCell} flex items-center justify-start gap-2 whitespace-nowrap`}
-                  >
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => startEditingProcess(idx)}
+                  return (
+                    <React.Fragment
+                      key={`${p.name}-${p.code}-${p.model}-${idx}`}
                     >
-                      編輯
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      onClick={() =>
-                        setConfirmTarget({ type: "process", proc: p })
-                      }
-                    >
-                      刪除
-                    </Button>
-                  </div>
-
-                  {isOpen && (
-                    <div className="col-span-4 border-t border-slate-200 bg-slate-50 px-3 py-3 text-xs sm:text-sm">
-                      <div className="font-semibold mb-2">檢驗項目</div>
-                      {p.items.length > 0 ? (
-                        <div className="space-y-2">
-                          {p.items.map((item, iidx) => (
-                            <div
-                              key={iidx}
-                              className="bg-white border border-slate-200 rounded px-3 py-2"
+                      <tr className="border-t border-slate-200">
+                        <td
+                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isOpen}
+                          onClick={toggleRow}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggleRow();
+                            }
+                          }}
+                        >
+                          <span className="min-w-0 truncate font-semibold text-slate-900">
+                            {p.name}
+                          </span>
+                        </td>
+                        <td
+                          className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
+                          onClick={toggleRow}
+                        >
+                          {p.code}
+                        </td>
+                        <td
+                          className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
+                          onClick={toggleRow}
+                        >
+                          {p.model || "—"}
+                        </td>
+                        <td
+                          className={`${processCellBase} ${processRowCell} whitespace-nowrap`}
+                        >
+                          <div className="flex items-center justify-start gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => startEditingProcess(idx)}
                             >
-                              {item}
+                              編輯
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                setConfirmTarget({ type: "process", proc: p })
+                              }
+                            >
+                              刪除
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {isOpen && (
+                        <tr className="border-t border-slate-200 bg-slate-50">
+                          <td
+                            colSpan={4}
+                            className="px-3 py-3 text-xs sm:text-sm"
+                          >
+                            <div className="font-semibold mb-2">檢驗項目</div>
+                            {p.items.length > 0 ? (
+                              <div className="space-y-2">
+                                {p.items.map((item, iidx) => (
+                                  <div
+                                    key={iidx}
+                                    className="bg-white border border-slate-200 rounded px-3 py-2"
+                                  >
+                                    {item}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-slate-500">
+                                尚未建立檢驗項目
+                              </div>
+                            )}
+                            <div className="text-xs text-slate-500 mt-2">
+                              ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-slate-500">尚未建立檢驗項目</div>
+                          </td>
+                        </tr>
                       )}
-                      <div className="text-xs text-slate-500 mt-2">
-                        ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
