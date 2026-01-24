@@ -58,7 +58,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const Input: React.FC<InputProps> = ({ className = "", ...props }) => (
   <input
-    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+    className={`flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
     {...props}
   />
 );
@@ -619,7 +619,6 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               placeholder="輸入帳號"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="bg-white/90"
             />
           </div>
           <div className="space-y-2">
@@ -629,7 +628,6 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-white/90"
             />
           </div>
           {err && <p className="text-red-500 text-sm">{err}</p>}
