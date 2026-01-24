@@ -101,9 +101,9 @@ export default function ManagePage({
   if (!isAdmin) {
     return (
       <Card className="p-4 space-y-3">
-        <h2 className="text-xl font-bold">管理製程</h2>
+        <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
         <p className="text-red-600">此頁僅限管理員帳號使用。</p>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-slate-600">
           目前登入：{authUsername || "未知"}
         </p>
       </Card>
@@ -135,7 +135,7 @@ export default function ManagePage({
 
   return (
     <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">管理製程</h2>
+      <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
 
       <div className="space-y-4">
         <div className="flex flex-col gap-2">
@@ -144,20 +144,23 @@ export default function ManagePage({
               value={newProcName}
               placeholder="製程名稱"
               onChange={(e) => setNewProcName(e.target.value)}
+              className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
             <Input
               value={newProcCode}
               placeholder="製程代號"
               onChange={(e) => setNewProcCode(e.target.value)}
+              className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
           </div>
           <Input
             value={newProcModel}
             placeholder="產品型號"
             onChange={(e) => setNewProcModel(e.target.value)}
+            className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
           />
           {editingIndex !== null && (
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-slate-500">
               ※ 目前為「編輯製程」模式，修改後請按「更新製程」
             </div>
           )}
@@ -169,6 +172,7 @@ export default function ManagePage({
               value={newItem}
               placeholder="新增檢驗照片項目"
               onChange={(e) => setNewItem(e.target.value)}
+              className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
             <Button type="button" onClick={addItem}>
               加入
@@ -176,13 +180,13 @@ export default function ManagePage({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap">
+            <span className="text-sm text-slate-600 whitespace-nowrap">
               插入在
             </span>
             <select
               value={insertAfter}
               onChange={(e) => setInsertAfter(e.target.value)}
-              className="border p-2 rounded flex-1 h-9"
+              className="border border-slate-200 bg-white text-slate-900 p-2 rounded flex-1 h-9 focus-visible:outline-none focus-visible:border-blue-500"
             >
               <option value="last">最後</option>
               {items.map((it, idx) => (
@@ -197,14 +201,14 @@ export default function ManagePage({
         {items.map((i, idx) => (
           <div
             key={idx}
-            className="border p-2 rounded flex justify-between items-center"
+            className="border border-slate-200 p-2 rounded flex justify-between items-center"
           >
             {editingItemIndex === idx ? (
               <div className="flex-1 flex gap-2 items-center">
                 <Input
                   value={editingItemValue}
                   onChange={(e) => setEditingItemValue(e.target.value)}
-                  className="h-9"
+                  className="h-9 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
                 />
                 <Button type="button" size="sm" onClick={saveEditingItem}>
                   儲存
@@ -302,9 +306,9 @@ export default function ManagePage({
           )}
         </div>
 
-        <div className="border rounded overflow-hidden">
+        <div className="border border-slate-200 rounded overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-slate-50">
               <tr className="text-left">
                 <th className="p-2 w-10"></th>
                 <th className="p-2">製程名稱</th>
@@ -319,7 +323,7 @@ export default function ManagePage({
                 return (
                   <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
                     <tr
-                      className="border-t hover:bg-gray-50 cursor-pointer"
+                      className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"
                       onClick={() =>
                         setExpandedProcessIndex((prev) =>
                           prev === idx ? null : idx
@@ -354,27 +358,27 @@ export default function ManagePage({
                     </tr>
 
                     {isOpen && (
-                      <tr className="border-t">
+                      <tr className="border-t border-slate-200">
                         <td className="p-0" colSpan={5}>
-                          <div className="p-3 bg-gray-50">
+                          <div className="p-3 bg-slate-50">
                             <div className="font-semibold mb-2">檢驗項目</div>
                             {p.items.length > 0 ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                 {p.items.map((item, iidx) => (
                                   <div
                                     key={iidx}
-                                    className="bg-white border rounded px-3 py-2"
+                                    className="bg-white border border-slate-200 rounded px-3 py-2"
                                   >
                                     {item}
                                   </div>
                                 ))}
                               </div>
                             ) : (
-                              <div className="text-gray-500">
+                              <div className="text-slate-500">
                                 尚未建立檢驗項目
                               </div>
                             )}
-                            <div className="text-xs text-gray-500 mt-2">
+                            <div className="text-xs text-slate-500 mt-2">
                               ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
                             </div>
                           </div>

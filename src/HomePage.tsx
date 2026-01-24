@@ -77,9 +77,15 @@ export default function HomePage({
   StatusIcon,
 }: HomePageProps) {
 
+  const baseInputClass =
+    "border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500";
+  const errorInputClass = "border-rose-400";
+  const baseSelectClass =
+    "w-full border border-slate-200 bg-white text-slate-900 p-2 rounded focus-visible:outline-none focus-visible:border-blue-500";
+
   return (
     <Card className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">新增檢驗資料</h2>
+      <h2 className="text-xl font-bold text-slate-900">新增檢驗資料</h2>
 
       <form
         onSubmit={(e) => {
@@ -94,18 +100,20 @@ export default function HomePage({
         className="space-y-4"
       >
         <div className="space-y-1">
-          <label className="text-sm font-medium">序號</label>
+          <label className="text-sm font-medium text-slate-600">序號</label>
           <Input
             placeholder="輸入序號"
             value={serial}
             onChange={(e) => setSerial(e.target.value)}
-            className={serial ? "" : "border-red-500"}
+            className={`${baseInputClass} ${
+              serial ? "" : errorInputClass
+            }`}
           />
-          {!serial && <p className="text-red-500 text-sm">此欄位為必填</p>}
+          {!serial && <p className="text-rose-600 text-sm">此欄位為必填</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">產品型號</label>
+          <label className="text-sm font-medium text-slate-600">產品型號</label>
           <select
             value={selectedModel}
             onChange={(e) => {
@@ -115,8 +123,8 @@ export default function HomePage({
               setNewImageFiles({});
               setHomeNA({});
             }}
-            className={`w-full border p-2 rounded ${
-              selectedModel ? "" : "border-red-500"
+            className={`${baseSelectClass} ${
+              selectedModel ? "" : errorInputClass
             }`}
           >
             <option value="">請選擇型號</option>
@@ -127,12 +135,12 @@ export default function HomePage({
             ))}
           </select>
           {!selectedModel && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
+            <p className="text-rose-600 text-sm">此欄位為必填</p>
           )}
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">製程</label>
+          <label className="text-sm font-medium text-slate-600">製程</label>
           <select
             value={selectedProcess}
             onChange={(e) => {
@@ -141,8 +149,8 @@ export default function HomePage({
               setNewImageFiles({});
               setHomeNA({});
             }}
-            className={`w-full border p-2 rounded ${
-              selectedProcess ? "" : "border-red-500"
+            className={`${baseSelectClass} ${
+              selectedProcess ? "" : errorInputClass
             }`}
           >
             <option value="">請選擇製程</option>
@@ -153,7 +161,7 @@ export default function HomePage({
             ))}
           </select>
           {!selectedProcess && (
-            <p className="text-red-500 text-sm">此欄位為必填</p>
+            <p className="text-rose-600 text-sm">此欄位為必填</p>
           )}
         </div>
 
@@ -211,7 +219,7 @@ export default function HomePage({
                 {homeNA[item] ? (
                   <button
                     type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
+                    className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
                     title="N/A（不適用）- 點一下恢復"
                     onClick={() =>
                       setHomeNA((prev) => {
@@ -237,7 +245,7 @@ export default function HomePage({
                 ) : (
                   <button
                     type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
+                    className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
                     title="未拍 - 點一下設為 N/A"
                     onClick={() =>
                       setHomeNA((prev) => ({ ...prev, [item]: true }))
@@ -247,7 +255,7 @@ export default function HomePage({
                   </button>
                 )}
                 {(images[item]?.length || 0) > 1 && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-slate-500">
                     {images[item]?.length} 張
                   </span>
                 )}
