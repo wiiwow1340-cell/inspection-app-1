@@ -97,9 +97,10 @@ export default function ManagePage({
   confirmDiscard,
   resetManageState,
 }: ManagePageProps) {
-  const processCellBase = "min-w-0 px-3 py-2 text-xs sm:text-sm";
-  const processHeaderCell = "font-semibold text-slate-600";
-  const processRowCell = "text-slate-700";
+  const processCellBase =
+    "px-3 py-2 text-xs sm:text-sm whitespace-nowrap align-middle";
+  const processHeaderCell = "font-semibold text-slate-600 text-left";
+  const processRowCell = "text-slate-700 text-left";
 
   if (!isAdmin) {
     return (
@@ -310,14 +311,8 @@ export default function ManagePage({
         </div>
 
         <div className="space-y-2">
-          <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-            <table className="w-full table-fixed border-collapse">
-              <colgroup>
-                <col className="w-[38%]" />
-                <col className="w-[14%]" />
-                <col className="w-[26%]" />
-                <col className="w-[22%]" />
-              </colgroup>
+          <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+            <table className="w-full min-w-max table-auto border-collapse">
               <thead className="bg-slate-50">
                 <tr>
                   <th className={`${processCellBase} ${processHeaderCell}`}>
@@ -362,18 +357,18 @@ export default function ManagePage({
                             }
                           }}
                         >
-                          <span className="min-w-0 truncate font-semibold text-slate-900">
+                          <span className="font-semibold text-slate-900">
                             {p.name}
                           </span>
                         </td>
                         <td
-                          className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
+                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
                           onClick={toggleRow}
                         >
                           {p.code}
                         </td>
                         <td
-                          className={`${processCellBase} ${processRowCell} cursor-pointer truncate`}
+                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
                           onClick={toggleRow}
                         >
                           {p.model || "—"}
