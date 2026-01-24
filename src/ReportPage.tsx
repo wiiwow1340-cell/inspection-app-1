@@ -1,29 +1,42 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import type { Process, Report } from "./types";
 
 type Props = {
-  Card: any;
-  Button: any;
-  StatusIcon: any;
+  Card: React.ComponentType<
+    React.HTMLAttributes<HTMLDivElement> & { className?: string }
+  >;
+  Button: React.ComponentType<
+    React.ButtonHTMLAttributes<HTMLButtonElement> & {
+      variant?: string;
+      size?: string;
+      className?: string;
+    }
+  >;
+  StatusIcon: React.ComponentType<{
+    kind: "ok" | "ng" | "na";
+    className?: string;
+    title?: string;
+  }>;
 
-  processes: any[];
-  reports: any[];
+  processes: Process[];
+  reports: Report[];
 
-  fetchReportsFromDB: () => Promise<any[]>;
-  setReports: (r: any[]) => void;
+  fetchReportsFromDB: () => Promise<Report[]>;
+  setReports: React.Dispatch<React.SetStateAction<Report[]>>;
 
   expandedReportId: string | null;
   toggleExpandReport: (id: string) => void;
   editingReportId: string | null;
   toggleEditReport: (id: string) => void;
 
-  editImages: Record<string, any>;
+  editImages: Record<string, string>;
   editNA: Record<string, boolean>;
-  setEditNA: (fn: any) => void;
+  setEditNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   handleEditCapture: (item: string, file?: File) => void;
 
-  setSignedImg: (v: string) => void;
-  setEditPreviewIndex: (v: number) => void;
-  setShowEditPreview: (v: boolean) => void;
+  setSignedImg: React.Dispatch<React.SetStateAction<string>>;
+  setEditPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
+  setShowEditPreview: React.Dispatch<React.SetStateAction<boolean>>;
 
   NA_SENTINEL: string;
 };
@@ -68,12 +81,26 @@ const ReportPage: React.FC<Props> = ({
   const [hasQueried, setHasQueried] = useState(false);
 
   // 編輯前快照，用於判斷是否有實際修改
-  const [editSnapshot, setEditSnapshot] = useState<any>(null);
+  const [editSnapshot, setEditSnapshot] = useState<{
+    images: Record<string, string>;
+    editNA: Record<string, boolean>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!editingReportId) {
+      setEditSnapshot(null);
+      return;
+    }
+    if (editSnapshot) return;
+    const report = reports.find((item) => item.id === editingReportId);
+    if (!report) return;
+    setEditSnapshot({ images: report.images, editNA: { ...editNA } });
+  }, [editingReportId, reports, editNA, editSnapshot]);
 
   // ===== 篩選後報告（本頁自行計算）=====
   const filteredReports = useMemo(() => {
     if (!hasQueried) return [];
-    return reports.filter((r: any) => {
+    return reports.filter((r) => {
       if (appliedProcess && r.process !== appliedProcess) return false;
       if (appliedModel && r.model !== appliedModel) return false;
 
@@ -147,7 +174,9 @@ const ReportPage: React.FC<Props> = ({
         <select
           className="border p-2 rounded w-full sm:flex-1 min-w-0"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as "" | "done" | "not")
+          }
         >
           <option value="">全部狀態</option>
           <option value="done">已完成</option>
@@ -159,7 +188,7 @@ const ReportPage: React.FC<Props> = ({
 
       {filteredReports.length > 0 && (
         <div className="space-y-3">
-          {filteredReports.map((r: any) => {
+          {filteredReports.map((r) => {
             const expected = r.expected_items || [];
             const isDone =
               expected.length > 0 &&
@@ -181,7 +210,7 @@ const ReportPage: React.FC<Props> = ({
                     <Button
                       size="sm"
                       type="button"
-                      onClick={(e: any) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         toggleEditReport(r.id);
                       }}
@@ -209,12 +238,6 @@ const ReportPage: React.FC<Props> = ({
                 {isOpen && (
                   <div className="bg-gray-50 p-3">
                     {editingReportId === r.id ? (
-                      (() => {
-                        if (!editSnapshot) {
-                          setEditSnapshot({ images: r.images, editNA: { ...editNA } });
-                        }
-                        return null;
-                      })(),
                       <div className="space-y-2">
                         {(r.expected_items || []).map((item: string, idx: number) => (
                           <div key={item} className="flex items-center gap-2">
@@ -223,7 +246,9 @@ const ReportPage: React.FC<Props> = ({
                             <Button
                               type="button"
                               className="px-2 py-1"
-                              onClick={(e: any) => {
+                              onClick={(
+                                e: React.MouseEvent<HTMLButtonElement>
+                              ) => {
                                 e.stopPropagation();
                                 const input = document.getElementById(
                                   `edit-capture-${r.id}-${idx}`
@@ -237,7 +262,9 @@ const ReportPage: React.FC<Props> = ({
                             <Button
                               type="button"
                               className="px-2 py-1"
-                              onClick={(e: any) => {
+                              onClick={(
+                                e: React.MouseEvent<HTMLButtonElement>
+                              ) => {
                                 e.stopPropagation();
                                 const input = document.getElementById(
                                   `edit-upload-${r.id}-${idx}`
@@ -280,7 +307,7 @@ const ReportPage: React.FC<Props> = ({
                                 type="button"
                                 className="w-8 h-8 inline-flex items-center justify-center text-gray-600"
                                 onClick={() =>
-                                  setEditNA((prev: any) => {
+                                  setEditNA((prev) => {
                                     const next = { ...prev };
                                     delete next[item];
                                     return next;
@@ -295,7 +322,7 @@ const ReportPage: React.FC<Props> = ({
                                 type="button"
                                 className="w-8 h-8 inline-flex items-center justify-center text-green-600"
                                 onClick={() =>
-                                  setEditNA((prev: any) => ({ ...prev, [item]: true }))
+                                  setEditNA((prev) => ({ ...prev, [item]: true }))
                                 }
                               >
                                 <StatusIcon kind="ok" />
@@ -305,7 +332,7 @@ const ReportPage: React.FC<Props> = ({
                                 type="button"
                                 className="w-8 h-8 inline-flex items-center justify-center text-gray-400"
                                 onClick={() =>
-                                  setEditNA((prev: any) => ({ ...prev, [item]: true }))
+                                  setEditNA((prev) => ({ ...prev, [item]: true }))
                                 }
                               >
                                 <StatusIcon kind="ng" />
@@ -332,9 +359,19 @@ const ReportPage: React.FC<Props> = ({
                             type="button"
                             variant="secondary"
                             onClick={() => {
-                              const dirty = JSON.stringify({ images: r.images, editNA }) !== JSON.stringify(editSnapshot);
-                              if (dirty) {
-                                if (!window.confirm("內容尚未儲存，確定要取消編輯嗎？")) return;
+                              const hasEditImages = Object.keys(editImages).length > 0;
+                              const hasEditNAChanges = editSnapshot
+                                ? JSON.stringify(editNA) !==
+                                  JSON.stringify(editSnapshot.editNA)
+                                : Object.keys(editNA).length > 0;
+                              const dirty = hasEditImages || hasEditNAChanges;
+                              if (
+                                dirty &&
+                                !window.confirm(
+                                  "內容尚未儲存，確定要取消編輯嗎？"
+                                )
+                              ) {
+                                return;
                               }
                               setEditSnapshot(null);
                               toggleEditReport(r.id);

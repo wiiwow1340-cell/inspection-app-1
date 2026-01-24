@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
 import ManagePage from "./ManagePage";
+import type { Process, Report } from "./types";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -118,26 +119,6 @@ const Card: React.FC<CardProps> = ({ className = "", ...props }) => (
     {...props}
   />
 );
-
-// =============================
-//  型別定義
-// =============================
-
-type Process = {
-  name: string;
-  code: string;
-  model: string;
-  items: string[];
-};
-
-type Report = {
-  id: string;
-  serial: string;
-  model: string;
-  process: string;
-  images: Record<string, string>; // { [itemName]: imageUrl }
-  expected_items: string[]; // 報告當下應該要拍的項目清單
-};
 
 type ConfirmTarget =
   | { type: "item"; index: number }
@@ -691,6 +672,9 @@ export default function App() {
   // 管理製程：編輯「檢驗項目名稱」
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [editingItemValue, setEditingItemValue] = useState<string>("");
+  const [manageEditSnapshot, setManageEditSnapshot] = useState<Process | null>(
+    null
+  );
 
 
   // 查看報告：就地編輯照片
@@ -998,6 +982,29 @@ if (
     return true;
   });
 
+  const isHomeDirty =
+    serial.trim() ||
+    selectedModel ||
+    selectedProcess ||
+    Object.keys(newImageFiles).length > 0 ||
+    Object.keys(homeNA).length > 0;
+
+  const isManageCreateDirty =
+    newProcName.trim() ||
+    newProcCode.trim() ||
+    newProcModel.trim() ||
+    newItem.trim() ||
+    items.length > 0;
+
+  const isManageEditDirty =
+    editingIndex !== null &&
+    manageEditSnapshot !== null &&
+    (newProcName.trim() !== manageEditSnapshot.name ||
+      newProcCode.trim() !== manageEditSnapshot.code ||
+      newProcModel.trim() !== manageEditSnapshot.model ||
+      JSON.stringify(items) !== JSON.stringify(manageEditSnapshot.items) ||
+      newItem.trim());
+
 
 
   // ===== 拍照 / 上傳：新增頁（Home） =====
@@ -1263,6 +1270,7 @@ if (
     setNewProcModel("");
     setNewItem("");
     setInsertAfter("last");
+    setManageEditSnapshot(null);
     if (alsoClearDraft) {
       try {
         await idbDel(getDraftId());
@@ -1575,7 +1583,9 @@ if (
   };
 
   const cancelEditingItem = () => {
-    const hasDirty = editingItemValue.trim();
+    const originalItem =
+      editingItemIndex !== null ? items[editingItemIndex] ?? "" : "";
+    const hasDirty = editingItemValue.trim() !== originalItem.trim();
     if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
     setEditingItemIndex(null);
     setEditingItemValue("");
@@ -1625,14 +1635,18 @@ if (
 
 
   const cancelManageCreate = async () => {
-    const hasDirty =
-      newProcName.trim() ||
-      newProcCode.trim() ||
-      newProcModel.trim() ||
-      newItem.trim() ||
-      items.length > 0;
-    if (hasDirty && !confirmDiscard("確定要取消新增製程嗎？\n（已輸入的資料將會清除）")) return;
+    if (
+      isManageCreateDirty &&
+      !confirmDiscard("確定要取消新增製程嗎？\n（已輸入的資料將會清除）")
+    ) {
+      return;
+    }
     await resetManageState(true);
+  };
+
+  const cancelManageEdit = async () => {
+    if (isManageEditDirty && !confirmDiscard("確定要取消編輯製程嗎？")) return;
+    await resetManageState(false);
   };
 
   const saveProcess = async () => {
@@ -1693,6 +1707,12 @@ if (
     setNewProcModel(proc.model || "");
     setItems(proc.items || []);
     setEditingIndex(index);
+    setManageEditSnapshot({
+      name: proc.name,
+      code: proc.code,
+      model: proc.model || "",
+      items: [...(proc.items || [])],
+    });
   };
 
   // =============================
@@ -1811,6 +1831,7 @@ if (
           setHomeNA={setHomeNA}
           handleCapture={handleCapture}
           resetNewReportState={resetNewReportState}
+          isDirty={isHomeDirty}
           setPreviewIndex={setPreviewIndex}
           setShowPreview={setShowPreview}
           Card={Card}
@@ -1892,10 +1913,9 @@ if (
       
           saveProcess={saveProcess}
           cancelManageCreate={cancelManageCreate}
+          cancelManageEdit={cancelManageEdit}
           startEditingProcess={startEditingProcess}
           setConfirmTarget={setConfirmTarget}
-          confirmDiscard={confirmDiscard}
-          resetManageState={resetManageState}
         />
       )}
       

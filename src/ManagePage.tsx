@@ -1,54 +1,100 @@
 import React from "react";
+import type { Process } from "./types";
 
-export default function ManagePage(props: any) {
-  const {
-    Card,
-    Button,
-    Input,
+type ButtonComponent = React.ComponentType<
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?: string;
+    size?: string;
+    className?: string;
+  }
+>;
 
-    isAdmin,
-    authUsername,
+type InputComponent = React.ComponentType<
+  React.InputHTMLAttributes<HTMLInputElement> & { className?: string }
+>;
 
-    // state
-    newProcName,
-    setNewProcName,
-    newProcCode,
-    setNewProcCode,
-    newProcModel,
-    setNewProcModel,
+type CardComponent = React.ComponentType<
+  React.HTMLAttributes<HTMLDivElement> & { className?: string }
+>;
 
-    editingIndex,
+type ConfirmTarget =
+  | { type: "item"; index: number }
+  | { type: "process"; proc: Process }
+  | null;
 
-    newItem,
-    setNewItem,
-    insertAfter,
-    setInsertAfter,
-    items,
+type ManagePageProps = {
+  Card: CardComponent;
+  Button: ButtonComponent;
+  Input: InputComponent;
+  isAdmin: boolean;
+  authUsername: string;
+  newProcName: string;
+  setNewProcName: React.Dispatch<React.SetStateAction<string>>;
+  newProcCode: string;
+  setNewProcCode: React.Dispatch<React.SetStateAction<string>>;
+  newProcModel: string;
+  setNewProcModel: React.Dispatch<React.SetStateAction<string>>;
+  editingIndex: number | null;
+  newItem: string;
+  setNewItem: React.Dispatch<React.SetStateAction<string>>;
+  insertAfter: string;
+  setInsertAfter: React.Dispatch<React.SetStateAction<string>>;
+  items: string[];
+  editingItemIndex: number | null;
+  editingItemValue: string;
+  setEditingItemValue: React.Dispatch<React.SetStateAction<string>>;
+  processes: Process[];
+  expandedProcessIndex: number | null;
+  setExpandedProcessIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  addItem: () => void;
+  startEditingItem: (idx: number) => void;
+  saveEditingItem: () => void;
+  cancelEditingItem: () => void;
+  moveItemUp: (idx: number) => void;
+  moveItemDown: (idx: number) => void;
+  saveProcess: () => void;
+  cancelManageCreate: () => void;
+  cancelManageEdit: () => void;
+  startEditingProcess: (idx: number) => void;
+  setConfirmTarget: (target: ConfirmTarget) => void;
+};
 
-    editingItemIndex,
-    editingItemValue,
-    setEditingItemValue,
-
-    processes,
-    expandedProcessIndex,
-    setExpandedProcessIndex,
-
-    // actions
-    addItem,
-    startEditingItem,
-    saveEditingItem,
-    cancelEditingItem,
-    moveItemUp,
-    moveItemDown,
-
-    saveProcess,
-    cancelManageCreate,
-    startEditingProcess,
-
-    setConfirmTarget,
-    confirmDiscard,
-    resetManageState,
-  } = props;
+export default function ManagePage({
+  Card,
+  Button,
+  Input,
+  isAdmin,
+  authUsername,
+  newProcName,
+  setNewProcName,
+  newProcCode,
+  setNewProcCode,
+  newProcModel,
+  setNewProcModel,
+  editingIndex,
+  newItem,
+  setNewItem,
+  insertAfter,
+  setInsertAfter,
+  items,
+  editingItemIndex,
+  editingItemValue,
+  setEditingItemValue,
+  processes,
+  expandedProcessIndex,
+  setExpandedProcessIndex,
+  addItem,
+  startEditingItem,
+  saveEditingItem,
+  cancelEditingItem,
+  moveItemUp,
+  moveItemDown,
+  saveProcess,
+  cancelManageCreate,
+  cancelManageEdit,
+  startEditingProcess,
+  setConfirmTarget,
+}: ManagePageProps) {
 
   if (!isAdmin) {
     return (
@@ -216,10 +262,7 @@ export default function ManagePage(props: any) {
               className="flex-1"
               type="button"
               variant="secondary"
-              onClick={async () => {
-                if (!confirmDiscard("確定要取消編輯製程嗎？")) return;
-                await resetManageState(false);
-              }}
+              onClick={cancelManageEdit}
             >
               取消編輯
             </Button>
