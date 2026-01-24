@@ -306,90 +306,86 @@ export default function ManagePage({
           )}
         </div>
 
-        <div className="border border-slate-200 rounded overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead className="bg-slate-50">
-              <tr className="text-left">
-                <th className="p-2 w-10"></th>
-                <th className="p-2">製程名稱</th>
-                <th className="p-2">製程代號</th>
-                <th className="p-2">產品型號</th>
-                <th className="p-2 w-32">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processes.map((p, idx) => {
-                const isOpen = expandedProcessIndex === idx;
-                return (
-                  <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
-                    <tr
-                      className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"
+        <div className="space-y-2">
+          {processes.map((p, idx) => {
+            const isOpen = expandedProcessIndex === idx;
+            return (
+              <div
+                key={`${p.name}-${p.code}-${p.model}-${idx}`}
+                className="border border-slate-200 rounded-lg"
+              >
+                <div className="p-3 space-y-3">
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() =>
+                      setExpandedProcessIndex((prev) =>
+                        prev === idx ? null : idx
+                      )
+                    }
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-slate-500 mt-0.5">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <div className="space-y-1 text-sm text-slate-700">
+                        <div className="font-semibold break-all">
+                          製程名稱：{p.name}
+                        </div>
+                        <div className="break-all">製程代號：{p.code}</div>
+                        <div className="break-all">
+                          產品型號：{p.model || "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => startEditingProcess(idx)}
+                    >
+                      編輯
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
                       onClick={() =>
-                        setExpandedProcessIndex((prev) =>
-                          prev === idx ? null : idx
-                        )
+                        setConfirmTarget({ type: "process", proc: p })
                       }
                     >
-                      <td className="p-2">{isOpen ? "▼" : "▶"}</td>
-                      <td className="p-2">{p.name}</td>
-                      <td className="p-2">{p.code}</td>
-                      <td className="p-2">{p.model || "—"}</td>
-                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => startEditingProcess(idx)}
-                          >
-                            編輯
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              setConfirmTarget({ type: "process", proc: p })
-                            }
-                          >
-                            刪除
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                      刪除
+                    </Button>
+                  </div>
+                </div>
 
-                    {isOpen && (
-                      <tr className="border-t border-slate-200">
-                        <td className="p-0" colSpan={5}>
-                          <div className="p-3 bg-slate-50">
-                            <div className="font-semibold mb-2">檢驗項目</div>
-                            {p.items.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                {p.items.map((item, iidx) => (
-                                  <div
-                                    key={iidx}
-                                    className="bg-white border border-slate-200 rounded px-3 py-2"
-                                  >
-                                    {item}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-slate-500">
-                                尚未建立檢驗項目
-                              </div>
-                            )}
-                            <div className="text-xs text-slate-500 mt-2">
-                              ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
-                            </div>
+                {isOpen && (
+                  <div className="border-t border-slate-200 p-3 bg-slate-50">
+                    <div className="font-semibold mb-2">檢驗項目</div>
+                    {p.items.length > 0 ? (
+                      <div className="space-y-2">
+                        {p.items.map((item, iidx) => (
+                          <div
+                            key={iidx}
+                            className="bg-white border border-slate-200 rounded px-3 py-2"
+                          >
+                            {item}
                           </div>
-                        </td>
-                      </tr>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-slate-500">尚未建立檢驗項目</div>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                    <div className="text-xs text-slate-500 mt-2">
+                      ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </Card>
