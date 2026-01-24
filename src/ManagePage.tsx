@@ -357,7 +357,7 @@ export default function ManagePage({
                             <Button
                               type="button"
                               size="sm"
-                              className="w-7 sm:w-auto writing-vertical sm:writing-normal"
+                              className="writing-vertical"
                               onClick={() => startEditingProcess(idx)}
                             >
                               編輯
@@ -366,7 +366,7 @@ export default function ManagePage({
                               type="button"
                               size="sm"
                               variant="destructive"
-                              className="w-7 sm:w-auto writing-vertical sm:writing-normal"
+                              className="writing-vertical"
                               onClick={() =>
                                 setConfirmTarget({ type: "process", proc: p })
                               }
