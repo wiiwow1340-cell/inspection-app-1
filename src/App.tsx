@@ -601,31 +601,45 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="p-4 max-w-sm mx-auto space-y-4">
-      <Card className="p-4 space-y-3">
-        <h2 className="text-xl font-bold">🔐 請先登入</h2>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">帳號</label>
-          <Input
-            placeholder="例如：MGCQA1"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md space-y-6">
+        <div className="space-y-2 text-center">
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+            Inspection App
+          </p>
+          <h1 className="text-3xl font-semibold text-white">檢驗作業登入</h1>
+          <p className="text-sm text-slate-300">
+            請使用公司帳號登入以進行檢驗與報告管理。
+          </p>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">密碼</label>
-          <Input
-            placeholder="輸入密碼"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        {err && <p className="text-red-500 text-sm">{err}</p>}
-        <Button onClick={handleLogin} disabled={loading} className="w-full">
-          {loading ? "登入中..." : "登入"}
-        </Button>
-      </Card>
+        <Card className="p-6 space-y-4 shadow-xl">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-slate-900">🔐 請先登入</h2>
+            <p className="text-sm text-slate-500">請輸入帳號與密碼繼續。</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">帳號</label>
+            <Input
+              placeholder="例如：MGCQA1"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">密碼</label>
+            <Input
+              placeholder="輸入密碼"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          {err && <p className="text-red-500 text-sm">{err}</p>}
+          <Button onClick={handleLogin} disabled={loading} className="w-full">
+            {loading ? "登入中..." : "登入"}
+          </Button>
+        </Card>
+      </div>
     </div>
   );
 }
