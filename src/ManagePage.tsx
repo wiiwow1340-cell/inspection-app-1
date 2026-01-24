@@ -307,58 +307,57 @@ export default function ManagePage({
         </div>
 
         <div className="space-y-2">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_auto] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:text-sm">
+            <div className="min-w-0">製程名稱</div>
+            <div className="min-w-0">製程代號</div>
+            <div className="min-w-0">產品型號</div>
+            <div className="text-right">操作</div>
+          </div>
           {processes.map((p, idx) => {
             const isOpen = expandedProcessIndex === idx;
             return (
               <div
                 key={`${p.name}-${p.code}-${p.model}-${idx}`}
-                className="border border-slate-200 rounded-lg"
+                className="border border-slate-200 rounded-lg bg-white"
               >
-                <div className="p-3">
-                  <div className="flex items-center gap-3">
+                <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_auto] items-center gap-2 px-3 py-2 text-xs text-slate-700 sm:text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
                     <button
                       type="button"
-                      className="flex-1 text-left"
+                      className="shrink-0 text-blue-600"
                       onClick={() =>
                         setExpandedProcessIndex((prev) =>
                           prev === idx ? null : idx
                         )
                       }
+                      aria-label={isOpen ? "收合製程" : "展開製程"}
                     >
-                      <div className="flex items-start gap-3">
-                        <span className="text-slate-500 mt-0.5">
-                          {isOpen ? "▼" : "▶"}
-                        </span>
-                        <div className="space-y-1 text-sm text-slate-700">
-                          <div className="font-semibold break-all">
-                            製程名稱：{p.name}
-                          </div>
-                          <div className="break-all">製程代號：{p.code}</div>
-                          <div className="break-all">
-                            產品型號：{p.model || "—"}
-                          </div>
-                        </div>
-                      </div>
+                      {isOpen ? "▼" : "▶"}
                     </button>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => startEditingProcess(idx)}
-                      >
-                        編輯
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          setConfirmTarget({ type: "process", proc: p })
-                        }
-                      >
-                        刪除
-                      </Button>
-                    </div>
+                    <span className="min-w-0 truncate font-semibold text-slate-900">
+                      {p.name}
+                    </span>
+                  </div>
+                  <div className="min-w-0 truncate">{p.code}</div>
+                  <div className="min-w-0 truncate">{p.model || "—"}</div>
+                  <div className="flex items-center justify-end gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => startEditingProcess(idx)}
+                    >
+                      編輯
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() =>
+                        setConfirmTarget({ type: "process", proc: p })
+                      }
+                    >
+                      刪除
+                    </Button>
                   </div>
                 </div>
 
