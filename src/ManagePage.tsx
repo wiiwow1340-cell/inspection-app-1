@@ -151,7 +151,7 @@ export default function ManagePage({
             />
             <Input
               value={newProcCode}
-              placeholder="製程代號"
+              placeholder="代號"
               onChange={(e) => setNewProcCode(e.target.value)}
               className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
@@ -324,7 +324,7 @@ export default function ManagePage({
                     製程名稱
                   </th>
                   <th className={`${processCellBase} ${processHeaderCell}`}>
-                    製程代號
+                    代號
                   </th>
                   <th className={`${processCellBase} ${processHeaderCell}`}>
                     產品型號
