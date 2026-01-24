@@ -604,11 +604,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 text-slate-100 flex items-center justify-center px-4 py-12 overflow-hidden">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_15%_0%,rgba(255,255,255,0.12),transparent_60%),radial-gradient(90%_90%_at_85%_95%,rgba(8,18,40,0.45),transparent_55%)] opacity-70"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22240%22%20height=%22240%22%20viewBox=%220%200%20240%20240%22%3E%3Cfilter%20id=%22noise%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.85%22%20numOctaves=%222%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22240%22%20height=%22240%22%20filter=%22url(%23noise)%22%20opacity=%220.35%22/%3E%3C/svg%3E')] opacity-[0.035] mix-blend-soft-light"
+        className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22240%22%20height=%22240%22%20viewBox=%220%200%20240%20240%22%3E%3Cfilter%20id=%22noise%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.9%22%20numOctaves=%222%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22240%22%20height=%22240%22%20filter=%22url(%23noise)%22%20opacity=%220.4%22/%3E%3C/svg%3E')] opacity-[0.05]"
       />
       <div className="w-full max-w-md space-y-8">
         <div className="space-y-2 text-center">
@@ -620,7 +616,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             使用公司帳號登入以進行檢驗與報告管理
           </p>
         </div>
-        <Card className="rounded-2xl border border-white/20 bg-gradient-to-b from-white/20 via-white/10 to-white/5 p-6 space-y-4 shadow-[0_28px_80px_rgba(5,12,32,0.38)] ring-1 ring-white/10 backdrop-blur-3xl">
+        <Card className="rounded-2xl border border-white/30 bg-white/15 p-6 space-y-4 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-100">帳號</label>
             <Input
