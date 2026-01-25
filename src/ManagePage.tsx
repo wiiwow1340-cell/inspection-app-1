@@ -178,7 +178,7 @@ export default function ManagePage({
               onChange={(e) => setNewItem(e.target.value)}
               className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
-            <Button type="button" onClick={addItem}>
+            <Button type="button" size="sm" onClick={addItem}>
               加入
             </Button>
           </div>

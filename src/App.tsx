@@ -2461,8 +2461,8 @@ useEffect(() => {
                 取消
               </Button>
               <Button
-                className="flex-1"
                 variant="destructive"
+                size="sm"
                 onClick={async () => {
                   if (confirmTarget?.type === "item") {
                     removeItem(confirmTarget.index);
