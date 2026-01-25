@@ -255,10 +255,13 @@ const ReportPage: React.FC<Props> = ({
                           const newCount = editImages[item]?.length || 0;
                           const total = existingCount + newCount;
                           return (
-                            <div key={item} className="flex items-center gap-2">
-                              <span className="flex-1">{item}</span>
+                            <div
+                              key={item}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                            >
+                              <span className="min-w-0 break-words">{item}</span>
 
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-xs text-slate-500 w-6 text-right tabular-nums">
                                   {total}
                                 </span>
@@ -293,6 +296,51 @@ const ReportPage: React.FC<Props> = ({
                                 >
                                   上傳
                                 </Button>
+
+                                {editNA[item] ? (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
+                                    onClick={() =>
+                                      setEditNA((prev) => {
+                                        const next = { ...prev };
+                                        delete next[item];
+                                        return next;
+                                      })
+                                    }
+                                  >
+                                    <StatusIcon kind="na" />
+                                  </button>
+                                ) : (editImages[item]?.length || 0) > 0 ||
+                                  (Array.isArray(r.images[item])
+                                    ? r.images[item].length > 0
+                                    : !!r.images[item] && r.images[item] !== NA_SENTINEL) ? (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                    onClick={() =>
+                                      setEditNA((prev) => ({
+                                        ...prev,
+                                        [item]: true,
+                                      }))
+                                    }
+                                  >
+                                    <StatusIcon kind="ok" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
+                                    onClick={() =>
+                                      setEditNA((prev) => ({
+                                        ...prev,
+                                        [item]: true,
+                                      }))
+                                    }
+                                  >
+                                    <StatusIcon kind="ng" />
+                                  </button>
+                                )}
                               </div>
 
                               <input
@@ -301,15 +349,13 @@ const ReportPage: React.FC<Props> = ({
                                 capture="environment"
                                 className="hidden"
                                 id={`edit-capture-${r.id}-${idx}`}
-                                onChange={(e) =>
-                                  {
-                                    handleEditCapture(
-                                      item,
-                                      e.target.files || undefined
-                                    );
-                                    e.currentTarget.value = "";
-                                  }
-                                }
+                                onChange={(e) => {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }}
                               />
 
                               <input
@@ -318,55 +364,14 @@ const ReportPage: React.FC<Props> = ({
                                 className="hidden"
                                 id={`edit-upload-${r.id}-${idx}`}
                                 multiple
-                                onChange={(e) =>
-                                  {
-                                    handleEditCapture(
-                                      item,
-                                      e.target.files || undefined
-                                    );
-                                    e.currentTarget.value = "";
-                                  }
-                                }
+                                onChange={(e) => {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }}
                               />
-
-                              {editNA[item] ? (
-                                <button
-                                  type="button"
-                                  className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
-                                  onClick={() =>
-                                    setEditNA((prev) => {
-                                      const next = { ...prev };
-                                      delete next[item];
-                                      return next;
-                                    })
-                                  }
-                                >
-                                  <StatusIcon kind="na" />
-                                </button>
-                              ) : (editImages[item]?.length || 0) > 0 ||
-                                (Array.isArray(r.images[item])
-                                  ? r.images[item].length > 0
-                                  : !!r.images[item] && r.images[item] !== NA_SENTINEL) ? (
-                                <button
-                                  type="button"
-                                  className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                  onClick={() =>
-                                    setEditNA((prev) => ({ ...prev, [item]: true }))
-                                  }
-                                >
-                                  <StatusIcon kind="ok" />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
-                                  onClick={() =>
-                                    setEditNA((prev) => ({ ...prev, [item]: true }))
-                                  }
-                                >
-                                  <StatusIcon kind="ng" />
-                                </button>
-                              )}
                             </div>
                           );
                         })}
@@ -403,18 +408,21 @@ const ReportPage: React.FC<Props> = ({
                             ? v.length > 0
                             : !!v && v !== NA_SENTINEL;
                           return (
-                            <div key={item} className="flex items-center gap-2">
-                              <span className="flex-1">{item}</span>
+                            <div
+                              key={item}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                            >
+                              <span className="min-w-0 break-words">{item}</span>
                               {isNA ? (
-                                <span className="text-slate-600">
+                                <span className="text-slate-600 shrink-0">
                                   <StatusIcon kind="na" />
                                 </span>
                               ) : hasImg ? (
-                                <span className="text-green-600">
+                                <span className="text-green-600 shrink-0">
                                   <StatusIcon kind="ok" />
                                 </span>
                               ) : (
-                                <span className="text-slate-400">
+                                <span className="text-slate-400 shrink-0">
                                   <StatusIcon kind="ng" />
                                 </span>
                               )}
