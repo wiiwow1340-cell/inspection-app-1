@@ -167,18 +167,18 @@ export default function ManagePage({
         </div>
 
         <div className="space-y-2">
-          <div className="flex w-full">
+          <div className="flex w-full items-center gap-2">
             <Input
               value={newItem}
               placeholder="新增檢驗照片項目"
               onChange={(e) => setNewItem(e.target.value)}
-              className="flex-1 rounded-r-none border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
+              className="flex-1 min-w-0 w-auto border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
             <Button
               type="button"
               size="sm"
               onClick={addItem}
-              className="shrink-0 whitespace-nowrap rounded-l-none"
+              className="shrink-0 whitespace-nowrap"
             >
               加入
             </Button>
