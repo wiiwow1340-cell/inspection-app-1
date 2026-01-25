@@ -173,6 +173,7 @@ export default function HomePage({
 
                 <Button
                   type="button"
+                  size="sm"
                   onClick={() =>
                     (document.getElementById(
                       `capture-${idx}`
@@ -184,6 +185,7 @@ export default function HomePage({
 
                 <Button
                   type="button"
+                  size="sm"
                   onClick={() =>
                     (document.getElementById(
                       `upload-${idx}`
