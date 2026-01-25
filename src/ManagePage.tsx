@@ -97,10 +97,14 @@ export default function ManagePage({
   confirmDiscard,
   resetManageState,
 }: ManagePageProps) {
+  const processCellBase =
+    "px-3 py-2 text-xs sm:text-sm whitespace-nowrap align-middle";
+  const processHeaderCell = "font-semibold text-slate-600 text-left";
+  const processRowCell = "text-slate-700 text-left";
 
   if (!isAdmin) {
     return (
-      <Card className="p-4 space-y-3">
+      <Card className="space-y-3 p-3 sm:p-4">
         <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
         <p className="text-red-600">此頁僅限管理員帳號使用。</p>
         <p className="text-sm text-slate-600">
@@ -134,7 +138,7 @@ export default function ManagePage({
   };
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="space-y-4 p-3 sm:p-4">
       <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
 
       <div className="space-y-4">
@@ -148,7 +152,7 @@ export default function ManagePage({
             />
             <Input
               value={newProcCode}
-              placeholder="製程代號"
+              placeholder="代號"
               onChange={(e) => setNewProcCode(e.target.value)}
               className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
@@ -306,64 +310,101 @@ export default function ManagePage({
           )}
         </div>
 
-        <div className="border border-slate-200 rounded overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr className="text-left">
-                <th className="p-2 w-10"></th>
-                <th className="p-2">製程名稱</th>
-                <th className="p-2">製程代號</th>
-                <th className="p-2">產品型號</th>
-                <th className="p-2 w-32">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processes.map((p, idx) => {
-                const isOpen = expandedProcessIndex === idx;
-                return (
-                  <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
-                    <tr
-                      className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"
-                      onClick={() =>
-                        setExpandedProcessIndex((prev) =>
-                          prev === idx ? null : idx
-                        )
-                      }
-                    >
-                      <td className="p-2">{isOpen ? "▼" : "▶"}</td>
-                      <td className="p-2">{p.name}</td>
-                      <td className="p-2">{p.code}</td>
-                      <td className="p-2">{p.model || "—"}</td>
-                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => startEditingProcess(idx)}
-                          >
-                            編輯
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              setConfirmTarget({ type: "process", proc: p })
-                            }
-                          >
-                            刪除
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+        <div className="space-y-2">
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <table className="w-full min-w-max table-auto border-collapse">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
+                  >
+                    製程名稱
+                  </th>
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap`}
+                  >
+                    產品型號
+                  </th>
+                  <th
+                    className={`${processCellBase} ${processHeaderCell} whitespace-nowrap text-center sm:text-left`}
+                  >
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {processes.map((p, idx) => {
+                  const isOpen = expandedProcessIndex === idx;
+                  const toggleRow = () =>
+                    setExpandedProcessIndex((prev) =>
+                      prev === idx ? null : idx
+                    );
 
-                    {isOpen && (
-                      <tr className="border-t border-slate-200">
-                        <td className="p-0" colSpan={5}>
-                          <div className="p-3 bg-slate-50">
+                  return (
+                    <React.Fragment
+                      key={`${p.name}-${p.code}-${p.model}-${idx}`}
+                    >
+                      <tr className="border-t border-slate-200 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <td
+                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isOpen}
+                          onClick={toggleRow}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggleRow();
+                            }
+                          }}
+                        >
+                          <span className="font-semibold text-slate-900">
+                            {p.name}
+                            {p.code ? `(${p.code})` : ""}
+                          </span>
+                        </td>
+                        <td
+                          className={`${processCellBase} ${processRowCell} cursor-pointer`}
+                          onClick={toggleRow}
+                        >
+                          {p.model || "—"}
+                        </td>
+                        <td
+                          className={`${processCellBase} ${processRowCell} whitespace-nowrap`}
+                        >
+                          <div className="flex items-center justify-start gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="writing-vertical px-1 py-1 text-xs leading-tight"
+                              onClick={() => startEditingProcess(idx)}
+                            >
+                              編輯
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="writing-vertical px-1 py-1 text-xs leading-tight"
+                              onClick={() =>
+                                setConfirmTarget({ type: "process", proc: p })
+                              }
+                            >
+                              刪除
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {isOpen && (
+                        <tr className="border-t border-slate-200 bg-slate-50">
+                          <td
+                            colSpan={3}
+                            className="px-3 py-3 text-xs sm:text-sm"
+                          >
                             <div className="font-semibold mb-2">檢驗項目</div>
                             {p.items.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              <div className="space-y-2">
                                 {p.items.map((item, iidx) => (
                                   <div
                                     key={iidx}
@@ -381,15 +422,15 @@ export default function ManagePage({
                             <div className="text-xs text-slate-500 mt-2">
                               ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </Card>

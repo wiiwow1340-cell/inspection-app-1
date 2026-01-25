@@ -125,7 +125,7 @@ const ReportPage: React.FC<Props> = ({
   }, [reports, appliedProcess, appliedModel, appliedStatus, hasQueried, NA_SENTINEL]);
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="space-y-4 p-3 sm:p-4">
       <h2 className="text-xl font-bold text-slate-900 flex items-center justify-between">
         <span>報告列表</span>
         <Button
@@ -212,7 +212,12 @@ const ReportPage: React.FC<Props> = ({
                   onClick={() => toggleExpandReport(r.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold break-all">{r.id}</div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-500 mt-0.5">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <div className="font-semibold break-all">{r.id}</div>
+                    </div>
                     <Button
                       size="sm"
                       type="button"
@@ -246,12 +251,13 @@ const ReportPage: React.FC<Props> = ({
                     {editingReportId === r.id ? (
                       <div className="space-y-2">
                         {(r.expected_items || []).map((item: string, idx: number) => (
-                          <div key={item} className="flex items-center gap-2">
+                          <div key={item} className="flex items-center gap-1.5 sm:gap-2">
                             <span className="flex-1">{item}</span>
 
                             <Button
                               type="button"
                               size="sm"
+                              className="px-2 py-1 text-xs whitespace-nowrap shrink-0"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
@@ -268,6 +274,7 @@ const ReportPage: React.FC<Props> = ({
                             <Button
                               type="button"
                               size="sm"
+                              className="px-2 py-1 text-xs whitespace-nowrap shrink-0"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
@@ -353,20 +360,6 @@ const ReportPage: React.FC<Props> = ({
                                 <StatusIcon kind="ng" />
                               </button>
                               )}
-                            {(() => {
-                              const existingCount = Array.isArray(r.images[item])
-                                ? r.images[item].length
-                                : r.images[item] && r.images[item] !== NA_SENTINEL
-                                ? 1
-                                : 0;
-                              const newCount = editImages[item]?.length || 0;
-                              const total = existingCount + newCount;
-                              return total > 1 ? (
-                                <span className="text-xs text-slate-500">
-                                  {total} 張
-                                </span>
-                              ) : null;
-                            })()}
                           </div>
                         ))}
 
@@ -415,11 +408,6 @@ const ReportPage: React.FC<Props> = ({
                               ) : (
                                 <span className="text-slate-400">
                                   <StatusIcon kind="ng" />
-                                </span>
-                              )}
-                              {Array.isArray(v) && v.length > 1 && (
-                                <span className="text-xs text-slate-500">
-                                  {v.length} 張
                                 </span>
                               )}
                             </div>

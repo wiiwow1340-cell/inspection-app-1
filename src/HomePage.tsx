@@ -84,7 +84,7 @@ export default function HomePage({
     "w-full border border-slate-200 bg-white text-slate-900 p-2 rounded focus-visible:outline-none focus-visible:border-blue-500";
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="space-y-4 p-3 sm:p-4">
       <h2 className="text-xl font-bold text-slate-900">新增檢驗資料</h2>
 
       <form
