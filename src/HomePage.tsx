@@ -1,5 +1,6 @@
 import React from "react";
 import type { Process } from "./types";
+import InspectionItemsEditor from "./components/InspectionItemsEditor";
 
 type ButtonComponent = React.ComponentType<
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -166,108 +167,23 @@ export default function HomePage({
         </div>
 
         {selectedProcObj && selectedProcObj.items.length > 0 && (
-          <div className="space-y-2 mt-2">
-            {selectedProcObj.items.map((item: string, idx: number) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
-              >
-                <span className="min-w-0 break-words">{item}</span>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-slate-500 w-6 text-right tabular-nums">
-                    {images[item]?.length || 0}
-                  </span>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() =>
-                      (document.getElementById(
-                        `capture-${idx}`
-                      ) as HTMLInputElement)?.click()
-                    }
-                  >
-                    拍照
-                  </Button>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() =>
-                      (document.getElementById(
-                        `upload-${idx}`
-                      ) as HTMLInputElement)?.click()
-                    }
-                  >
-                    上傳
-                  </Button>
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  id={`capture-${idx}`}
-                  className="hidden"
-                  onChange={(e) => {
-                    handleCapture(item, e.target.files);
-                    e.currentTarget.value = "";
-                  }}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  id={`upload-${idx}`}
-                  className="hidden"
-                  multiple
-                  onChange={(e) => {
-                    handleCapture(item, e.target.files);
-                    e.currentTarget.value = "";
-                  }}
-                />
-
-                {homeNA[item] ? (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
-                    title="N/A（不適用）- 點一下恢復"
-                    onClick={() =>
-                      setHomeNA((prev) => {
-                        const n = { ...prev };
-                        delete n[item];
-                        return n;
-                      })
-                    }
-                  >
-                    <StatusIcon kind="na" />
-                  </button>
-                ) : (images[item]?.length || 0) > 0 ? (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                    title="已拍 - 點一下設為 N/A"
-                    onClick={() =>
-                      setHomeNA((prev) => ({ ...prev, [item]: true }))
-                    }
-                  >
-                    <StatusIcon kind="ok" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
-                    title="未拍 - 點一下設為 N/A"
-                    onClick={() =>
-                      setHomeNA((prev) => ({ ...prev, [item]: true }))
-                    }
-                  >
-                    <StatusIcon kind="ng" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+          <InspectionItemsEditor
+            items={selectedProcObj.items}
+            images={images}
+            naState={homeNA}
+            onSetNA={(item) => setHomeNA((prev) => ({ ...prev, [item]: true }))}
+            onClearNA={(item) =>
+              setHomeNA((prev) => {
+                const next = { ...prev };
+                delete next[item];
+                return next;
+              })
+            }
+            onCapture={handleCapture}
+            inputIdPrefix="home"
+            Button={Button}
+            StatusIcon={StatusIcon}
+          />
         )}
 
         <div className="flex gap-2 mt-4">
