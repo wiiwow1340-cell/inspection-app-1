@@ -206,9 +206,10 @@ const ReportPage: React.FC<Props> = ({
 
             return (
               <div key={r.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  className="w-full text-left p-3 bg-white"
+                <div
+                  role="button"
+                  aria-expanded={isOpen}
+                  className="w-full text-left p-3 bg-white cursor-pointer select-none"
                   onClick={() => toggleExpandReport(r.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -239,7 +240,7 @@ const ReportPage: React.FC<Props> = ({
                       <div className="truncate">序號：{r.serial}</div>
                     </div>
                   </div>
-                </button>
+                </div>
 
                 {isOpen && (
                   <div className="bg-slate-50 p-3">
@@ -401,11 +402,6 @@ const ReportPage: React.FC<Props> = ({
                           const hasImg = Array.isArray(v)
                             ? v.length > 0
                             : !!v && v !== NA_SENTINEL;
-                          const count = Array.isArray(v)
-                            ? v.length
-                            : !!v && v !== NA_SENTINEL
-                            ? 1
-                            : 0;
                           return (
                             <div key={item} className="flex items-center gap-2">
                               <span className="flex-1">{item}</span>
@@ -422,9 +418,6 @@ const ReportPage: React.FC<Props> = ({
                                   <StatusIcon kind="ng" />
                                 </span>
                               )}
-                              <span className="text-xs text-slate-500 w-6 text-right tabular-nums">
-                                {count}
-                              </span>
                             </div>
                           );
                         })}
