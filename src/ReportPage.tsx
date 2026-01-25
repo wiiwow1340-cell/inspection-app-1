@@ -130,6 +130,7 @@ const ReportPage: React.FC<Props> = ({
         <span>報告列表</span>
         <Button
           type="button"
+          size="sm"
           onClick={async () => {
             const fresh = await fetchReportsFromDB();
             setReports(fresh);
@@ -250,7 +251,7 @@ const ReportPage: React.FC<Props> = ({
 
                             <Button
                               type="button"
-                              className="px-2 py-1"
+                              size="sm"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
@@ -266,7 +267,7 @@ const ReportPage: React.FC<Props> = ({
 
                             <Button
                               type="button"
-                              className="px-2 py-1"
+                              size="sm"
                               onClick={(
                                 e: React.MouseEvent<HTMLButtonElement>
                               ) => {
