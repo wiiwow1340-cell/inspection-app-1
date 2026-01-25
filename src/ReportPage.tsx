@@ -206,9 +206,10 @@ const ReportPage: React.FC<Props> = ({
 
             return (
               <div key={r.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  className="w-full text-left p-3 bg-white"
+                <div
+                  role="button"
+                  aria-expanded={isOpen}
+                  className="w-full text-left p-3 bg-white cursor-pointer select-none"
                   onClick={() => toggleExpandReport(r.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -239,136 +240,141 @@ const ReportPage: React.FC<Props> = ({
                       <div className="truncate">序號：{r.serial}</div>
                     </div>
                   </div>
-                </button>
+                </div>
 
                 {isOpen && (
                   <div className="bg-slate-50 p-3">
                     {editingReportId === r.id ? (
                       <div className="space-y-2">
-                        {(r.expected_items || []).map((item: string, idx: number) => (
-                          <div key={item} className="flex items-center gap-2">
-                            <span className="flex-1">{item}</span>
-
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={(
-                                e: React.MouseEvent<HTMLButtonElement>
-                              ) => {
-                                e.stopPropagation();
-                                const input = document.getElementById(
-                                  `edit-capture-${r.id}-${idx}`
-                                ) as HTMLInputElement;
-                                input?.click();
-                              }}
+                        {(r.expected_items || []).map((item: string, idx: number) => {
+                          const existingCount = Array.isArray(r.images[item])
+                            ? r.images[item].length
+                            : r.images[item] && r.images[item] !== NA_SENTINEL
+                            ? 1
+                            : 0;
+                          const newCount = editImages[item]?.length || 0;
+                          const total = existingCount + newCount;
+                          return (
+                            <div
+                              key={item}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
                             >
-                              拍照
-                            </Button>
+                              <span className="min-w-0 break-words">{item}</span>
 
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={(
-                                e: React.MouseEvent<HTMLButtonElement>
-                              ) => {
-                                e.stopPropagation();
-                                const input = document.getElementById(
-                                  `edit-upload-${r.id}-${idx}`
-                                ) as HTMLInputElement;
-                                input?.click();
-                              }}
-                            >
-                              上傳
-                            </Button>
-
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              className="hidden"
-                              id={`edit-capture-${r.id}-${idx}`}
-                              onChange={(e) =>
-                                {
-                                  handleEditCapture(
-                                    item,
-                                    e.target.files || undefined
-                                  );
-                                  e.currentTarget.value = "";
-                                }
-                              }
-                            />
-
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              id={`edit-upload-${r.id}-${idx}`}
-                              multiple
-                              onChange={(e) =>
-                                {
-                                  handleEditCapture(
-                                    item,
-                                    e.target.files || undefined
-                                  );
-                                  e.currentTarget.value = "";
-                                }
-                              }
-                            />
-
-                            {editNA[item] ? (
-                              <button
-                                type="button"
-                                className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
-                                onClick={() =>
-                                  setEditNA((prev) => {
-                                    const next = { ...prev };
-                                    delete next[item];
-                                    return next;
-                                  })
-                                }
-                              >
-                                <StatusIcon kind="na" />
-                              </button>
-                            ) : (editImages[item]?.length || 0) > 0 ||
-                              (Array.isArray(r.images[item])
-                                ? r.images[item].length > 0
-                                : !!r.images[item] && r.images[item] !== NA_SENTINEL) ? (
-                              <button
-                                type="button"
-                                className="w-8 h-8 inline-flex items-center justify-center text-green-600"
-                                onClick={() =>
-                                  setEditNA((prev) => ({ ...prev, [item]: true }))
-                                }
-                              >
-                                <StatusIcon kind="ok" />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
-                                onClick={() =>
-                                  setEditNA((prev) => ({ ...prev, [item]: true }))
-                                }
-                              >
-                                <StatusIcon kind="ng" />
-                              </button>
-                              )}
-                            {(() => {
-                              const existingCount = Array.isArray(r.images[item])
-                                ? r.images[item].length
-                                : r.images[item] && r.images[item] !== NA_SENTINEL
-                                ? 1
-                                : 0;
-                              const newCount = editImages[item]?.length || 0;
-                              const total = existingCount + newCount;
-                              return total > 1 ? (
-                                <span className="text-xs text-slate-500">
-                                  {total} 張
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs text-slate-500 w-6 text-right tabular-nums">
+                                  {total}
                                 </span>
-                              ) : null;
-                            })()}
-                          </div>
-                        ))}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={(
+                                    e: React.MouseEvent<HTMLButtonElement>
+                                  ) => {
+                                    e.stopPropagation();
+                                    const input = document.getElementById(
+                                      `edit-capture-${r.id}-${idx}`
+                                    ) as HTMLInputElement;
+                                    input?.click();
+                                  }}
+                                >
+                                  拍照
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={(
+                                    e: React.MouseEvent<HTMLButtonElement>
+                                  ) => {
+                                    e.stopPropagation();
+                                    const input = document.getElementById(
+                                      `edit-upload-${r.id}-${idx}`
+                                    ) as HTMLInputElement;
+                                    input?.click();
+                                  }}
+                                >
+                                  上傳
+                                </Button>
+
+                                {editNA[item] ? (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-slate-600"
+                                    onClick={() =>
+                                      setEditNA((prev) => {
+                                        const next = { ...prev };
+                                        delete next[item];
+                                        return next;
+                                      })
+                                    }
+                                  >
+                                    <StatusIcon kind="na" />
+                                  </button>
+                                ) : (editImages[item]?.length || 0) > 0 ||
+                                  (Array.isArray(r.images[item])
+                                    ? r.images[item].length > 0
+                                    : !!r.images[item] && r.images[item] !== NA_SENTINEL) ? (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-green-600"
+                                    onClick={() =>
+                                      setEditNA((prev) => ({
+                                        ...prev,
+                                        [item]: true,
+                                      }))
+                                    }
+                                  >
+                                    <StatusIcon kind="ok" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 inline-flex items-center justify-center text-slate-400"
+                                    onClick={() =>
+                                      setEditNA((prev) => ({
+                                        ...prev,
+                                        [item]: true,
+                                      }))
+                                    }
+                                  >
+                                    <StatusIcon kind="ng" />
+                                  </button>
+                                )}
+                              </div>
+
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                id={`edit-capture-${r.id}-${idx}`}
+                                onChange={(e) => {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }}
+                              />
+
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id={`edit-upload-${r.id}-${idx}`}
+                                multiple
+                                onChange={(e) => {
+                                  handleEditCapture(
+                                    item,
+                                    e.target.files || undefined
+                                  );
+                                  e.currentTarget.value = "";
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
 
                         <div className="flex gap-2 mt-3">
                           <Button
@@ -402,24 +408,22 @@ const ReportPage: React.FC<Props> = ({
                             ? v.length > 0
                             : !!v && v !== NA_SENTINEL;
                           return (
-                            <div key={item} className="flex items-center gap-2">
-                              <span className="flex-1">{item}</span>
+                            <div
+                              key={item}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                            >
+                              <span className="min-w-0 break-words">{item}</span>
                               {isNA ? (
-                                <span className="text-slate-600">
+                                <span className="text-slate-600 shrink-0">
                                   <StatusIcon kind="na" />
                                 </span>
                               ) : hasImg ? (
-                                <span className="text-green-600">
+                                <span className="text-green-600 shrink-0">
                                   <StatusIcon kind="ok" />
                                 </span>
                               ) : (
-                                <span className="text-slate-400">
+                                <span className="text-slate-400 shrink-0">
                                   <StatusIcon kind="ng" />
-                                </span>
-                              )}
-                              {Array.isArray(v) && v.length > 1 && (
-                                <span className="text-xs text-slate-500">
-                                  {v.length} 張
                                 </span>
                               )}
                             </div>

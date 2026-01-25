@@ -223,8 +223,6 @@ type ManageDraftData = {
   insertAfter: string;
   editingIndex: number | null;
   items: string[];
-  editingItemIndex: number | null;
-  editingItemValue: string;
 };
 
 type AppDraft =
@@ -709,10 +707,6 @@ export default function App() {
   const [items, setItems] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [expandedProcessIndex, setExpandedProcessIndex] = useState<number | null>(null);
-
-  // 管理製程：編輯「檢驗項目名稱」
-  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const [editingItemValue, setEditingItemValue] = useState<string>("");
 
 
   // 查看報告：就地編輯照片
@@ -1360,8 +1354,6 @@ useEffect(() => {
   const resetManageState = async (alsoClearDraft = false) => {
     setEditingIndex(null);
     setItems([]);
-    setEditingItemIndex(null);
-    setEditingItemValue("");
     setNewProcName("");
     setNewProcCode("");
     setNewProcModel("");
@@ -1451,9 +1443,7 @@ useEffect(() => {
       newProcModel ||
       newItem.trim() ||
       editingIndex !== null ||
-      items.length > 0 ||
-      editingItemIndex !== null ||
-      editingItemValue.trim();
+      items.length > 0;
 
     if (!hasAnything) return null;
 
@@ -1468,8 +1458,6 @@ useEffect(() => {
         insertAfter,
         editingIndex,
         items,
-        editingItemIndex,
-        editingItemValue,
       },
     };
   };
@@ -1556,8 +1544,6 @@ useEffect(() => {
     setInsertAfter(draft.data.insertAfter || "last");
     setEditingIndex(draft.data.editingIndex ?? null);
     setItems(draft.data.items || []);
-    setEditingItemIndex(draft.data.editingItemIndex ?? null);
-    setEditingItemValue(draft.data.editingItemValue || "");
   };
 
   const scheduleSaveDraft = (immediate = false) => {
@@ -1636,8 +1622,6 @@ useEffect(() => {
     insertAfter,
     editingIndex,
     items,
-    editingItemIndex,
-    editingItemValue,
   ]);
 
   // 管理製程：新增 / 移除項目
@@ -1686,31 +1670,8 @@ useEffect(() => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 管理製程：編輯檢驗項目名稱
-  const startEditingItem = (idx: number) => {
-    setEditingItemIndex(idx);
-    setEditingItemValue(items[idx] || "");
-  };
-
-  const cancelEditingItem = () => {
-    if (editingItemIndex !== null) {
-      const original = items[editingItemIndex] ?? "";
-      const hasDirty = editingItemValue.trim() !== original.trim();
-      if (hasDirty && !confirmDiscard("確定要取消編輯項目嗎？")) return;
-    }
-    setEditingItemIndex(null);
-    setEditingItemValue("");
-  };
-
-  const saveEditingItem = () => {
-    if (editingItemIndex === null) return;
-    const val = editingItemValue.trim();
-    if (!val) return;
-
-    setItems((prev) => prev.map((x, i) => (i === editingItemIndex ? val : x)));
-
-    setEditingItemIndex(null);
-    setEditingItemValue("");
+  const updateItemName = (index: number, nextValue: string) => {
+    setItems((prev) => prev.map((item, i) => (i === index ? nextValue : item)));
   };
 
 
@@ -1998,17 +1959,11 @@ useEffect(() => {
           setInsertAfter={setInsertAfter}
           items={items}
       
-          editingItemIndex={editingItemIndex}
-          editingItemValue={editingItemValue}
-          setEditingItemValue={setEditingItemValue}
-      
           expandedProcessIndex={expandedProcessIndex}
           setExpandedProcessIndex={setExpandedProcessIndex}
       
           addItem={addItem}
-          startEditingItem={startEditingItem}
-          saveEditingItem={saveEditingItem}
-          cancelEditingItem={cancelEditingItem}
+          updateItemName={updateItemName}
           moveItemUp={moveItemUp}
           moveItemDown={moveItemDown}
       

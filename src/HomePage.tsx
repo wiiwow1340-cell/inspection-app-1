@@ -168,32 +168,41 @@ export default function HomePage({
         {selectedProcObj && selectedProcObj.items.length > 0 && (
           <div className="space-y-2 mt-2">
             {selectedProcObj.items.map((item: string, idx: number) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="flex-1">{item}</span>
+              <div
+                key={idx}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+              >
+                <span className="min-w-0 break-words">{item}</span>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    (document.getElementById(
-                      `capture-${idx}`
-                    ) as HTMLInputElement)?.click()
-                  }
-                >
-                  拍照
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-slate-500 w-6 text-right tabular-nums">
+                    {images[item]?.length || 0}
+                  </span>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    (document.getElementById(
-                      `upload-${idx}`
-                    ) as HTMLInputElement)?.click()
-                  }
-                >
-                  上傳
-                </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() =>
+                      (document.getElementById(
+                        `capture-${idx}`
+                      ) as HTMLInputElement)?.click()
+                    }
+                  >
+                    拍照
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() =>
+                      (document.getElementById(
+                        `upload-${idx}`
+                      ) as HTMLInputElement)?.click()
+                    }
+                  >
+                    上傳
+                  </Button>
+                </div>
 
                 <input
                   type="file"
@@ -255,11 +264,6 @@ export default function HomePage({
                   >
                     <StatusIcon kind="ng" />
                   </button>
-                )}
-                {(images[item]?.length || 0) > 1 && (
-                  <span className="text-xs text-slate-500">
-                    {images[item]?.length} 張
-                  </span>
                 )}
               </div>
             ))}
