@@ -275,7 +275,7 @@ export default function ManagePage({
                 <th className="p-2">製程名稱</th>
                 <th className="p-2">製程代號</th>
                 <th className="p-2">產品型號</th>
-                <th className="p-2 w-32">操作</th>
+                <th className="p-2 w-24 sm:w-32">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -293,12 +293,18 @@ export default function ManagePage({
                     >
                       <td className="p-2">{p.name}</td>
                       <td className="p-2">{p.code}</td>
-                      <td className="p-2">{p.model || "—"}</td>
-                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
+                      <td className="p-2 max-w-[10rem] truncate whitespace-nowrap sm:max-w-none">
+                        {p.model || "—"}
+                      </td>
+                      <td
+                        className="p-2 w-24 sm:w-32"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex gap-1 sm:gap-2">
                           <Button
                             type="button"
                             size="sm"
+                            className="px-2 sm:px-3"
                             onClick={() => startEditingProcess(idx)}
                           >
                             編輯
@@ -306,6 +312,7 @@ export default function ManagePage({
                           <Button
                             type="button"
                             size="sm"
+                            className="px-2 sm:px-3"
                             variant="destructive"
                             onClick={() =>
                               setConfirmTarget({ type: "process", proc: p })
