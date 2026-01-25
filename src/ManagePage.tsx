@@ -172,9 +172,14 @@ export default function ManagePage({
               value={newItem}
               placeholder="新增檢驗照片項目"
               onChange={(e) => setNewItem(e.target.value)}
-              className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
+              className="w-full max-w-[320px] border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
-            <Button type="button" size="sm" onClick={addItem}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={addItem}
+              className="shrink-0 whitespace-nowrap"
+            >
               加入
             </Button>
           </div>
@@ -330,7 +335,7 @@ export default function ManagePage({
                         )
                       }
                     >
-                      <td className="p-2">{isOpen ? "▼" : "▶"}</td>
+                      <td className="p-2"></td>
                       <td className="p-2">{p.name}</td>
                       <td className="p-2">{p.code}</td>
                       <td className="p-2">{p.model || "—"}</td>
