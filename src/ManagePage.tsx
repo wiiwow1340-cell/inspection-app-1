@@ -40,16 +40,11 @@ type ManagePageProps = {
   insertAfter: string;
   setInsertAfter: React.Dispatch<React.SetStateAction<string>>;
   items: string[];
-  editingItemIndex: number | null;
-  editingItemValue: string;
-  setEditingItemValue: React.Dispatch<React.SetStateAction<string>>;
   processes: Process[];
   expandedProcessIndex: number | null;
   setExpandedProcessIndex: React.Dispatch<React.SetStateAction<number | null>>;
   addItem: () => void;
-  startEditingItem: (idx: number) => void;
-  saveEditingItem: () => void;
-  cancelEditingItem: () => void;
+  updateItemName: (idx: number, nextValue: string) => void;
   moveItemUp: (idx: number) => void;
   moveItemDown: (idx: number) => void;
   saveProcess: () => void;
@@ -78,16 +73,11 @@ export default function ManagePage({
   insertAfter,
   setInsertAfter,
   items,
-  editingItemIndex,
-  editingItemValue,
-  setEditingItemValue,
   processes,
   expandedProcessIndex,
   setExpandedProcessIndex,
   addItem,
-  startEditingItem,
-  saveEditingItem,
-  cancelEditingItem,
+  updateItemName,
   moveItemUp,
   moveItemDown,
   saveProcess,
@@ -124,11 +114,6 @@ export default function ManagePage({
     if (items.some((item, idx) => item !== originalItems[idx])) return true;
 
     if (newItem.trim()) return true;
-
-    if (editingItemIndex !== null) {
-      const originalItem = items[editingItemIndex] ?? "";
-      if (editingItemValue.trim() !== originalItem.trim()) return true;
-    }
 
     return false;
   };
@@ -208,41 +193,13 @@ export default function ManagePage({
             key={idx}
             className="border border-slate-200 p-2 rounded flex justify-between items-center"
           >
-            {editingItemIndex === idx ? (
-              <div className="flex-1 flex gap-2 items-center">
-                <Input
-                  value={editingItemValue}
-                  onChange={(e) => setEditingItemValue(e.target.value)}
-                  className="h-9 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
-                />
-                <Button type="button" size="sm" onClick={saveEditingItem}>
-                  儲存
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={cancelEditingItem}
-                >
-                  取消
-                </Button>
-              </div>
-            ) : (
-              <span className="flex-1">{i}</span>
-            )}
+            <Input
+              value={i}
+              onChange={(e) => updateItemName(idx, e.target.value)}
+              className="flex-1 h-9 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
+            />
 
-            <div className="flex gap-2">
-              {editingItemIndex === idx ? null : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => startEditingItem(idx)}
-                  title="編輯名稱"
-                >
-                  編輯
-                </Button>
-              )}
+            <div className="flex gap-2 ml-2">
               <Button
                 type="button"
                 size="sm"
@@ -315,7 +272,6 @@ export default function ManagePage({
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr className="text-left">
-                <th className="p-2 w-10"></th>
                 <th className="p-2">製程名稱</th>
                 <th className="p-2">製程代號</th>
                 <th className="p-2">產品型號</th>
@@ -335,7 +291,6 @@ export default function ManagePage({
                         )
                       }
                     >
-                      <td className="p-2"></td>
                       <td className="p-2">{p.name}</td>
                       <td className="p-2">{p.code}</td>
                       <td className="p-2">{p.model || "—"}</td>
@@ -364,7 +319,7 @@ export default function ManagePage({
 
                     {isOpen && (
                       <tr className="border-t border-slate-200">
-                        <td className="p-0" colSpan={5}>
+                        <td className="p-0" colSpan={4}>
                           <div className="p-3 bg-slate-50">
                             <div className="font-semibold mb-2">檢驗項目</div>
                             {p.items.length > 0 ? (
