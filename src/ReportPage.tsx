@@ -204,13 +204,21 @@ const ReportPage: React.FC<Props> = ({
                   r.images?.[item] === NA_SENTINEL || hasItemImage(item)
               );
             const isOpen = expandedReportId === r.id;
+            const isEditing = editingReportId === r.id;
+            const cardWrapperClass = isEditing
+              ? "space-y-3"
+              : "border border-slate-200 rounded-lg overflow-hidden";
+            const headerClass = `w-full text-left cursor-pointer select-none ${
+              isEditing ? "px-0 py-2" : "p-3 bg-white"
+            }`;
+            const contentClass = isEditing ? "" : "bg-slate-50 p-3";
 
             return (
-              <div key={r.id} className="border border-slate-200 rounded-lg overflow-hidden">
+              <div key={r.id} className={cardWrapperClass}>
                 <div
                   role="button"
                   aria-expanded={isOpen}
-                  className="w-full text-left p-3 bg-white cursor-pointer select-none"
+                  className={headerClass}
                   onClick={() => toggleExpandReport(r.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -244,8 +252,8 @@ const ReportPage: React.FC<Props> = ({
                 </div>
 
                 {isOpen && (
-                  <div className="bg-slate-50 p-3">
-                    {editingReportId === r.id ? (
+                  <div className={contentClass}>
+                    {isEditing ? (
                       <div className="space-y-2">
                         <InspectionItemsEditor
                           items={r.expected_items || []}
