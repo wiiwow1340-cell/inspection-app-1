@@ -10,6 +10,7 @@ export type Report = {
   serial: string;
   model: string;
   process: string;
+  edited_by?: string;
   images: Record<string, string[] | string>;
   expected_items: string[];
 };
