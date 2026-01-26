@@ -1,0 +1,29 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="272" height="272" rx="64" fill="url(#logoGradient)" />
+  <rect x="72" y="72" width="176" height="176" rx="32" fill="white" opacity="0.15" />
+  <path
+    d="M98 166C98 130.444 126.444 102 162 102C197.556 102 226 130.444 226 166C226 201.556 197.556 230 162 230H120C107.85 230 98 220.15 98 208V166Z"
+    fill="white"
+    opacity="0.85"
+  />
+  <circle cx="162" cy="166" r="26" fill="#0F172A" opacity="0.9" />
+  <path
+    d="M150 152L175 170L150 188"
+    stroke="white"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M126 116H196"
+    stroke="white"
+    stroke-width="10"
+    stroke-linecap="round"
+  />
+</svg>

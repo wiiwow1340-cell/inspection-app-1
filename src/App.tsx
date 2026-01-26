@@ -605,7 +605,12 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22240%22%20height=%22240%22%20viewBox=%220%200%20240%20240%22%3E%3Cfilter%20id=%22noise%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.9%22%20numOctaves=%222%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22240%22%20height=%22240%22%20filter=%22url(%23noise)%22%20opacity=%220.4%22/%3E%3C/svg%3E')] opacity-[0.05]"
       />
       <div className="w-full max-w-md space-y-8 -translate-y-24 sm:-translate-y-24">
-        <div className="space-y-2 text-center">
+        <div className="space-y-3 text-center">
+          <img
+            src="/logo.png"
+            alt="Inspection APP Logo"
+            className="mx-auto h-12 w-auto sm:h-16"
+          />
           <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
             INSPECTION APP
           </p>
