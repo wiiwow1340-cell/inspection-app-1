@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
 import ManagePage from "./ManagePage";
-import logoUrl from "./assets/logo.svg";
 import type { Process, Report } from "./types";
 
 // =============================
@@ -608,9 +607,9 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
       <div className="w-full max-w-md space-y-8 -translate-y-24 sm:-translate-y-24">
         <div className="space-y-3 text-center">
           <img
-            src={logoUrl}
+            src="/logo.png"
             alt="Inspection APP Logo"
-            className="mx-auto h-16 w-auto sm:h-20"
+            className="mx-auto h-12 w-auto sm:h-16"
           />
           <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
             INSPECTION APP
