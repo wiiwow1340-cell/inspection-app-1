@@ -556,6 +556,7 @@ async function fetchReportsFromDB(): Promise<Report[]> {
     serial: row.serial,
     model: row.model,
     process: row.process,
+    edited_by: row.edited_by || "",
     images: normalizeImagesMap(row.images || {}),
     expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
   }));
@@ -1193,6 +1194,7 @@ useEffect(() => {
       serial: sn,
       model: selectedModel,
       process: selectedProcess,
+      edited_by: authUsername || "",
       images: normalizeImagesMap(uploadedImages),
       expected_items: expectedItems,
     };
@@ -2369,6 +2371,7 @@ useEffect(() => {
                     ...report,
                     images: normalizeImagesMap(uploadedImages),
                     expected_items: expectedItems,
+                    edited_by: authUsername || "",
                   };
 
                   const { error: updateErr } = await supabase
@@ -2378,6 +2381,7 @@ useEffect(() => {
                       expected_items: JSON.stringify(
                         updated.expected_items ?? []
                       ),
+                      edited_by: updated.edited_by,
                     })
                     .eq("id", updated.id);
 
