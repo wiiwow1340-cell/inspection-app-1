@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Inspection App Logo">
+  <defs>
+    <linearGradient id="loginLogoGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="55%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="104" height="104" rx="28" fill="url(#loginLogoGradient)" />
+  <path
+    d="M48 62 l12 12 28-30"
+    fill="none"
+    stroke="#0f172a"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="84" cy="36" r="10" fill="#0f172a" opacity="0.7" />
+  <text
+    x="132"
+    y="54"
+    font-family="'Inter', 'Noto Sans TC', system-ui, sans-serif"
+    font-size="28"
+    font-weight="700"
+    fill="#f8fafc"
+    letter-spacing="2"
+  >
+    INSPECTION
+  </text>
+  <text
+    x="132"
+    y="86"
+    font-family="'Inter', 'Noto Sans TC', system-ui, sans-serif"
+    font-size="20"
+    font-weight="500"
+    fill="#cbd5f5"
+    letter-spacing="6"
+  >
+    SYSTEM
+  </text>
+</svg>
