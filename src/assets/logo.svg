@@ -1,29 +1,37 @@
-<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="1344" height="526" viewBox="0 0 1344 526" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#38BDF8" />
-      <stop offset="100%" stop-color="#2563EB" />
+    <linearGradient id="mGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF1B1B" />
+      <stop offset="70%" stop-color="#D43B56" />
+      <stop offset="100%" stop-color="#7AA7D9" />
+    </linearGradient>
+    <linearGradient id="gGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#66E9FF" />
+      <stop offset="100%" stop-color="#1FC2F5" />
+    </linearGradient>
+    <linearGradient id="cGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A9EA3A" />
+      <stop offset="100%" stop-color="#7ACB1E" />
     </linearGradient>
   </defs>
-  <rect x="24" y="24" width="272" height="272" rx="64" fill="url(#logoGradient)" />
-  <rect x="72" y="72" width="176" height="176" rx="32" fill="white" opacity="0.15" />
   <path
-    d="M98 166C98 130.444 126.444 102 162 102C197.556 102 226 130.444 226 166C226 201.556 197.556 230 162 230H120C107.85 230 98 220.15 98 208V166Z"
-    fill="white"
-    opacity="0.85"
-  />
-  <circle cx="162" cy="166" r="26" fill="#0F172A" opacity="0.9" />
-  <path
-    d="M150 152L175 170L150 188"
-    stroke="white"
-    stroke-width="10"
-    stroke-linecap="round"
-    stroke-linejoin="round"
+    d="M120 462L260 86H420L500 286L624 86H756L620 462H468L380 266L292 462H120Z"
+    fill="url(#mGradient)"
   />
   <path
-    d="M126 116H196"
-    stroke="white"
-    stroke-width="10"
-    stroke-linecap="round"
+    d="M730 158C790 98 886 82 964 126C1034 166 1068 252 1042 324H940C964 270 944 214 894 184C842 152 770 166 732 214C690 266 706 340 760 382C810 420 882 418 930 378H1040C974 478 830 498 732 424C628 348 620 224 730 158Z"
+    fill="url(#gGradient)"
+  />
+  <path
+    d="M940 238L1028 238L980 196L1092 196L1092 280L980 280L1028 238H940Z"
+    fill="url(#gGradient)"
+  />
+  <path
+    d="M1042 204C1106 144 1206 130 1288 174C1358 214 1390 300 1360 372H1256C1284 318 1262 260 1210 232C1156 202 1078 218 1040 268C1002 322 1020 398 1076 438C1128 474 1206 470 1256 426H1360C1290 526 1140 544 1040 468C934 392 924 264 1042 204Z"
+    fill="url(#cGradient)"
+  />
+  <path
+    d="M1212 350L1298 350L1258 386L1344 386L1344 314L1258 314L1298 350H1212Z"
+    fill="url(#cGradient)"
   />
 </svg>

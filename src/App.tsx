@@ -610,7 +610,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <img
             src={logoUrl}
             alt="Inspection APP Logo"
-            className="mx-auto h-16 w-auto sm:h-20"
+            className="mx-auto h-16 w-auto max-w-[240px] sm:h-20 sm:max-w-[300px] md:h-24 md:max-w-[360px]"
           />
           <p className="text-xs uppercase tracking-[0.35em] text-slate-300">
             INSPECTION APP
