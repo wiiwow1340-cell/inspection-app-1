@@ -484,6 +484,7 @@ async function uploadImage(
   processCode: string,
   model: string,
   serial: string,
+  reportId: string,
   info: { item: string; procItems: string[]; photoIndex: number },
   file: File
 ): Promise<string> {
@@ -495,7 +496,7 @@ async function uploadImage(
   const itemIndex = getItemIndex(procItems, item);
   const normalizedPhotoIndex = Math.max(1, photoIndex);
   const fileName = `item${itemIndex}-${normalizedPhotoIndex}.jpg`;
-  const filePath = `${processCode}/${model}/${serial}/${fileName}`;
+  const filePath = `${processCode}/${model}/${serial}/${reportId}/${fileName}`;
 
   try {
     const { error } = await supabase.storage
@@ -555,6 +556,7 @@ async function fetchReportsFromDB(): Promise<Report[]> {
     serial: row.serial,
     model: row.model,
     process: row.process,
+    edited_by: row.edited_by || "",
     images: normalizeImagesMap(row.images || {}),
     expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
   }));
@@ -1125,6 +1127,15 @@ useEffect(() => {
     );
     const uploadedImages: Record<string, ImageValue> = {};
 
+    // 產生表單 ID：製程代號-YYYYMMDDNNN（同日遞增）
+    const d = new Date();
+    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    const procCode = selectedProcObj.code;
+    const todayCount =
+      reports.filter((r) => r.id?.startsWith(`${procCode}-${ymd}`)).length + 1;
+    const seq = String(todayCount).padStart(3, "0");
+    const id = `${procCode}-${ymd}${seq}`;
+
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
     let completedCount = 0;
@@ -1158,6 +1169,7 @@ useEffect(() => {
             selectedProcObj.code,
             selectedModel,
             sn,
+            id,
             { item, procItems: expectedItems, photoIndex: fileIndex + 1 },
             file
           );
@@ -1177,20 +1189,12 @@ useEffect(() => {
     // 同時最多 6 張，其餘排隊
     await runInBatches(uploadTasks, 6);
 
-    // 產生表單 ID：製程代號-YYYYMMDDNNN（同日遞增）
-    const d = new Date();
-    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    const procCode = selectedProcObj.code;
-    const todayCount =
-      reports.filter((r) => r.id?.startsWith(`${procCode}-${ymd}`)).length + 1;
-    const seq = String(todayCount).padStart(3, "0");
-    const id = `${procCode}-${ymd}${seq}`;
-
     const report: Report = {
       id,
       serial: sn,
       model: selectedModel,
       process: selectedProcess,
+      edited_by: authUsername || "",
       images: normalizeImagesMap(uploadedImages),
       expected_items: expectedItems,
     };
@@ -2325,6 +2329,7 @@ useEffect(() => {
                             ?.code || report.process,
                           report.model,
                           report.serial,
+                          report.id,
                           {
                             item,
                             procItems: expectedItems,
@@ -2366,6 +2371,7 @@ useEffect(() => {
                     ...report,
                     images: normalizeImagesMap(uploadedImages),
                     expected_items: expectedItems,
+                    edited_by: authUsername || "",
                   };
 
                   const { error: updateErr } = await supabase
@@ -2375,6 +2381,7 @@ useEffect(() => {
                       expected_items: JSON.stringify(
                         updated.expected_items ?? []
                       ),
+                      edited_by: updated.edited_by,
                     })
                     .eq("id", updated.id);
 
