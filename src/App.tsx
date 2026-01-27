@@ -1291,7 +1291,6 @@ const editPreviewImages = useMemo(() => {
         setEditNA({});
         setShowEditPreview(false);
         setEditPreviewIndex(0);
-        setSignedImg([]);
       }
       return next;
     });
@@ -1305,7 +1304,6 @@ const editPreviewImages = useMemo(() => {
     setEditImageFiles({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg([]);
 
     // 初始化 N/A（從既有資料帶入）
     const nextNA: Record<string, boolean> = {};
@@ -1327,7 +1325,6 @@ const editPreviewImages = useMemo(() => {
       setEditNA({});
       setShowEditPreview(false);
       setEditPreviewIndex(0);
-      setSignedImg([]);
       setExpandedReportId(id);
       return;
     }
@@ -1380,11 +1377,10 @@ const editPreviewImages = useMemo(() => {
     revokePreviewUrls(editImages);
     setEditingReportId(null);
     setEditImages({});
-        setEditImageFiles({});
-        setEditNA({});
+    setEditImageFiles({});
+    setEditNA({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg([]);
     if (alsoClearDraft) {
       try {
         await idbDel(getDraftId());
@@ -1971,7 +1967,6 @@ const editPreviewImages = useMemo(() => {
           editNA={editNA}
           setEditNA={setEditNA}
           handleEditCapture={handleEditCapture}
-          setSignedImg={setSignedImg}
           setEditPreviewIndex={setEditPreviewIndex}
           setShowEditPreview={setShowEditPreview}
           NA_SENTINEL={NA_SENTINEL}

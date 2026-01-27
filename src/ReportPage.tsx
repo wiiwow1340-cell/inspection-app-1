@@ -45,7 +45,6 @@ type Props = {
   setEditNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   handleEditCapture: (item: string, files?: FileList | File[]) => void;
 
-  setSignedImg: React.Dispatch<React.SetStateAction<string[]>>;
   setEditPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowEditPreview: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -73,7 +72,6 @@ const ReportPage: React.FC<Props> = ({
   setEditNA,
   handleEditCapture,
 
-  setSignedImg,
   setEditPreviewIndex,
   setShowEditPreview,
 
@@ -289,7 +287,6 @@ const ReportPage: React.FC<Props> = ({
                             className="flex-1"
                             type="button"
                             onClick={() => {
-                              setSignedImg([]);
                               setEditPreviewIndex(0);
                               setShowEditPreview(true);
                             }}
