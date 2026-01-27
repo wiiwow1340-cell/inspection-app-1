@@ -1187,6 +1187,7 @@ const editPreviewImages = useMemo(() => {
     setUploadDoneCount(0);
     setUploadTotalCount(totalTasks);
 
+    const failedUploads: { item: string; name: string }[] = [];
     const uploadTasks = uploadItems.flatMap((item) => {
       if (homeNA[item]) {
         return [
@@ -1217,6 +1218,8 @@ const editPreviewImages = useMemo(() => {
           );
           if (path) {
             (uploadedImages[item] as string[]).push(path);
+          } else {
+            failedUploads.push({ item, name: file.name });
           }
         } finally {
           completedCount++;
@@ -1230,6 +1233,13 @@ const editPreviewImages = useMemo(() => {
 
     // 同時最多 6 張，其餘排隊
     await runInBatches(uploadTasks, 6);
+    if (failedUploads.length > 0) {
+      const detail = failedUploads
+        .map(({ item, name }) => `${item} (${name || "未命名"})`)
+        .join("\n");
+      alert(`以下照片上傳失敗，請重新嘗試：\n${detail}`);
+      return false;
+    }
 
     const report: Report = {
       id,
@@ -1654,11 +1664,12 @@ const editPreviewImages = useMemo(() => {
     })();
   }, [isLoggedIn, authUsername]);
 
-  const handleLogout = async () => {
+  const handleLogout = async (options?: { clearDraft?: boolean }) => {
+    const clearDraft = options?.clearDraft ?? true;
     await supabase.auth.signOut();
-    await resetNewReportState(true);
-    await resetEditState(true);
-    await resetManageState(true);
+    await resetNewReportState(clearDraft);
+    await resetEditState(clearDraft);
+    await resetManageState(clearDraft);
     setPendingDraft(null);
     setShowDraftPrompt(false);
     setPage("home");
@@ -1688,7 +1699,7 @@ const editPreviewImages = useMemo(() => {
         idleTimerRef.current = null;
       }
       idleTimerRef.current = window.setTimeout(() => {
-        void handleLogout();
+        void handleLogout({ clearDraft: false });
       }, idleTimeoutMs);
     };
 
@@ -2381,6 +2392,7 @@ const editPreviewImages = useMemo(() => {
                     return hasNewFile || (!wasNA && isNA);
                   });
                   const uploadedImages: Record<string, ImageValue> = {};
+                  const failedUploads: { item: string; name: string }[] = [];
                   expectedItems.forEach((item) => {
                     if (editNA[item]) {
                       uploadedImages[item] = NA_SENTINEL;
@@ -2444,6 +2456,8 @@ const editPreviewImages = useMemo(() => {
 
                         if (url) {
                           (uploadedImages[item] as string[]).push(url);
+                        } else {
+                          failedUploads.push({ item, name: file.name });
                         }
                       } finally {
                         completedCount++;
@@ -2458,6 +2472,13 @@ const editPreviewImages = useMemo(() => {
                   });
                   
                   await runInBatches(uploadTasks, 6);
+                  if (failedUploads.length > 0) {
+                    const detail = failedUploads
+                      .map(({ item, name }) => `${item} (${name || "未命名"})`)
+                      .join("\n");
+                    alert(`以下照片上傳失敗，請重新嘗試：\n${detail}`);
+                    return;
+                  }
 
                   // N/A：寫入 sentinel；若從 N/A 切回一般且未重新拍照，則保留原圖（若原本是 N/A 則變回未拍）
                   expectedItems.forEach((it) => {
