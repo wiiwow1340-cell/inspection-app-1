@@ -786,7 +786,6 @@ useEffect(() => {
   }
 
   const items = report.expected_items ?? [];
-  setEditSignedUrlMap({});
 
   (async () => {
     const entries = await Promise.all(
