@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
@@ -234,7 +234,7 @@ const DRAFT_DB_NAME = "inspection_app_drafts";
 const DRAFT_STORE = "drafts";
 
 function draftKey(username: string) {
-  return `draft_v1:${(username || "anon").toLowerCase()}`;
+  return `draft_v1:${username.toLowerCase()}`;
 }
 
 function openDraftDB(): Promise<IDBDatabase> {
@@ -676,9 +676,16 @@ export default function App() {
     alert("此帳號已在其他裝置登入，系統將登出。");
     // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
     supabase.auth.signOut();
+    await resetNewReportState(true);
+    await resetEditState(true);
+    await resetManageState(true);
+    setPendingDraft(null);
+    setShowDraftPrompt(false);
+    setPage("home");
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    draftLoadedRef.current = null;
   };
 
 
@@ -697,8 +704,10 @@ export default function App() {
   // ===== Draft / 恢復提示（三頁共用）=====
   const [pendingDraft, setPendingDraft] = useState<AppDraft | null>(null);
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
-  const draftLoadedRef = useRef(false);
+  const draftLoadedRef = useRef<string | null>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
 
   // 製程 / 報告資料
@@ -730,6 +739,10 @@ export default function App() {
   const [editImageFiles, setEditImageFiles] = useState<Record<string, File[]>>(
     {}
   );
+  const [editSignedUrlMap, setEditSignedUrlMap] = useState<
+    Record<string, string[]>
+  >({});
+  const fetchedEditSignedReportIdRef = useRef<string | null>(null);
 
   // 編輯儲存前預覽
   const [showEditPreview, setShowEditPreview] = useState(false);
@@ -753,7 +766,6 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [signedImg, setSignedImg] = useState<string[]>([]);
 
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
@@ -767,58 +779,87 @@ export default function App() {
 useEffect(() => {
   let isActive = true;
 
-  if (!showEditPreview || !editingReportId) {
+  if (!editingReportId) {
+    fetchedEditSignedReportIdRef.current = null;
+    setEditSignedUrlMap({});
+    return;
+  }
+
+  if (fetchedEditSignedReportIdRef.current === editingReportId) {
     return;
   }
 
   const report = reports.find((r) => r.id === editingReportId);
   if (!report) {
-    setSignedImg([]);
     return;
   }
 
-  const item = report.expected_items?.[editPreviewIndex];
-  if (!item) {
-    setSignedImg([]);
-    return;
-  }
-
-  if (editNA[item] || isNAValue(report.images?.[item])) {
-    setSignedImg([]);
-    return;
-  }
-
-  const existingImages = normalizeImageValue(report.images?.[item]);
-  const newPreviews = editImages[item] || [];
-  const combined = [...existingImages, ...newPreviews];
-
-  if (combined.length === 0) {
-    setSignedImg([]);
-    return;
-  }
+  const items = report.expected_items ?? [];
 
   (async () => {
-    const resolved = await Promise.all(
-      combined.map(async (raw) => {
-        if (
-          raw.startsWith("data:") ||
-          raw.startsWith("blob:") ||
-          raw.startsWith("http://") ||
-          raw.startsWith("https://")
-        ) {
-          return raw;
+    const entries = await Promise.all(
+      items.map(async (item) => {
+        const existingImages = normalizeImageValue(report.images?.[item]);
+        if (existingImages.length === 0) {
+          return [item, []] as const;
         }
-        return getSignedImageUrl(raw);
+
+        const resolved = await Promise.all(
+          existingImages.map(async (raw) => {
+            if (
+              raw.startsWith("data:") ||
+              raw.startsWith("blob:") ||
+              raw.startsWith("http://") ||
+              raw.startsWith("https://")
+            ) {
+              return raw;
+            }
+            return getSignedImageUrl(raw);
+          })
+        );
+        return [item, resolved.filter(Boolean)] as const;
       })
     );
-    if (isActive) {
-      setSignedImg(resolved.filter(Boolean));
+
+    if (!isActive) {
+      return;
     }
+
+    const nextMap: Record<string, string[]> = {};
+    for (const [item, urls] of entries) {
+      nextMap[item] = urls;
+    }
+    setEditSignedUrlMap(nextMap);
+    fetchedEditSignedReportIdRef.current = editingReportId;
   })();
 
   return () => {
     isActive = false;
   };
+}, [editingReportId, reports]);
+
+const editPreviewImages = useMemo(() => {
+  if (!showEditPreview || !editingReportId) {
+    return [];
+  }
+
+  const report = reports.find((r) => r.id === editingReportId);
+  if (!report) {
+    return [];
+  }
+
+  const item = report.expected_items?.[editPreviewIndex];
+  if (!item) {
+    return [];
+  }
+
+  if (editNA[item] || isNAValue(report.images?.[item])) {
+    return [];
+  }
+
+  const existingSigned = editSignedUrlMap[item] || [];
+  const newPreviews = editImages[item] || [];
+  return [...existingSigned, ...newPreviews];
 }, [
   showEditPreview,
   editingReportId,
@@ -826,6 +867,7 @@ useEffect(() => {
   reports,
   editImages,
   editNA,
+  editSignedUrlMap,
 ]);
 
 
@@ -1257,7 +1299,6 @@ useEffect(() => {
         setEditNA({});
         setShowEditPreview(false);
         setEditPreviewIndex(0);
-        setSignedImg([]);
       }
       return next;
     });
@@ -1271,7 +1312,6 @@ useEffect(() => {
     setEditImageFiles({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg([]);
 
     // 初始化 N/A（從既有資料帶入）
     const nextNA: Record<string, boolean> = {};
@@ -1293,7 +1333,6 @@ useEffect(() => {
       setEditNA({});
       setShowEditPreview(false);
       setEditPreviewIndex(0);
-      setSignedImg([]);
       setExpandedReportId(id);
       return;
     }
@@ -1307,7 +1346,7 @@ useEffect(() => {
   //  Draft：三頁共用「滑掉可復原」(UX-1)
   // =============================
 
-  const getDraftId = () => draftKey(authUsername || "anon");
+  const getDraftId = () => (authUsername ? draftKey(authUsername) : null);
 
   const revokePreviewUrls = (obj: Record<string, string[]>) => {
     try {
@@ -1334,8 +1373,10 @@ useEffect(() => {
     setPreviewIndex(0);
     setShowPreview(false);
     if (alsoClearDraft) {
+      const draftId = getDraftId();
+      if (!draftId) return;
       try {
-        await idbDel(getDraftId());
+        await idbDel(draftId);
       } catch {
         // ignore
       }
@@ -1346,14 +1387,15 @@ useEffect(() => {
     revokePreviewUrls(editImages);
     setEditingReportId(null);
     setEditImages({});
-        setEditImageFiles({});
-        setEditNA({});
+    setEditImageFiles({});
+    setEditNA({});
     setShowEditPreview(false);
     setEditPreviewIndex(0);
-    setSignedImg([]);
     if (alsoClearDraft) {
+      const draftId = getDraftId();
+      if (!draftId) return;
       try {
-        await idbDel(getDraftId());
+        await idbDel(draftId);
       } catch {
         // ignore
       }
@@ -1369,8 +1411,10 @@ useEffect(() => {
     setNewItem("");
     setInsertAfter("last");
     if (alsoClearDraft) {
+      const draftId = getDraftId();
+      if (!draftId) return;
       try {
-        await idbDel(getDraftId());
+        await idbDel(draftId);
       } catch {
         // ignore
       }
@@ -1561,11 +1605,13 @@ useEffect(() => {
     const run = async () => {
       try {
         const d = buildDraftFromState();
+        const draftId = getDraftId();
+        if (!draftId) return;
         if (!d) {
-          await idbDel(getDraftId());
+          await idbDel(draftId);
           return;
         }
-        await idbSet(getDraftId(), d);
+        await idbSet(draftId, d);
       } catch {
         // ignore
       }
@@ -1590,12 +1636,14 @@ useEffect(() => {
   // 啟動時：讀取草稿（只做一次）
   useEffect(() => {
     if (!isLoggedIn || !authUsername) return;
-    if (draftLoadedRef.current) return;
-    draftLoadedRef.current = true;
+    if (draftLoadedRef.current === authUsername) return;
+    draftLoadedRef.current = authUsername;
 
     (async () => {
       try {
-        const d = await idbGet(getDraftId());
+        const draftId = getDraftId();
+        if (!draftId) return;
+        const d = await idbGet(draftId);
         if (d) {
           setPendingDraft(d);
           setShowDraftPrompt(true);
@@ -1605,6 +1653,63 @@ useEffect(() => {
       }
     })();
   }, [isLoggedIn, authUsername]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    await resetNewReportState(true);
+    await resetEditState(true);
+    await resetManageState(true);
+    setPendingDraft(null);
+    setShowDraftPrompt(false);
+    setPage("home");
+    setIsLoggedIn(false);
+    setAuthUsername("");
+    setIsAdmin(false);
+    draftLoadedRef.current = null;
+  };
+
+  // ===== 閒置自動登出（20 分鐘無操作）=====
+  useEffect(() => {
+    if (!isLoggedIn) {
+      if (idleTimerRef.current) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      return;
+    }
+
+    const idleTimeoutMs = 20 * 60 * 1000;
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "touchmove"];
+
+    const resetIdleTimer = () => {
+      lastActivityRef.current = Date.now();
+      if (idleTimerRef.current) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      idleTimerRef.current = window.setTimeout(() => {
+        void handleLogout();
+      }, idleTimeoutMs);
+    };
+
+    const handleActivity = () => resetIdleTimer();
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+
+    resetIdleTimer();
+
+    return () => {
+      if (idleTimerRef.current) {
+        window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+    };
+  }, [isLoggedIn]);
 
   // 狀態變動：自動存草稿
   useEffect(() => {
@@ -1874,10 +1979,7 @@ useEffect(() => {
           variant="secondary"
           size="sm"
           onClick={async () => {
-            await supabase.auth.signOut();
-            setIsLoggedIn(false);
-            setAuthUsername("");
-            setIsAdmin(false);
+            await handleLogout();
           }}
         >
           登出
@@ -1937,7 +2039,6 @@ useEffect(() => {
           editNA={editNA}
           setEditNA={setEditNA}
           handleEditCapture={handleEditCapture}
-          setSignedImg={setSignedImg}
           setEditPreviewIndex={setEditPreviewIndex}
           setShowEditPreview={setShowEditPreview}
           NA_SENTINEL={NA_SENTINEL}
@@ -2003,14 +2104,17 @@ useEffect(() => {
             </p>
 
             <div className="flex gap-2 mt-4">
-              <Button
-                className="flex-1"
-                onClick={async () => {
-                  try {
-                    await idbDel(getDraftId());
-                  } catch {
-                    // ignore
-                  }
+                <Button
+                  className="flex-1"
+                  onClick={async () => {
+                    try {
+                      const draftId = getDraftId();
+                      if (draftId) {
+                        await idbDel(draftId);
+                      }
+                    } catch {
+                      // ignore
+                    }
                   setPendingDraft(null);
                   setShowDraftPrompt(false);
                 }}
@@ -2186,9 +2290,9 @@ useEffect(() => {
                   <p className="font-medium">{item}</p>
                   {editNA[item] ? (
                     <p className="text-slate-600 text-sm">N/A（不適用）</p>
-                  ) : signedImg.length > 0 ? (
+                  ) : editPreviewImages.length > 0 ? (
                     <div className="grid gap-2">
-                      {signedImg.map((img, imgIndex) => (
+                      {editPreviewImages.map((img, imgIndex) => (
                         <img
                           key={`${item}-${imgIndex}`}
                           src={img}
