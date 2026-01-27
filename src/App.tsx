@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
@@ -730,6 +730,10 @@ export default function App() {
   const [editImageFiles, setEditImageFiles] = useState<Record<string, File[]>>(
     {}
   );
+  const [editSignedUrlMap, setEditSignedUrlMap] = useState<
+    Record<string, string[]>
+  >({});
+  const fetchedEditSignedReportIdRef = useRef<string | null>(null);
 
   // 編輯儲存前預覽
   const [showEditPreview, setShowEditPreview] = useState(false);
@@ -753,7 +757,6 @@ export default function App() {
   // 新增檢驗：儲存前預覽
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [signedImg, setSignedImg] = useState<string[]>([]);
 
   // ===== 防止重複儲存（新增 / 編輯）：UI state + 即時防重入 ref =====
   const [isSavingNew, setIsSavingNew] = useState(false);
@@ -767,58 +770,88 @@ export default function App() {
 useEffect(() => {
   let isActive = true;
 
-  if (!showEditPreview || !editingReportId) {
+  if (!editingReportId) {
+    fetchedEditSignedReportIdRef.current = null;
+    setEditSignedUrlMap({});
+    return;
+  }
+
+  if (fetchedEditSignedReportIdRef.current === editingReportId) {
     return;
   }
 
   const report = reports.find((r) => r.id === editingReportId);
   if (!report) {
-    setSignedImg([]);
     return;
   }
 
-  const item = report.expected_items?.[editPreviewIndex];
-  if (!item) {
-    setSignedImg([]);
-    return;
-  }
-
-  if (editNA[item] || isNAValue(report.images?.[item])) {
-    setSignedImg([]);
-    return;
-  }
-
-  const existingImages = normalizeImageValue(report.images?.[item]);
-  const newPreviews = editImages[item] || [];
-  const combined = [...existingImages, ...newPreviews];
-
-  if (combined.length === 0) {
-    setSignedImg([]);
-    return;
-  }
+  const items = report.expected_items ?? [];
+  setEditSignedUrlMap({});
 
   (async () => {
-    const resolved = await Promise.all(
-      combined.map(async (raw) => {
-        if (
-          raw.startsWith("data:") ||
-          raw.startsWith("blob:") ||
-          raw.startsWith("http://") ||
-          raw.startsWith("https://")
-        ) {
-          return raw;
+    const entries = await Promise.all(
+      items.map(async (item) => {
+        const existingImages = normalizeImageValue(report.images?.[item]);
+        if (existingImages.length === 0) {
+          return [item, []] as const;
         }
-        return getSignedImageUrl(raw);
+
+        const resolved = await Promise.all(
+          existingImages.map(async (raw) => {
+            if (
+              raw.startsWith("data:") ||
+              raw.startsWith("blob:") ||
+              raw.startsWith("http://") ||
+              raw.startsWith("https://")
+            ) {
+              return raw;
+            }
+            return getSignedImageUrl(raw);
+          })
+        );
+        return [item, resolved.filter(Boolean)] as const;
       })
     );
-    if (isActive) {
-      setSignedImg(resolved.filter(Boolean));
+
+    if (!isActive) {
+      return;
     }
+
+    const nextMap: Record<string, string[]> = {};
+    for (const [item, urls] of entries) {
+      nextMap[item] = urls;
+    }
+    setEditSignedUrlMap(nextMap);
+    fetchedEditSignedReportIdRef.current = editingReportId;
   })();
 
   return () => {
     isActive = false;
   };
+}, [editingReportId, reports]);
+
+const editPreviewImages = useMemo(() => {
+  if (!showEditPreview || !editingReportId) {
+    return [];
+  }
+
+  const report = reports.find((r) => r.id === editingReportId);
+  if (!report) {
+    return [];
+  }
+
+  const item = report.expected_items?.[editPreviewIndex];
+  if (!item) {
+    return [];
+  }
+
+  if (editNA[item] || isNAValue(report.images?.[item])) {
+    return [];
+  }
+
+  const existingSigned = editSignedUrlMap[item] || [];
+  const newPreviews = editImages[item] || [];
+  return [...existingSigned, ...newPreviews];
 }, [
   showEditPreview,
   editingReportId,
@@ -826,6 +859,7 @@ useEffect(() => {
   reports,
   editImages,
   editNA,
+  editSignedUrlMap,
 ]);
 
 
@@ -2186,9 +2220,9 @@ useEffect(() => {
                   <p className="font-medium">{item}</p>
                   {editNA[item] ? (
                     <p className="text-slate-600 text-sm">N/A（不適用）</p>
-                  ) : signedImg.length > 0 ? (
+                  ) : editPreviewImages.length > 0 ? (
                     <div className="grid gap-2">
-                      {signedImg.map((img, imgIndex) => (
+                      {editPreviewImages.map((img, imgIndex) => (
                         <img
                           key={`${item}-${imgIndex}`}
                           src={img}
