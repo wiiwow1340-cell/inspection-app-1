@@ -676,9 +676,16 @@ export default function App() {
     alert("此帳號已在其他裝置登入，系統將登出。");
     // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
     supabase.auth.signOut();
+    await resetNewReportState(true);
+    await resetEditState(true);
+    await resetManageState(true);
+    setPendingDraft(null);
+    setShowDraftPrompt(false);
+    setPage("home");
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    draftLoadedRef.current = null;
   };
 
 
@@ -1647,6 +1654,20 @@ const editPreviewImages = useMemo(() => {
     })();
   }, [isLoggedIn, authUsername]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    await resetNewReportState(true);
+    await resetEditState(true);
+    await resetManageState(true);
+    setPendingDraft(null);
+    setShowDraftPrompt(false);
+    setPage("home");
+    setIsLoggedIn(false);
+    setAuthUsername("");
+    setIsAdmin(false);
+    draftLoadedRef.current = null;
+  };
+
   // ===== 閒置自動登出（20 分鐘無操作）=====
   useEffect(() => {
     if (!isLoggedIn) {
@@ -1660,20 +1681,15 @@ const editPreviewImages = useMemo(() => {
     const idleTimeoutMs = 20 * 60 * 1000;
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "touchmove"];
 
-    const handleLogout = () => {
-      supabase.auth.signOut();
-      setIsLoggedIn(false);
-      setAuthUsername("");
-      setIsAdmin(false);
-    };
-
     const resetIdleTimer = () => {
       lastActivityRef.current = Date.now();
       if (idleTimerRef.current) {
         window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = null;
       }
-      idleTimerRef.current = window.setTimeout(handleLogout, idleTimeoutMs);
+      idleTimerRef.current = window.setTimeout(() => {
+        void handleLogout();
+      }, idleTimeoutMs);
     };
 
     const handleActivity = () => resetIdleTimer();
@@ -1963,10 +1979,7 @@ const editPreviewImages = useMemo(() => {
           variant="secondary"
           size="sm"
           onClick={async () => {
-            await supabase.auth.signOut();
-            setIsLoggedIn(false);
-            setAuthUsername("");
-            setIsAdmin(false);
+            await handleLogout();
           }}
         >
           登出
