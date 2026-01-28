@@ -1679,7 +1679,7 @@ const editPreviewImages = useMemo(() => {
     draftLoadedRef.current = null;
   };
 
-  // ===== 閒置自動登出（20 分鐘無操作）=====
+  // ===== 閒置自動登出（5 分鐘無操作）=====
   useEffect(() => {
     if (!isLoggedIn) {
       if (idleTimerRef.current) {
@@ -1689,8 +1689,23 @@ const editPreviewImages = useMemo(() => {
       return;
     }
 
-    const idleTimeoutMs = 20 * 60 * 1000;
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "touchmove"];
+    const idleTimeoutMs = 5 * 60 * 1000;
+    const events = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "touchmove",
+      "wheel",
+      "scroll",
+      "pointerdown",
+      "pointermove",
+      "click",
+    ];
+
+    const triggerIdleLogout = () => {
+      void handleLogout({ clearDraft: false });
+    };
 
     const resetIdleTimer = () => {
       lastActivityRef.current = Date.now();
@@ -1699,7 +1714,7 @@ const editPreviewImages = useMemo(() => {
         idleTimerRef.current = null;
       }
       idleTimerRef.current = window.setTimeout(() => {
-        void handleLogout({ clearDraft: false });
+        triggerIdleLogout();
       }, idleTimeoutMs);
     };
 
@@ -1709,6 +1724,26 @@ const editPreviewImages = useMemo(() => {
       window.addEventListener(eventName, handleActivity, { passive: true });
     });
 
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      const elapsed = Date.now() - lastActivityRef.current;
+      if (elapsed >= idleTimeoutMs) {
+        triggerIdleLogout();
+      } else {
+        resetIdleTimer();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+
+    const idleCheckInterval = window.setInterval(() => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      if (elapsed >= idleTimeoutMs) {
+        triggerIdleLogout();
+      }
+    }, 30000);
+
     resetIdleTimer();
 
     return () => {
@@ -1716,9 +1751,12 @@ const editPreviewImages = useMemo(() => {
         window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = null;
       }
+      window.clearInterval(idleCheckInterval);
       events.forEach((eventName) => {
         window.removeEventListener(eventName, handleActivity);
       });
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
     };
   }, [isLoggedIn]);
 
