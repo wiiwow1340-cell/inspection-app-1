@@ -566,7 +566,13 @@ async function fetchReportsFromDB(): Promise<Report[]> {
 //  Login Page（帳號 + 密碼，帳號會轉成 email@local）
 // =============================
 
-function LoginPage({ onLogin }: { onLogin: () => void }) {
+function LoginPage({
+  onLogin,
+  idleLogoutMessage,
+}: {
+  onLogin: () => void;
+  idleLogoutMessage: string;
+}) {
   const [username, setUsername] = useState(""); // 顯示給使用者的「帳號」
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -622,6 +628,11 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           </p>
         </div>
         <Card className="rounded-2xl border border-white/30 bg-white/15 p-6 space-y-4 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl">
+          {idleLogoutMessage && (
+            <div className="rounded-lg border border-amber-200/40 bg-amber-100/20 px-3 py-2 text-sm text-amber-100">
+              {idleLogoutMessage}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-100">帳號</label>
             <Input
@@ -708,6 +719,7 @@ export default function App() {
   const draftSaveTimerRef = useRef<number | null>(null);
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
 
 
   // 製程 / 報告資料
@@ -918,6 +930,7 @@ const editPreviewImages = useMemo(() => {
         }
 
         if (hasSession) {
+          setIdleLogoutMessage("");
           // ⚠️ 不要讓 refreshUserRole 阻塞 sessionChecked
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
@@ -950,6 +963,7 @@ const editPreviewImages = useMemo(() => {
         setSessionChecked(true);
 
         if (session) {
+          setIdleLogoutMessage("");
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
@@ -1704,6 +1718,7 @@ const editPreviewImages = useMemo(() => {
     ];
 
     const triggerIdleLogout = () => {
+      setIdleLogoutMessage("因閒置超過 5 分鐘，已自動登出");
       void handleLogout({ clearDraft: false });
     };
 
@@ -1949,7 +1964,15 @@ const editPreviewImages = useMemo(() => {
   }
 
   if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+    return (
+      <LoginPage
+        idleLogoutMessage={idleLogoutMessage}
+        onLogin={() => {
+          setIdleLogoutMessage("");
+          setIsLoggedIn(true);
+        }}
+      />
+    );
   }
 
   // =============================
