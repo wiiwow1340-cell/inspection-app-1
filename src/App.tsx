@@ -161,25 +161,6 @@ function confirmDiscard(message?: string) {
 
 
 // =============================
-//  預設製程
-// =============================
-
-const DEFAULT_PROCESSES: Process[] = [
-  {
-    name: "性能測試",
-    code: "PT",
-    model: "TC1288",
-    items: ["測試照片1", "測試照片2"],
-  },
-  {
-    name: "外觀檢驗",
-    code: "PR",
-    model: "TC588",
-    items: ["外觀正面", "外觀側面"],
-  },
-];
-
-// =============================
 //  Supabase 連線設定
 // =============================
 
@@ -724,6 +705,10 @@ export default function App() {
 
   // 製程 / 報告資料
   const [processes, setProcesses] = useState<Process[]>([]);
+  const [processStatus, setProcessStatus] = useState<
+    "idle" | "loading" | "ready" | "empty" | "error"
+  >("idle");
+  const [processError, setProcessError] = useState("");
   const [reports, setReports] = useState<Report[]>([]);
 
   // 管理製程用
@@ -1006,6 +991,8 @@ const editPreviewImages = useMemo(() => {
 
     const init = async () => {
       // 1) 先載製程
+      setProcessStatus("loading");
+      setProcessError("");
       const { data: procData, error: procErr } = await supabase
         .from("processes")
         .select("*")
@@ -1013,7 +1000,9 @@ const editPreviewImages = useMemo(() => {
 
       if (procErr) {
         console.error("讀取 processes 失敗：", procErr.message);
-        setProcesses(DEFAULT_PROCESSES);
+        setProcesses([]);
+        setProcessStatus("error");
+        setProcessError(procErr.message);
       } else if (procData && procData.length > 0) {
         setProcesses(
           procData.map((p: any) => ({
@@ -1023,17 +1012,10 @@ const editPreviewImages = useMemo(() => {
             items: p.items ? JSON.parse(p.items) : [],
           }))
         );
+        setProcessStatus("ready");
       } else {
-        // 第一次啟動：寫入預設流程
-        for (const dp of DEFAULT_PROCESSES) {
-          await supabase.from("processes").insert({
-            name: dp.name,
-            code: dp.code,
-            model: dp.model,
-            items: JSON.stringify(dp.items),
-          });
-        }
-        setProcesses(DEFAULT_PROCESSES);
+        setProcesses([]);
+        setProcessStatus("empty");
       }
 
       // 2) 再載報告
@@ -1163,6 +1145,16 @@ const editPreviewImages = useMemo(() => {
 
   // ===== 新增表單：確認儲存（上傳到 Storage + 寫 DB） =====
   const saveReport = async (): Promise<boolean> => {
+    if (processStatus !== "ready") {
+      const message =
+        processStatus === "error"
+          ? `製程載入失敗，無法建立報告。\n(${processError || "未知錯誤"})`
+          : processStatus === "empty"
+          ? "資料庫目前沒有任何製程，無法建立報告。"
+          : "製程尚未載入完成，請稍後再試。";
+      alert(message);
+      return false;
+    }
     const sn = serial.trim();
     if (!sn) {
       alert("請先輸入序號");
@@ -2069,6 +2061,8 @@ const editPreviewImages = useMemo(() => {
           productModels={productModels}
           filteredProcesses={filteredProcesses}
           selectedProcObj={selectedProcObj}
+          processStatus={processStatus}
+          processError={processError}
           images={images}
           setImages={setImages}
           newImageFiles={newImageFiles}
@@ -2092,6 +2086,8 @@ const editPreviewImages = useMemo(() => {
           Button={Button}
           StatusIcon={StatusIcon}
           processes={processes}
+          processStatus={processStatus}
+          processError={processError}
           reports={reports}
           filteredReports={filteredReports}
           selectedProcessFilter={selectedProcessFilter}
@@ -2126,6 +2122,8 @@ const editPreviewImages = useMemo(() => {
           authUsername={authUsername}
       
           processes={processes}
+          processStatus={processStatus}
+          processError={processError}
           newProcName={newProcName}
           setNewProcName={setNewProcName}
           newProcCode={newProcCode}

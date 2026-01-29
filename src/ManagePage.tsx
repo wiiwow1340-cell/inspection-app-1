@@ -41,6 +41,8 @@ type ManagePageProps = {
   setInsertAfter: React.Dispatch<React.SetStateAction<string>>;
   items: string[];
   processes: Process[];
+  processStatus: "idle" | "loading" | "ready" | "empty" | "error";
+  processError: string;
   expandedProcessIndex: number | null;
   setExpandedProcessIndex: React.Dispatch<React.SetStateAction<number | null>>;
   addItem: () => void;
@@ -74,6 +76,8 @@ export default function ManagePage({
   setInsertAfter,
   items,
   processes,
+  processStatus,
+  processError,
   expandedProcessIndex,
   setExpandedProcessIndex,
   addItem,
@@ -100,6 +104,18 @@ export default function ManagePage({
     );
   }
 
+  const isProcessLocked =
+    processStatus === "loading" || processStatus === "error";
+  const isProcessEmpty = processStatus === "empty";
+  const isProcessError = processStatus === "error";
+  const processMessage = isProcessError
+    ? `製程載入失敗，暫時無法管理。${processError ? `（${processError}）` : ""}`
+    : isProcessEmpty
+    ? "資料庫目前沒有任何製程，可先新增製程。"
+    : processStatus === "loading"
+    ? "製程載入中，請稍候。"
+    : "";
+
   const isEditingProcessDirty = () => {
     if (editingIndex === null) return false;
     const original = processes[editingIndex];
@@ -121,6 +137,17 @@ export default function ManagePage({
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold text-slate-900">管理製程</h2>
+      {(isProcessLocked || isProcessEmpty) && (
+        <div
+          className={`rounded border px-3 py-2 text-sm ${
+            isProcessError
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {processMessage}
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="flex flex-col gap-2">
@@ -129,12 +156,14 @@ export default function ManagePage({
               value={newProcName}
               placeholder="製程名稱"
               onChange={(e) => setNewProcName(e.target.value)}
+              disabled={isProcessLocked}
               className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
             <Input
               value={newProcCode}
               placeholder="製程代號"
               onChange={(e) => setNewProcCode(e.target.value)}
+              disabled={isProcessLocked}
               className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
           </div>
@@ -142,6 +171,7 @@ export default function ManagePage({
             value={newProcModel}
             placeholder="產品型號"
             onChange={(e) => setNewProcModel(e.target.value)}
+            disabled={isProcessLocked}
             className="border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
           />
           {editingIndex !== null && (
@@ -157,12 +187,14 @@ export default function ManagePage({
               value={newItem}
               placeholder="新增檢驗照片項目"
               onChange={(e) => setNewItem(e.target.value)}
+              disabled={isProcessLocked}
               className="flex-1 min-w-0 w-auto border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
             <Button
               type="button"
               size="sm"
               onClick={addItem}
+              disabled={isProcessLocked}
               className="shrink-0 whitespace-nowrap"
             >
               加入
@@ -176,6 +208,7 @@ export default function ManagePage({
             <select
               value={insertAfter}
               onChange={(e) => setInsertAfter(e.target.value)}
+              disabled={isProcessLocked}
               className="border border-slate-200 bg-white text-slate-900 p-2 rounded flex-1 h-9 focus-visible:outline-none focus-visible:border-blue-500"
             >
               <option value="last">最後</option>
@@ -196,6 +229,7 @@ export default function ManagePage({
             <Input
               value={i}
               onChange={(e) => updateItemName(idx, e.target.value)}
+              disabled={isProcessLocked}
               className="flex-1 h-9 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500"
             />
 
@@ -205,7 +239,7 @@ export default function ManagePage({
                 size="sm"
                 variant="secondary"
                 onClick={() => moveItemUp(idx)}
-                disabled={idx === 0}
+                disabled={isProcessLocked || idx === 0}
                 title="上移"
               >
                 ↑
@@ -216,7 +250,7 @@ export default function ManagePage({
                 size="sm"
                 variant="secondary"
                 onClick={() => moveItemDown(idx)}
-                disabled={idx === items.length - 1}
+                disabled={isProcessLocked || idx === items.length - 1}
                 title="下移"
               >
                 ↓
@@ -227,6 +261,7 @@ export default function ManagePage({
                 size="sm"
                 type="button"
                 onClick={() => setConfirmTarget({ type: "item", index: idx })}
+                disabled={isProcessLocked}
               >
                 刪除
               </Button>
@@ -235,7 +270,12 @@ export default function ManagePage({
         ))}
 
         <div className="flex gap-2">
-          <Button onClick={saveProcess} className="flex-1" type="button">
+          <Button
+            onClick={saveProcess}
+            className="flex-1"
+            type="button"
+            disabled={isProcessLocked}
+          >
             {editingIndex !== null ? "更新製程" : "儲存製程"}
           </Button>
 
@@ -245,6 +285,7 @@ export default function ManagePage({
               type="button"
               variant="secondary"
               onClick={cancelManageCreate}
+              disabled={isProcessLocked}
             >
               取消新增
             </Button>
@@ -262,6 +303,7 @@ export default function ManagePage({
                 }
                 await resetManageState(false);
               }}
+              disabled={isProcessLocked}
             >
               取消編輯
             </Button>
@@ -279,82 +321,98 @@ export default function ManagePage({
               </tr>
             </thead>
             <tbody>
-              {processes.map((p, idx) => {
-                const isOpen = expandedProcessIndex === idx;
-                return (
-                  <React.Fragment key={`${p.name}-${p.code}-${p.model}-${idx}`}>
-                    <tr
-                      className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"
-                      onClick={() =>
-                        setExpandedProcessIndex((prev) =>
-                          prev === idx ? null : idx
-                        )
-                      }
+              {processes.length === 0 ? (
+                <tr className="border-t border-slate-200">
+                  <td className="p-3 text-center text-slate-500" colSpan={4}>
+                    {isProcessError
+                      ? "無法讀取製程資料"
+                      : "目前尚無製程資料"}
+                  </td>
+                </tr>
+              ) : (
+                processes.map((p, idx) => {
+                  const isOpen = expandedProcessIndex === idx;
+                  return (
+                    <React.Fragment
+                      key={`${p.name}-${p.code}-${p.model}-${idx}`}
                     >
-                      <td className="p-2">{p.name}</td>
-                      <td className="p-2">{p.code}</td>
-                      <td className="p-2 max-w-[10rem] truncate whitespace-nowrap sm:max-w-none">
-                        {p.model || "—"}
-                      </td>
-                      <td
-                        className="p-2 w-24 sm:w-32"
-                        onClick={(e) => e.stopPropagation()}
+                      <tr
+                        className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"
+                        onClick={() =>
+                          setExpandedProcessIndex((prev) =>
+                            prev === idx ? null : idx
+                          )
+                        }
                       >
-                        <div className="flex gap-1 sm:gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="px-2 sm:px-3"
-                            onClick={() => startEditingProcess(idx)}
-                          >
-                            編輯
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="px-2 sm:px-3"
-                            variant="destructive"
-                            onClick={() =>
-                              setConfirmTarget({ type: "process", proc: p })
-                            }
-                          >
-                            刪除
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {isOpen && (
-                      <tr className="border-t border-slate-200">
-                        <td className="p-0" colSpan={4}>
-                          <div className="p-3 bg-slate-50">
-                            <div className="font-semibold mb-2">檢驗項目</div>
-                            {p.items.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                {p.items.map((item, iidx) => (
-                                  <div
-                                    key={iidx}
-                                    className="bg-white border border-slate-200 rounded px-3 py-2"
-                                  >
-                                    {item}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-slate-500">
-                                尚未建立檢驗項目
-                              </div>
-                            )}
-                            <div className="text-xs text-slate-500 mt-2">
-                              ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
-                            </div>
+                        <td className="p-2">{p.name}</td>
+                        <td className="p-2">{p.code}</td>
+                        <td className="p-2 max-w-[10rem] truncate whitespace-nowrap sm:max-w-none">
+                          {p.model || "—"}
+                        </td>
+                        <td
+                          className="p-2 w-24 sm:w-32"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex gap-1 sm:gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="px-2 sm:px-3"
+                              onClick={() => startEditingProcess(idx)}
+                              disabled={isProcessLocked}
+                            >
+                              編輯
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="px-2 sm:px-3"
+                              variant="destructive"
+                              onClick={() =>
+                                setConfirmTarget({ type: "process", proc: p })
+                              }
+                              disabled={isProcessLocked}
+                            >
+                              刪除
+                            </Button>
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+
+                      {isOpen && (
+                        <tr className="border-t border-slate-200">
+                          <td className="p-0" colSpan={4}>
+                            <div className="p-3 bg-slate-50">
+                              <div className="font-semibold mb-2">
+                                檢驗項目
+                              </div>
+                              {p.items.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {p.items.map((item, iidx) => (
+                                    <div
+                                      key={iidx}
+                                      className="bg-white border border-slate-200 rounded px-3 py-2"
+                                    >
+                                      {item}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-slate-500">
+                                  尚未建立檢驗項目
+                                </div>
+                              )}
+                              <div className="text-xs text-slate-500 mt-2">
+                                ※ 若要修改此製程內容，請按上方「編輯」並於上方區塊更新後按「更新製程」
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

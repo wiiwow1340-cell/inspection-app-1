@@ -20,6 +20,8 @@ type Props = {
   }>;
 
   processes: Process[];
+  processStatus: "idle" | "loading" | "ready" | "empty" | "error";
+  processError: string;
   reports: Report[];
   filteredReports?: Report[];
   selectedProcessFilter?: string;
@@ -57,6 +59,8 @@ const ReportPage: React.FC<Props> = ({
   StatusIcon,
 
   processes,
+  processStatus,
+  processError,
   reports,
 
   fetchReportsFromDB,
@@ -88,6 +92,17 @@ const ReportPage: React.FC<Props> = ({
   const [appliedModel, setAppliedModel] = useState("");
   const [appliedStatus, setAppliedStatus] = useState<"" | "done" | "not">("");
   const [hasQueried, setHasQueried] = useState(false);
+  const isProcessReady = processStatus === "ready";
+  const isProcessLoading = processStatus === "loading";
+  const isProcessEmpty = processStatus === "empty";
+  const isProcessError = processStatus === "error";
+  const processMessage = isProcessError
+    ? `製程載入失敗，無法使用查詢功能。${processError ? `（${processError}）` : ""}`
+    : isProcessEmpty
+    ? "資料庫目前沒有任何製程，請先建立製程。"
+    : isProcessLoading
+    ? "製程載入中，請稍候。"
+    : "";
 
   // ===== 篩選後報告（本頁自行計算）=====
   const filteredReports = useMemo(() => {
@@ -130,7 +145,12 @@ const ReportPage: React.FC<Props> = ({
         <Button
           type="button"
           size="sm"
+          disabled={!isProcessReady}
           onClick={async () => {
+            if (!isProcessReady) {
+              alert(processMessage || "製程尚未就緒，請稍後再試。");
+              return;
+            }
             const fresh = await fetchReportsFromDB();
             setReports(fresh);
             setAppliedProcess(processFilter);
@@ -142,6 +162,17 @@ const ReportPage: React.FC<Props> = ({
           查詢
         </Button>
       </h2>
+      {!isProcessReady && (
+        <div
+          className={`rounded border px-3 py-2 text-sm ${
+            isProcessError
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {processMessage}
+        </div>
+      )}
 
       {/* ===== 篩選列 ===== */}
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -149,6 +180,7 @@ const ReportPage: React.FC<Props> = ({
           className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
           value={processFilter}
           onChange={(e) => setProcessFilter(e.target.value)}
+          disabled={!isProcessReady}
         >
           <option value="">全部製程</option>
           {Array.from(new Set(processes.map((p) => p.name))).map((name) => (
@@ -162,6 +194,7 @@ const ReportPage: React.FC<Props> = ({
           className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
           value={modelFilter}
           onChange={(e) => setModelFilter(e.target.value)}
+          disabled={!isProcessReady}
         >
           <option value="">全部型號</option>
           {Array.from(new Set(processes.map((p) => p.model))).map((m) => (
@@ -177,6 +210,7 @@ const ReportPage: React.FC<Props> = ({
           onChange={(e) =>
             setStatusFilter(e.target.value as "" | "done" | "not")
           }
+          disabled={!isProcessReady}
         >
           <option value="">全部狀態</option>
           <option value="done">已完成</option>
