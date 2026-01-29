@@ -34,6 +34,8 @@ type HomePageProps = {
   productModels: string[];
   filteredProcesses: Process[];
   selectedProcObj: Process | null;
+  processStatus: "idle" | "loading" | "ready" | "empty" | "error";
+  processError: string;
   images: Record<string, string[]>;
   setImages: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   newImageFiles: Record<string, File[]>;
@@ -62,6 +64,8 @@ export default function HomePage({
   productModels,
   filteredProcesses,
   selectedProcObj,
+  processStatus,
+  processError,
   images,
   setImages,
   newImageFiles,
@@ -83,14 +87,40 @@ export default function HomePage({
   const errorInputClass = "border-rose-400";
   const baseSelectClass =
     "w-full border border-slate-200 bg-white text-slate-900 p-2 rounded focus-visible:outline-none focus-visible:border-blue-500";
+  const isProcessReady = processStatus === "ready";
+  const isProcessLoading = processStatus === "loading";
+  const isProcessEmpty = processStatus === "empty";
+  const isProcessError = processStatus === "error";
+  const processMessage = isProcessError
+    ? `製程載入失敗，無法建立報告。${processError ? `（${processError}）` : ""}`
+    : isProcessEmpty
+    ? "資料庫目前沒有任何製程，請先由管理員建立製程。"
+    : isProcessLoading
+    ? "製程載入中，請稍候。"
+    : "";
 
   return (
     <Card className="p-4 space-y-4">
       <h2 className="text-xl font-bold text-slate-900">新增檢驗資料</h2>
+      {!isProcessReady && (
+        <div
+          className={`rounded border px-3 py-2 text-sm ${
+            isProcessError
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {processMessage}
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!isProcessReady) {
+            alert(processMessage || "製程尚未就緒，請稍後再試。");
+            return;
+          }
           if (!serial || !selectedModel || !selectedProcess) {
             alert("請先輸入序號、選擇型號與製程");
             return;
@@ -106,6 +136,7 @@ export default function HomePage({
             placeholder="輸入序號"
             value={serial}
             onChange={(e) => setSerial(e.target.value)}
+            disabled={!isProcessReady}
             className={`${baseInputClass} ${
               serial ? "" : errorInputClass
             }`}
@@ -124,6 +155,7 @@ export default function HomePage({
               setNewImageFiles({});
               setHomeNA({});
             }}
+            disabled={!isProcessReady}
             className={`${baseSelectClass} ${
               selectedModel ? "" : errorInputClass
             }`}
@@ -150,6 +182,7 @@ export default function HomePage({
               setNewImageFiles({});
               setHomeNA({});
             }}
+            disabled={!isProcessReady}
             className={`${baseSelectClass} ${
               selectedProcess ? "" : errorInputClass
             }`}
@@ -187,13 +220,14 @@ export default function HomePage({
         )}
 
         <div className="flex gap-2 mt-4">
-          <Button type="submit" className="flex-1">
+          <Button type="submit" className="flex-1" disabled={!isProcessReady}>
             確認
           </Button>
           <Button
             type="button"
             variant="secondary"
             className="flex-1"
+            disabled={!isProcessReady}
             onClick={async () => {
               const hasDirty =
                 serial.trim() ||
