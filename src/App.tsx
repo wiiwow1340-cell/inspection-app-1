@@ -429,47 +429,6 @@ const editPreviewImages = useMemo(() => {
 ]);
 
 
-  // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    const init = async () => {
-      // 1) 先載製程
-      setProcessStatus("loading");
-      setProcessError("");
-      const { data: procData, error: procErr } = await supabase
-        .from("processes")
-        .select("*")
-        .order("id", { ascending: true });
-
-      if (procErr) {
-        console.error("讀取 processes 失敗：", procErr.message);
-        setProcesses([]);
-        setProcessStatus("error");
-        setProcessError(procErr.message);
-      } else if (procData && procData.length > 0) {
-        setProcesses(
-          procData.map((p: any) => ({
-            name: p.name,
-            code: p.code,
-            model: p.model,
-            items: p.items ? JSON.parse(p.items) : [],
-          }))
-        );
-        setProcessStatus("ready");
-      } else {
-        setProcesses([]);
-        setProcessStatus("empty");
-      }
-
-      // 2) 再載報告
-      const data = await fetchReportsFromDB();
-      setReports(data);
-    };
-
-    init();
-  }, [isLoggedIn]);
-
   // ===== 共用計算：型號 / 製程 / 篩選後報告 =====
   const productModels = Array.from(
     new Set(processes.map((p) => p.model).filter(Boolean))
@@ -492,19 +451,18 @@ const editPreviewImages = useMemo(() => {
     const isItemNA = (item: string) => isNAValue(r.images?.[item]);
     const isItemDone = (item: string) =>
       isItemNA(item) || normalizeImageValue(r.images?.[item]).length > 0;
+    const hasExpectedItems = expected.length > 0;
 
     if (queryFilters.status === "done") {
       // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return true;
-      if (!required.every((item) => isItemDone(item))) return false;
+      if (!hasExpectedItems) return false;
+      if (!expected.every((item) => isItemDone(item))) return false;
     }
 
     if (queryFilters.status === "not") {
       // 未完成：存在「非 N/A」但尚未拍照的項目
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return false;
-      if (!required.some((item) => !isItemDone(item))) return false;
+      if (!hasExpectedItems) return true;
+      if (!expected.some((item) => !isItemDone(item))) return false;
     }
 
     // 其他狀態：不過濾
@@ -610,6 +568,10 @@ const editPreviewImages = useMemo(() => {
     }
 
     const expectedItems = selectedProcObj.items || [];
+    if (expectedItems.length === 0) {
+      alert("此製程尚未設定檢驗項目，無法建立檢驗紀錄");
+      return false;
+    }
     const photoEntries = Object.entries(newImageFiles).filter(
       ([, files]) => files.length > 0
     );
@@ -957,6 +919,47 @@ const editPreviewImages = useMemo(() => {
     resetTracking: resetDraftTracking,
   };
 
+  // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const init = async () => {
+      // 1) 先載製程
+      setProcessStatus("loading");
+      setProcessError("");
+      const { data: procData, error: procErr } = await supabase
+        .from("processes")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (procErr) {
+        console.error("讀取 processes 失敗：", procErr.message);
+        setProcesses([]);
+        setProcessStatus("error");
+        setProcessError(procErr.message);
+      } else if (procData && procData.length > 0) {
+        setProcesses(
+          procData.map((p: any) => ({
+            name: p.name,
+            code: p.code,
+            model: p.model,
+            items: p.items ? JSON.parse(p.items) : [],
+          }))
+        );
+        setProcessStatus("ready");
+      } else {
+        setProcesses([]);
+        setProcessStatus("empty");
+      }
+
+      // 2) 再載報告
+      const data = await fetchReportsFromDB();
+      setReports(data);
+    };
+
+    init();
+  }, [isLoggedIn]);
+
   // 管理製程：新增 / 移除項目
   const addItem = () => {
     const val = newItem.trim();
@@ -1054,6 +1057,10 @@ const editPreviewImages = useMemo(() => {
   const saveProcess = async () => {
     if (!newProcName.trim() || !newProcCode.trim() || !newProcModel.trim()) {
       alert("請輸入製程名稱、代號與產品型號");
+      return;
+    }
+    if (items.filter((item) => item.trim()).length === 0) {
+      alert("製程必須至少包含一個檢驗項目");
       return;
     }
 
