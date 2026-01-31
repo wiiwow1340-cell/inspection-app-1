@@ -365,7 +365,7 @@ const ReportPage: React.FC<Props> = ({
               </table>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-xl w-full mx-auto">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-slate-600">
                   型號：{groupedReports.find((g) => g.key === pcSelectedKey)?.model}
