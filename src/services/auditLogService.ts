@@ -6,8 +6,7 @@ export type AuditAction =
   | "upload_photo_batch"
   | "delete_report"
   | "delete_photo"
-  | "login"
-  | "logout";
+  | "login";
 
 type AuditLogPayload = {
   reportId?: string | null;
