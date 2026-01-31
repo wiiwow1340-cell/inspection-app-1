@@ -5,10 +5,12 @@ export type AuditAction =
   | "edit_report"
   | "upload_photo_batch"
   | "delete_report"
-  | "delete_photo";
+  | "delete_photo"
+  | "login"
+  | "logout";
 
 type AuditLogPayload = {
-  reportId: string;
+  reportId?: string | null;
   action: AuditAction;
   meta?: Record<string, unknown>;
 };
@@ -18,7 +20,7 @@ export async function logAuditEvent({
   action,
   meta,
 }: AuditLogPayload): Promise<void> {
-  if (!reportId) {
+  if (reportId === undefined) {
     console.warn("audit log skipped: missing report_id");
     return;
   }
@@ -35,7 +37,7 @@ export async function logAuditEvent({
       return;
     }
     const payload = {
-      report_id: reportId,
+      report_id: reportId ?? null,
       action,
       user_id: userData.user.id,
       ...(meta ? { meta } : {}),

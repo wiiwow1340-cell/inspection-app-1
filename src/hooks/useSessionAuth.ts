@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { logAuditEvent } from "../services/auditLogService";
 import { supabase } from "../services/supabaseClient";
 
 const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
@@ -82,6 +83,7 @@ export function useSessionAuth({
     if (kickedRef.current) return;
     kickedRef.current = true;
     alert("此帳號已在其他裝置登入，系統將登出。");
+    void logAuditEvent({ reportId: null, action: "logout" });
     // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
     supabase.auth.signOut();
     await onKickedCleanup();
@@ -92,6 +94,7 @@ export function useSessionAuth({
 
   const handleLogout = async (options?: { clearDraft?: boolean }) => {
     const clearDraft = options?.clearDraft ?? true;
+    void logAuditEvent({ reportId: null, action: "logout" });
     await supabase.auth.signOut();
     await onLogoutCleanup({ clearDraft });
     setIsLoggedIn(false);
@@ -119,6 +122,7 @@ export function useSessionAuth({
     await upsertLoginLockForCurrentUser();
     setIdleLogoutMessage("");
     setIsLoggedIn(true);
+    void logAuditEvent({ reportId: null, action: "login" });
     return { ok: true };
   };
 
