@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { logAuditEvent } from "../services/auditLogService";
 import { supabase } from "../services/supabaseClient";
 
 const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
@@ -119,6 +120,7 @@ export function useSessionAuth({
     await upsertLoginLockForCurrentUser();
     setIdleLogoutMessage("");
     setIsLoggedIn(true);
+    void logAuditEvent({ reportId: null, action: "login" });
     return { ok: true };
   };
 
