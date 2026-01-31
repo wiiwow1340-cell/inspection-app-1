@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import type { Process, Report } from "./types";
 import InspectionItemsEditor from "./components/InspectionItemsEditor";
 
@@ -33,6 +33,10 @@ type Props = {
   setQueryFilters?: React.Dispatch<
     React.SetStateAction<{ process: string; model: string; status: string }>
   >;
+  reportHasQueried?: boolean;
+  setReportHasQueried?: React.Dispatch<React.SetStateAction<boolean>>;
+  pcSelectedKey?: string | null;
+  setPcSelectedKey?: React.Dispatch<React.SetStateAction<string | null>>;
 
   fetchReportsFromDB: () => Promise<Report[]>;
   setReports: React.Dispatch<React.SetStateAction<Report[]>>;
@@ -90,6 +94,18 @@ const ReportPage: React.FC<Props> = ({
   processStatus,
   processError,
   reports,
+  filteredReports = [],
+  selectedProcessFilter = "",
+  setSelectedProcessFilter,
+  selectedModelFilter = "",
+  setSelectedModelFilter,
+  selectedStatusFilter = "",
+  setSelectedStatusFilter,
+  setQueryFilters,
+  reportHasQueried = false,
+  setReportHasQueried,
+  pcSelectedKey = null,
+  setPcSelectedKey,
 
   fetchReportsFromDB,
   setReports,
@@ -109,17 +125,6 @@ const ReportPage: React.FC<Props> = ({
 
   NA_SENTINEL,
 }) => {
-
-  // UI 篩選條件（尚未套用）
-  const [processFilter, setProcessFilter] = useState("");
-  const [modelFilter, setModelFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | "done" | "not">("");
-
-  // 已套用的查詢條件（按「查詢」才生效）
-  const [appliedProcess, setAppliedProcess] = useState("");
-  const [appliedModel, setAppliedModel] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState<"" | "done" | "not">("");
-  const [hasQueried, setHasQueried] = useState(false);
   const isProcessReady = processStatus === "ready";
   const isProcessLoading = processStatus === "loading";
   const isProcessEmpty = processStatus === "empty";
@@ -132,41 +137,7 @@ const ReportPage: React.FC<Props> = ({
     ? "製程載入中，請稍候。"
     : "";
 
-  // ===== 篩選後報告（本頁自行計算）=====
-  const filteredReports = useMemo(() => {
-    if (!hasQueried) return [];
-    return reports.filter((r) => {
-      if (appliedProcess && r.process !== appliedProcess) return false;
-      if (appliedModel && r.model !== appliedModel) return false;
-
-      if (appliedStatus) {
-        const expected = r.expected_items || [];
-        const isItemNA = (item: string) => r.images?.[item] === NA_SENTINEL;
-        const hasItemImage = (item: string) => {
-          const value = r.images?.[item];
-          if (!value || value === NA_SENTINEL) return false;
-          return Array.isArray(value) ? value.length > 0 : true;
-        };
-        const required = expected.filter((it: string) => !isItemNA(it));
-
-        if (appliedStatus === "done") {
-          if (required.length === 0) return true;
-          if (!required.every((item: string) => hasItemImage(item)))
-            return false;
-        }
-
-        if (appliedStatus === "not") {
-          if (required.length === 0) return false;
-          if (!required.some((item: string) => !hasItemImage(item)))
-            return false;
-        }
-      }
-
-      return true;
-    });
-  }, [reports, appliedProcess, appliedModel, appliedStatus, hasQueried, NA_SENTINEL]);
-
-  const [pcSelectedKey, setPcSelectedKey] = useState<string | null>(null);
+  const activeReports = reportHasQueried ? filteredReports : [];
 
   const groupedReports = useMemo(() => {
     const map = new Map<
@@ -178,7 +149,7 @@ const ReportPage: React.FC<Props> = ({
         processMap: Map<string, Report[]>;
       }
     >();
-    filteredReports.forEach((report) => {
+    activeReports.forEach((report) => {
       const key = `${report.model}__${report.serial}`;
       if (!map.has(key)) {
         map.set(key, {
@@ -211,7 +182,7 @@ const ReportPage: React.FC<Props> = ({
         if (modelCompare !== 0) return modelCompare;
         return serialCollator.compare(a.serial, b.serial);
       });
-  }, [filteredReports]);
+  }, [activeReports]);
 
   const selectedGroupReports = useMemo(() => {
     if (!pcSelectedKey) return [];
@@ -248,10 +219,12 @@ const ReportPage: React.FC<Props> = ({
             }
             const fresh = await fetchReportsFromDB();
             setReports(fresh);
-            setAppliedProcess(processFilter);
-            setAppliedModel(modelFilter);
-            setAppliedStatus(statusFilter);
-            setHasQueried(true);
+            setQueryFilters?.({
+              process: selectedProcessFilter,
+              model: selectedModelFilter,
+              status: selectedStatusFilter,
+            });
+            setReportHasQueried?.(true);
           }}
         >
           查詢
@@ -273,8 +246,8 @@ const ReportPage: React.FC<Props> = ({
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
-          value={processFilter}
-          onChange={(e) => setProcessFilter(e.target.value)}
+          value={selectedProcessFilter}
+          onChange={(e) => setSelectedProcessFilter?.(e.target.value)}
           disabled={!isProcessReady}
         >
           <option value="">全部製程</option>
@@ -287,8 +260,8 @@ const ReportPage: React.FC<Props> = ({
 
         <select
           className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
-          value={modelFilter}
-          onChange={(e) => setModelFilter(e.target.value)}
+          value={selectedModelFilter}
+          onChange={(e) => setSelectedModelFilter?.(e.target.value)}
           disabled={!isProcessReady}
         >
           <option value="">全部型號</option>
@@ -301,9 +274,9 @@ const ReportPage: React.FC<Props> = ({
 
         <select
           className="border border-slate-200 bg-white text-slate-900 p-2 rounded w-full sm:flex-1 min-w-0 focus-visible:outline-none focus-visible:border-blue-500"
-          value={statusFilter}
+          value={selectedStatusFilter}
           onChange={(e) =>
-            setStatusFilter(e.target.value as "" | "done" | "not")
+            setSelectedStatusFilter?.(e.target.value as "" | "done" | "not")
           }
           disabled={!isProcessReady}
         >
@@ -313,9 +286,9 @@ const ReportPage: React.FC<Props> = ({
         </select>
       </div>
 
-      {filteredReports.length === 0 && <p>尚無報告</p>}
+      {reportHasQueried && activeReports.length === 0 && <p>尚無報告</p>}
 
-      {filteredReports.length > 0 && (
+      {activeReports.length > 0 && (
         <div className="hidden md:block space-y-3">
           {!pcSelectedKey ? (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -396,7 +369,7 @@ const ReportPage: React.FC<Props> = ({
                         <button
                           type="button"
                           className="text-blue-600 hover:text-blue-700 hover:underline"
-                          onClick={() => setPcSelectedKey(group.key)}
+                          onClick={() => setPcSelectedKey?.(group.key)}
                         >
                           查看 / 編輯
                         </button>
@@ -417,7 +390,7 @@ const ReportPage: React.FC<Props> = ({
                 <button
                   type="button"
                   className="text-blue-600 hover:text-blue-700 hover:underline text-sm"
-                  onClick={() => setPcSelectedKey(null)}
+                  onClick={() => setPcSelectedKey?.(null)}
                 >
                   返回列表
                 </button>
@@ -588,9 +561,9 @@ const ReportPage: React.FC<Props> = ({
         </div>
       )}
 
-      {filteredReports.length > 0 && (
+      {activeReports.length > 0 && (
         <div className="space-y-3 md:hidden">
-          {filteredReports.map((r) => {
+          {activeReports.map((r) => {
             const expected = r.expected_items || [];
             const hasItemImage = (item: string) => {
               const value = r.images?.[item];

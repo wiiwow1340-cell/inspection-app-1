@@ -25,7 +25,10 @@ type ReportsDraftData = {
   selectedModelFilter: string;
   selectedStatusFilter: string;
   queryFilters: { process: string; model: string; status: string };
+  reportHasQueried: boolean;
+  expandedReportId: string | null;
   editingReportId: string | null;
+  pcSelectedKey: string | null;
   na: Record<string, boolean>;
   editImageFiles: Record<
     string,
@@ -158,6 +161,9 @@ type UseDraftsOptions = {
   selectedProcessFilter: string;
   selectedModelFilter: string;
   selectedStatusFilter: string;
+  reportHasQueried: boolean;
+  expandedReportId: string | null;
+  pcSelectedKey: string | null;
   queryFilters: { process: string; model: string; status: string };
   editingReportId: string | null;
   editImageFiles: Record<string, File[]>;
@@ -179,6 +185,9 @@ type UseDraftsOptions = {
   setSelectedProcessFilter: Dispatch<SetStateAction<string>>;
   setSelectedModelFilter: Dispatch<SetStateAction<string>>;
   setSelectedStatusFilter: Dispatch<SetStateAction<string>>;
+  setReportHasQueried: Dispatch<SetStateAction<boolean>>;
+  setExpandedReportId: Dispatch<SetStateAction<string | null>>;
+  setPcSelectedKey: Dispatch<SetStateAction<string | null>>;
   setQueryFilters: Dispatch<
     SetStateAction<{ process: string; model: string; status: string }>
   >;
@@ -186,7 +195,6 @@ type UseDraftsOptions = {
   setEditImages: Dispatch<SetStateAction<Record<string, string[]>>>;
   setEditNA: Dispatch<SetStateAction<Record<string, boolean>>>;
   setEditingReportId: Dispatch<SetStateAction<string | null>>;
-  setExpandedReportId: Dispatch<SetStateAction<string | null>>;
   setNewProcName: Dispatch<SetStateAction<string>>;
   setNewProcCode: Dispatch<SetStateAction<string>>;
   setNewProcModel: Dispatch<SetStateAction<string>>;
@@ -211,6 +219,9 @@ export function useDrafts({
   selectedProcessFilter,
   selectedModelFilter,
   selectedStatusFilter,
+  reportHasQueried,
+  expandedReportId,
+  pcSelectedKey,
   queryFilters,
   editingReportId,
   editImageFiles,
@@ -232,12 +243,14 @@ export function useDrafts({
   setSelectedProcessFilter,
   setSelectedModelFilter,
   setSelectedStatusFilter,
+  setReportHasQueried,
+  setExpandedReportId,
+  setPcSelectedKey,
   setQueryFilters,
   setEditImageFiles,
   setEditImages,
   setEditNA,
   setEditingReportId,
-  setExpandedReportId,
   setNewProcName,
   setNewProcCode,
   setNewProcModel,
@@ -303,6 +316,9 @@ export function useDrafts({
         selectedProcessFilter ||
         selectedModelFilter ||
         selectedStatusFilter ||
+        reportHasQueried ||
+        expandedReportId ||
+        pcSelectedKey ||
         queryFilters.process ||
         queryFilters.model ||
         queryFilters.status ||
@@ -327,7 +343,10 @@ export function useDrafts({
           selectedModelFilter,
           selectedStatusFilter,
           queryFilters: { ...queryFilters },
+          reportHasQueried,
+          expandedReportId,
           editingReportId,
+          pcSelectedKey,
           editImageFiles: editImageFilesDraft,
           na: { ...editNA },
         },
@@ -400,6 +419,14 @@ export function useDrafts({
       setSelectedProcessFilter(draft.data.selectedProcessFilter || "");
       setSelectedModelFilter(draft.data.selectedModelFilter || "");
       setSelectedStatusFilter(draft.data.selectedStatusFilter || "");
+      const hasQueried =
+        !!draft.data.reportHasQueried ||
+        !!draft.data.queryFilters?.process ||
+        !!draft.data.queryFilters?.model ||
+        !!draft.data.queryFilters?.status;
+      setReportHasQueried(hasQueried);
+      setExpandedReportId(draft.data.expandedReportId || null);
+      setPcSelectedKey(draft.data.pcSelectedKey || null);
       setQueryFilters({
         process: draft.data.queryFilters?.process || "",
         model: draft.data.queryFilters?.model || "",
@@ -544,6 +571,9 @@ export function useDrafts({
     selectedProcessFilter,
     selectedModelFilter,
     selectedStatusFilter,
+    reportHasQueried,
+    expandedReportId,
+    pcSelectedKey,
     queryFilters,
     editingReportId,
     editImageFiles,
