@@ -1139,9 +1139,14 @@ const editPreviewImages = useMemo(() => {
   //  主 UI
   // =============================
 
+  const shellWidthClass =
+    page === "reports" ? "max-w-xl md:max-w-6xl" : "max-w-xl";
+
   return (
     <div className="min-h-screen bg-slate-200/70 px-4 py-6">
-      <div className="p-4 max-w-xl mx-auto space-y-4 bg-sky-50/90 border border-sky-100/80 rounded-2xl shadow-sm">
+      <div
+        className={`p-4 w-full ${shellWidthClass} mx-auto space-y-4 bg-sky-50/90 border border-sky-100/80 rounded-2xl shadow-sm`}
+      >
       {/* 上方主選單 + 登出 */}
       <div className="flex justify-between items-center space-x-2">
         <div className="flex space-x-2">
