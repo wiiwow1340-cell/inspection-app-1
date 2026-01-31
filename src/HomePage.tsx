@@ -45,7 +45,7 @@ type HomePageProps = {
   homeNA: Record<string, boolean>;
   setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   handleCapture: (item: string, files: FileList | File[] | undefined) => void;
-  resetNewReportState: (shouldResetSerial: boolean) => Promise<void>;
+  resetNewReportState: (shouldResetSerial?: boolean) => Promise<void>;
   setPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowPreview: React.Dispatch<React.SetStateAction<boolean>>;
   Card: CardComponent;

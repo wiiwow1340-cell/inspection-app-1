@@ -54,7 +54,7 @@ type ManagePageProps = {
   startEditingProcess: (idx: number) => void;
   setConfirmTarget: (target: ConfirmTarget) => void;
   confirmDiscard: (message?: string) => boolean;
-  resetManageState: (shouldResetFields: boolean) => Promise<void>;
+  resetManageState: (shouldResetFields?: boolean) => Promise<void>;
 };
 
 export default function ManagePage({
