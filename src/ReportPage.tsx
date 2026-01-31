@@ -54,6 +54,7 @@ type Props = {
 };
 
 const PROCESS_ORDER = ["水壓檢驗", "性能測試", "成品檢驗"];
+const PC_TABLE_PROCESS_ORDER = ["水壓檢驗", "安規測試", "性能測試", "成品檢驗"];
 
 const formatReportDate = (reportId?: string) => {
   if (!reportId) return null;
@@ -193,10 +194,23 @@ const ReportPage: React.FC<Props> = ({
       list.push(report);
       entry.processMap.set(report.process, list);
     });
-    return Array.from(map.entries()).map(([key, entry]) => ({
-      key,
-      ...entry,
-    }));
+    const modelCollator = new Intl.Collator("en", {
+      sensitivity: "base",
+    });
+    const serialCollator = new Intl.Collator("en", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return Array.from(map.entries())
+      .map(([key, entry]) => ({
+        key,
+        ...entry,
+      }))
+      .sort((a, b) => {
+        const modelCompare = modelCollator.compare(a.model, b.model);
+        if (modelCompare !== 0) return modelCompare;
+        return serialCollator.compare(a.serial, b.serial);
+      });
   }, [filteredReports]);
 
   const selectedGroupReports = useMemo(() => {
@@ -318,6 +332,9 @@ const ReportPage: React.FC<Props> = ({
                       水壓檢驗
                     </th>
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                      安規測試
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                       性能測試
                     </th>
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
@@ -340,7 +357,7 @@ const ReportPage: React.FC<Props> = ({
                       <td className="px-4 py-3 whitespace-nowrap">
                         {group.serial}
                       </td>
-                      {PROCESS_ORDER.map((processName) => {
+                      {PC_TABLE_PROCESS_ORDER.map((processName) => {
                         const reportsForProcess =
                           group.processMap.get(processName) ?? [];
                         const latestReport = reportsForProcess.reduce<
