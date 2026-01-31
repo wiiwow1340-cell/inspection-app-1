@@ -310,6 +310,8 @@ export default function App() {
   const [selectedProcessFilter, setSelectedProcessFilter] = useState("");
   const [selectedModelFilter, setSelectedModelFilter] = useState("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
+  const [reportHasQueried, setReportHasQueried] = useState(false);
+  const [pcSelectedKey, setPcSelectedKey] = useState<string | null>(null);
 
   // 查詢正式條件（按「查詢」後才生效）
   const [queryFilters, setQueryFilters] = useState({
@@ -443,9 +445,10 @@ const editPreviewImages = useMemo(() => {
       (p) => p.name === selectedProcess && p.model === selectedModel
     ) || null;
 
-  const filteredReports = reports.filter((r) => {
-    if (queryFilters.process && r.process !== queryFilters.process) return false;
-    if (queryFilters.model && r.model !== queryFilters.model) return false;
+  const filteredReports = reportHasQueried
+    ? reports.filter((r) => {
+      if (queryFilters.process && r.process !== queryFilters.process) return false;
+      if (queryFilters.model && r.model !== queryFilters.model) return false;
 
     const expected = r.expected_items || [];
     const isItemNA = (item: string) => isNAValue(r.images?.[item]);
@@ -467,7 +470,8 @@ const editPreviewImages = useMemo(() => {
 
     // 其他狀態：不過濾
     return true;
-  });
+  })
+    : [];
 
 
 
@@ -874,6 +878,9 @@ const editPreviewImages = useMemo(() => {
     selectedProcessFilter,
     selectedModelFilter,
     selectedStatusFilter,
+    reportHasQueried,
+    expandedReportId,
+    pcSelectedKey,
     queryFilters,
     editingReportId,
     editImageFiles,
@@ -895,6 +902,8 @@ const editPreviewImages = useMemo(() => {
     setSelectedProcessFilter,
     setSelectedModelFilter,
     setSelectedStatusFilter,
+    setReportHasQueried,
+    setPcSelectedKey,
     setQueryFilters,
     setEditImageFiles,
     setEditImages,
@@ -1270,6 +1279,10 @@ const editPreviewImages = useMemo(() => {
           setSelectedModelFilter={setSelectedModelFilter}
           selectedStatusFilter={selectedStatusFilter}
           setSelectedStatusFilter={setSelectedStatusFilter}
+          reportHasQueried={reportHasQueried}
+          setReportHasQueried={setReportHasQueried}
+          pcSelectedKey={pcSelectedKey}
+          setPcSelectedKey={setPcSelectedKey}
           fetchReportsFromDB={fetchReportsFromDB}
           setReports={setReports}
           setQueryFilters={setQueryFilters}
