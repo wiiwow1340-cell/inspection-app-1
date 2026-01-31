@@ -193,10 +193,23 @@ const ReportPage: React.FC<Props> = ({
       list.push(report);
       entry.processMap.set(report.process, list);
     });
-    return Array.from(map.entries()).map(([key, entry]) => ({
-      key,
-      ...entry,
-    }));
+    const modelCollator = new Intl.Collator("en", {
+      sensitivity: "base",
+    });
+    const serialCollator = new Intl.Collator("en", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return Array.from(map.entries())
+      .map(([key, entry]) => ({
+        key,
+        ...entry,
+      }))
+      .sort((a, b) => {
+        const modelCompare = modelCollator.compare(a.model, b.model);
+        if (modelCompare !== 0) return modelCompare;
+        return serialCollator.compare(a.serial, b.serial);
+      });
   }, [filteredReports]);
 
   const selectedGroupReports = useMemo(() => {
