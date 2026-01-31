@@ -1,9 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
 import HomePage from "./HomePage";
 import ReportPage from "./ReportPage";
 import ManagePage from "./ManagePage";
 import type { Process, Report } from "./types";
+import { useSessionAuth } from "./hooks/useSessionAuth";
+import { useDrafts } from "./hooks/useDrafts";
+import { fetchReportsFromDB, saveReportToDB, updateReportInDB } from "./services/reportService";
+import { getSignedImageUrl, runInBatches, uploadImage } from "./services/storageService";
+import { supabase } from "./services/supabaseClient";
+import {
+  NA_SENTINEL,
+  type ImageValue,
+  isNAValue,
+  normalizeImageValue,
+  normalizeImagesMap,
+} from "./utils/imageUtils";
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -125,29 +136,6 @@ type ConfirmTarget =
   | { type: "process"; proc: Process }
   | null;
 
-// 影像狀態：不適用 (N/A) 以 sentinel 存在 images map 中
-const NA_SENTINEL = "__NA__";
-type ImageValue = string[] | string;
-
-const isNAValue = (value?: ImageValue) => value === NA_SENTINEL;
-const normalizeImageValue = (value?: ImageValue): string[] => {
-  if (!value || value === NA_SENTINEL) return [];
-  return Array.isArray(value) ? value : [value];
-};
-
-const normalizeImagesMap = (images?: Record<string, ImageValue>) => {
-  const next: Record<string, ImageValue> = {};
-  Object.entries(images || {}).forEach(([key, value]) => {
-    if (value === NA_SENTINEL) {
-      next[key] = value;
-      return;
-    }
-    const list = normalizeImageValue(value);
-    if (list.length > 0) next[key] = list;
-  });
-  return next;
-};
-
 
 // =============================
 //  共用 UX：取消前確認（避免誤刪編輯中資料）
@@ -161,387 +149,6 @@ function confirmDiscard(message?: string) {
 
 
 // =============================
-//  Supabase 連線設定
-// =============================
-
-
-// =============================
-//  Draft (IndexedDB) — 用於 Safari/手機「滑掉後可復原」
-// =============================
-
-type DraftPage = "home" | "reports" | "manage";
-
-type HomeDraftData = {
-  serial: string;
-  selectedModel: string;
-  selectedProcess: string;
-  na: Record<string, boolean>;
-  // item -> { blob, name, type, lastModified }
-  imageFiles: Record<
-    string,
-    { blob: Blob; name: string; type: string; lastModified: number }[]
-  >;
-};
-
-type ReportsDraftData = {
-  selectedProcessFilter: string;
-  selectedModelFilter: string;
-  selectedStatusFilter: string;
-  queryFilters: { process: string; model: string; status: string };
-  editingReportId: string | null;
-  na: Record<string, boolean>;
-  editImageFiles: Record<
-    string,
-    { blob: Blob; name: string; type: string; lastModified: number }[]
-  >;
-};
-
-type ManageDraftData = {
-  newProcName: string;
-  newProcCode: string;
-  newProcModel: string;
-  newItem: string;
-  insertAfter: string;
-  editingIndex: number | null;
-  items: string[];
-};
-
-type AppDraft =
-  | { page: "home"; updatedAt: number; data: HomeDraftData }
-  | { page: "reports"; updatedAt: number; data: ReportsDraftData }
-  | { page: "manage"; updatedAt: number; data: ManageDraftData };
-
-const DRAFT_DB_NAME = "inspection_app_drafts";
-const DRAFT_STORE = "drafts";
-
-function draftKey(username: string) {
-  return `draft_v1:${username.toLowerCase()}`;
-}
-
-function openDraftDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DRAFT_DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(DRAFT_STORE)) {
-        db.createObjectStore(DRAFT_STORE);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbGet<T>(key: string): Promise<T | null> {
-  const db = await openDraftDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DRAFT_STORE, "readonly");
-    const store = tx.objectStore(DRAFT_STORE);
-    const req = store.get(key);
-    req.onsuccess = () => resolve((req.result as T) ?? null);
-    req.onerror = () => reject(req.error);
-    tx.oncomplete = () => db.close();
-  });
-}
-
-async function idbSet<T>(key: string, val: T): Promise<void> {
-  const db = await openDraftDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DRAFT_STORE, "readwrite");
-    const store = tx.objectStore(DRAFT_STORE);
-    store.put(val as any, key);
-    tx.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    tx.onerror = () => {
-      const err = tx.error || new Error("IndexedDB write failed");
-      db.close();
-      reject(err);
-    };
-  });
-}
-
-async function idbDel(key: string): Promise<void> {
-  const db = await openDraftDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DRAFT_STORE, "readwrite");
-    const store = tx.objectStore(DRAFT_STORE);
-    store.delete(key);
-    tx.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    tx.onerror = () => {
-      const err = tx.error || new Error("IndexedDB delete failed");
-      db.close();
-      reject(err);
-    };
-  });
-}
-
-function fileToDraftBlob(file: File) {
-  return {
-    blob: file as unknown as Blob,
-    name: file.name,
-    type: file.type || "application/octet-stream",
-    lastModified: file.lastModified || Date.now(),
-  };
-}
-
-function draftBlobToFile(d: {
-  blob: Blob;
-  name: string;
-  type: string;
-  lastModified: number;
-}) {
-  try {
-    return new File([d.blob], d.name || "image.jpg", {
-      type: d.type || "application/octet-stream",
-      lastModified: d.lastModified || Date.now(),
-    });
-  } catch {
-    // 某些舊 Safari 環境可能沒有 File constructor
-    const b: any = d.blob;
-    b.name = d.name || "image.jpg";
-    b.lastModified = d.lastModified || Date.now();
-    return b as File;
-  }
-}
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// =============================
-//  單一登入鎖（最小版）：後登入踢前登入
-//  - 每個瀏覽器/裝置會有自己的 local session id（存在 localStorage）
-//  - 登入成功後把 (user_id, session_id) upsert 到 user_login_lock
-//  - 已登入時每 3 秒檢查一次：DB 的 session_id 不是我 → alert + signOut + 回登入頁
-// =============================
-const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
-
-function getOrCreateLocalLoginSessionId() {
-  const existing = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY);
-  if (existing) return existing;
-  const sid = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem(SINGLE_LOGIN_LOCAL_KEY, sid);
-  return sid;
-}
-
-async function upsertLoginLockForCurrentUser() {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session) return;
-  const sid = getOrCreateLocalLoginSessionId();
-  await supabase.from("user_login_lock").upsert({
-    user_id: session.user.id,
-    session_id: sid,
-    updated_at: new Date().toISOString(),
-  });
-}
-
-async function isCurrentSessionStillValid(): Promise<boolean> {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session) return false;
-  const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
-  if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
-
-  const { data: lock, error } = await supabase
-    .from("user_login_lock")
-    .select("session_id")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
-  if (error) {
-    console.error("讀取 user_login_lock 失敗：", error.message);
-    return true; // 讀不到就先不擋，避免全站不能用
-  }
-  if (!lock?.session_id) return true;
-  return lock.session_id === sid;
-}
-// 將 Storage URL 轉為 signed URL（30 分鐘有效）
-// 將 Storage 路徑或 URL 轉為 signed URL（30 分鐘有效）
-// 支援兩種輸入：
-// 1) filePath: "PT/TC1288/PT-20260102002/item1.jpg"
-// 2) public URL: "https://xxx.supabase.co/storage/v1/object/public/photos/....jpg"
-async function getSignedImageUrl(input?: string): Promise<string> {
-  if (!input) return "";
-
-  try {
-    let bucket = "photos";
-    let path = input;
-
-    // 情況 A：input 是完整的 public URL
-    if (input.startsWith("http")) {
-      const match = input.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
-      if (!match) return ""; // 不是我們預期的 Storage public URL，直接當作不可用
-      bucket = match[1];
-      path = match[2];
-    }
-
-    // 情況 B：input 是 filePath（不含 http），bucket 預設 photos
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(path, 60 * 30); // 30 分鐘
-
-    if (error || !data?.signedUrl) {
-      console.warn("signed url 失敗", error);
-      return "";
-    }
-
-    return data.signedUrl;
-  } catch (e) {
-    console.error("signed url 例外", e);
-    return "";
-  }
-}
-
-// =============================
-//  共用工具函式
-// =============================
-
-// =============================
-//  批次並行工具：限制同時執行數量（避免一次大量 upload）
-// =============================
-async function runInBatches<T>(
-  tasks: (() => Promise<T>)[],
-  batchSize: number
-): Promise<T[]> {
-  const results: T[] = [];
-  for (let i = 0; i < tasks.length; i += batchSize) {
-    const batch = tasks.slice(i, i + batchSize).map((fn) => fn());
-    const batchResults = await Promise.all(batch);
-    results.push(...batchResults);
-  }
-  return results;
-}
-
-
-
-// 取得項目索引（1-based），確保每個項目有固定編號
-function getItemIndex(procItems: string[], item: string) {
-  const index = procItems.indexOf(item);
-  return index >= 0 ? index + 1 : procItems.length + 1;
-}
-
-// 將圖片壓縮到最大邊 1600px，輸出 JPEG blob
-async function compressImage(file: File): Promise<Blob> {
-  const img = document.createElement("img");
-  img.src = URL.createObjectURL(file);
-
-  await new Promise<void>((resolve) => {
-    img.onload = () => resolve();
-  });
-
-  const maxW = 1600;
-  const maxH = 1600;
-  let { width, height } = img;
-
-  if (width > height && width > maxW) {
-    height = (height * maxW) / width;
-    width = maxW;
-  } else if (height >= width && height > maxH) {
-    width = (width * maxH) / height;
-    height = maxH;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return file; // fallback：直接用原檔
-  }
-  ctx.drawImage(img, 0, 0, width, height);
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.85);
-  });
-}
-
-// 上傳單張圖片到 Storage，回傳公開 URL（失敗則回傳空字串）
-async function uploadImage(
-  processCode: string,
-  model: string,
-  serial: string,
-  reportId: string,
-  info: { item: string; procItems: string[]; photoIndex: number },
-  file: File
-): Promise<string> {
-  if (!file) return "";
-
-  const compressed = await compressImage(file);
-
-  const { item, procItems, photoIndex } = info;
-  const itemIndex = getItemIndex(procItems, item);
-  const normalizedPhotoIndex = Math.max(1, photoIndex);
-  const fileName = `item${itemIndex}-${normalizedPhotoIndex}.jpg`;
-  const filePath = `${processCode}/${model}/${serial}/${reportId}/${fileName}`;
-
-  try {
-    const { error } = await supabase.storage
-      .from("photos")
-      .upload(filePath, compressed, { upsert: false });
-
-    if (error) {
-      console.error("上傳圖片失敗（Storage）:", error.message);
-      return "";
-    }
-
-    return filePath;
-  } catch (e: any) {
-    console.error("上傳圖片失敗（例外）:", e?.message || e);
-    return "";
-  }
-}
-
-// 儲存報告 JSON 至資料庫
-type DbWriteResult =
-  | { ok: true }
-  | { ok: false; message: string; code?: string };
-
-// 儲存報告 JSON 至資料庫
-async function saveReportToDB(report: Report): Promise<DbWriteResult> {
-  const { error } = await supabase.from("reports").insert({
-    ...report,
-    expected_items: JSON.stringify(report.expected_items ?? []),
-  });
-
-  if (error) {
-    const anyErr: any = error as any;
-    console.error("寫入 reports 失敗：", anyErr?.message || anyErr);
-    return {
-      ok: false,
-      message: anyErr?.message || "unknown error",
-      code: anyErr?.code,
-    };
-  }
-  return { ok: true };
-}
-
-// 從資料庫載入所有報告
-async function fetchReportsFromDB(): Promise<Report[]> {
-  const { data, error } = await supabase
-    .from("reports")
-    .select("*")
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("讀取 reports 失敗：", error.message);
-    return [];
-  }
-
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    serial: row.serial,
-    model: row.model,
-    process: row.process,
-    edited_by: row.edited_by || "",
-    images: normalizeImagesMap(row.images || {}),
-    expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
-  }));
-}
 
 // =============================
 //  Login Page（帳號 + 密碼，帳號會轉成 email@local）
@@ -551,7 +158,10 @@ function LoginPage({
   onLogin,
   idleLogoutMessage,
 }: {
-  onLogin: () => void;
+  onLogin: (username: string, password: string) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
   idleLogoutMessage: string;
 }) {
   const [username, setUsername] = useState(""); // 顯示給使用者的「帳號」
@@ -563,25 +173,9 @@ function LoginPage({
     setLoading(true);
     setErr("");
 
-    const trimmed = username.trim();
-    if (!trimmed || !password) {
-      setErr("請輸入帳號與密碼");
-      setLoading(false);
-      return;
-    }
-
-    const email = `${trimmed}@local.com`;
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setErr(error.message || "登入失敗");
-    } else {
-      await upsertLoginLockForCurrentUser();
-      onLogin();
+    const result = await onLogin(username, password);
+    if (!result.ok) {
+      setErr(result.message || "登入失敗");
     }
 
     setLoading(false);
@@ -652,34 +246,11 @@ function LoginPage({
 // =============================
 
 export default function App() {
-  // ===== 登入狀態 =====
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // ===== 權限（Admin 才能管理製程）=====
-  const [authUsername, setAuthUsername] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
-  // ===== 單一登入鎖：被踢出處理 =====
-  const kickedRef = useRef(false);
-  const handleKickedOut = async () => {
-    if (kickedRef.current) return;
-    kickedRef.current = true;
-    alert("此帳號已在其他裝置登入，系統將登出。");
-    // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
-    supabase.auth.signOut();
-    await resetNewReportState(true);
-    await resetEditState(true);
-    await resetManageState(true);
-    setPendingDraft(null);
-    setShowDraftPrompt(false);
-    setPage("home");
-    setIsLoggedIn(false);
-    setAuthUsername("");
-    setIsAdmin(false);
-    draftLoadedRef.current = null;
-  };
-
+  const draftCleanupRef = useRef({
+    clearDraft: async () => {},
+    clearPrompt: () => {},
+    resetTracking: () => {},
+  });
 
   // ===== 頁面與表單狀態 =====
   const [page, setPage] = useState<"home" | "reports" | "manage">("home");
@@ -692,16 +263,6 @@ export default function App() {
   const [newImageFiles, setNewImageFiles] = useState<
     Record<string, File[]>
   >({}); // 新增頁實際上傳用
-
-  // ===== Draft / 恢復提示（三頁共用）=====
-  const [pendingDraft, setPendingDraft] = useState<AppDraft | null>(null);
-  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
-  const draftLoadedRef = useRef<string | null>(null);
-  const draftSaveTimerRef = useRef<number | null>(null);
-  const idleTimerRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
-  const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
-
 
   // 製程 / 報告資料
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -868,164 +429,6 @@ const editPreviewImages = useMemo(() => {
 ]);
 
 
-  // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
-  const computeIsAdmin = (u: string) => {
-    return u === "admin";
-
-  };
-
-  const refreshUserRole = async () => {
-    const { data } = await supabase.auth.getUser();
-    const email = data.user?.email || "";
-    const u = email.includes("@") ? email.split("@")[0] : "";
-    setAuthUsername(u);
-    setIsAdmin(computeIsAdmin(u));
-  };
-
-  // ===== 登入狀態初始化（Supabase Session） =====
-  useEffect(() => {
-    let cancelled = false;
-
-    // ✅ 保險：任何情況都不要讓畫面永久卡在 Loading
-    const failSafe = window.setTimeout(() => {
-      if (!cancelled) setSessionChecked(true);
-    }, 4000);
-
-    const initAuth = async () => {
-      try {
-        // ✅ 再加一層 timeout：避免極端情況 getSession Promise 卡住
-        const sessionRes: any = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("getSession timeout")), 3000)
-          ),
-        ]);
-
-        const data = sessionRes?.data;
-        const error = sessionRes?.error;
-
-        if (error) {
-          console.error("getSession 失敗：", error.message || error);
-        }
-
-        const hasSession = !!data?.session;
-
-        if (!cancelled) {
-          setIsLoggedIn(hasSession);
-        }
-
-        if (hasSession) {
-          setIdleLogoutMessage("");
-          // ⚠️ 不要讓 refreshUserRole 阻塞 sessionChecked
-          refreshUserRole().catch((e) => {
-            console.error("refreshUserRole 失敗：", e);
-          });
-        } else {
-          if (!cancelled) {
-            setAuthUsername("");
-            setIsAdmin(false);
-          }
-        }
-      } catch (e) {
-        console.error("initAuth 失敗：", e);
-        if (!cancelled) {
-          setIsLoggedIn(false);
-          setAuthUsername("");
-          setIsAdmin(false);
-        }
-      } finally {
-        window.clearTimeout(failSafe);
-        if (!cancelled) setSessionChecked(true);
-      }
-    };
-
-    initAuth();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        // ✅ 狀態先更新，不要被 refreshUserRole 卡住
-        setIsLoggedIn(!!session);
-        setSessionChecked(true);
-
-        if (session) {
-          setIdleLogoutMessage("");
-          refreshUserRole().catch((e) => {
-            console.error("refreshUserRole 失敗：", e);
-          });
-        } else {
-          setAuthUsername("");
-          setIsAdmin(false);
-        }
-      }
-    );
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(failSafe);
-      listener?.subscription.unsubscribe();
-    };
-  }, []);
-
-// ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
-  useEffect(() => {
-    if (!isLoggedIn) {
-      kickedRef.current = false;
-      return;
-    }
-
-    kickedRef.current = false;
-    const timer = window.setInterval(async () => {
-      const ok = await isCurrentSessionStillValid();
-      if (!ok) {
-        await handleKickedOut();
-      }
-    }, 3000);
-
-    return () => window.clearInterval(timer);
-  }, [isLoggedIn]);
-
-
-  // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    const init = async () => {
-      // 1) 先載製程
-      setProcessStatus("loading");
-      setProcessError("");
-      const { data: procData, error: procErr } = await supabase
-        .from("processes")
-        .select("*")
-        .order("id", { ascending: true });
-
-      if (procErr) {
-        console.error("讀取 processes 失敗：", procErr.message);
-        setProcesses([]);
-        setProcessStatus("error");
-        setProcessError(procErr.message);
-      } else if (procData && procData.length > 0) {
-        setProcesses(
-          procData.map((p: any) => ({
-            name: p.name,
-            code: p.code,
-            model: p.model,
-            items: p.items ? JSON.parse(p.items) : [],
-          }))
-        );
-        setProcessStatus("ready");
-      } else {
-        setProcesses([]);
-        setProcessStatus("empty");
-      }
-
-      // 2) 再載報告
-      const data = await fetchReportsFromDB();
-      setReports(data);
-    };
-
-    init();
-  }, [isLoggedIn]);
-
   // ===== 共用計算：型號 / 製程 / 篩選後報告 =====
   const productModels = Array.from(
     new Set(processes.map((p) => p.model).filter(Boolean))
@@ -1048,19 +451,18 @@ const editPreviewImages = useMemo(() => {
     const isItemNA = (item: string) => isNAValue(r.images?.[item]);
     const isItemDone = (item: string) =>
       isItemNA(item) || normalizeImageValue(r.images?.[item]).length > 0;
+    const hasExpectedItems = expected.length > 0;
 
     if (queryFilters.status === "done") {
       // 已完成：所有「非 N/A」項目都有照片（N/A 視為已完成）
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return true;
-      if (!required.every((item) => isItemDone(item))) return false;
+      if (!hasExpectedItems) return false;
+      if (!expected.every((item) => isItemDone(item))) return false;
     }
 
     if (queryFilters.status === "not") {
       // 未完成：存在「非 N/A」但尚未拍照的項目
-      const required = expected.filter((it) => !isItemNA(it));
-      if (required.length === 0) return false;
-      if (!required.some((item) => !isItemDone(item))) return false;
+      if (!hasExpectedItems) return true;
+      if (!expected.some((item) => !isItemDone(item))) return false;
     }
 
     // 其他狀態：不過濾
@@ -1166,6 +568,10 @@ const editPreviewImages = useMemo(() => {
     }
 
     const expectedItems = selectedProcObj.items || [];
+    if (expectedItems.length === 0) {
+      alert("此製程尚未設定檢驗項目，無法建立檢驗紀錄");
+      return false;
+    }
     const photoEntries = Object.entries(newImageFiles).filter(
       ([, files]) => files.length > 0
     );
@@ -1270,7 +676,8 @@ const editPreviewImages = useMemo(() => {
     alert("儲存成功");
     const freshReports = await fetchReportsFromDB();
     setReports(freshReports);
-    await resetNewReportState(true);
+    await resetNewReportState();
+    await clearDraft();
     return true;
   };
 
@@ -1361,9 +768,6 @@ const editPreviewImages = useMemo(() => {
   // =============================
   //  Draft：三頁共用「滑掉可復原」(UX-1)
   // =============================
-
-  const getDraftId = () => (authUsername ? draftKey(authUsername) : null);
-
   const revokePreviewUrls = (obj: Record<string, string[]>) => {
     try {
       Object.values(obj).forEach((list) => {
@@ -1378,7 +782,7 @@ const editPreviewImages = useMemo(() => {
     }
   };
 
-  const resetNewReportState = async (alsoClearDraft = true) => {
+  const resetNewReportState = async (alsoClearDraft = false) => {
     revokePreviewUrls(images);
     setSerial("");
     setSelectedModel("");
@@ -1389,13 +793,7 @@ const editPreviewImages = useMemo(() => {
     setPreviewIndex(0);
     setShowPreview(false);
     if (alsoClearDraft) {
-      const draftId = getDraftId();
-      if (!draftId) return;
-      try {
-        await idbDel(draftId);
-      } catch {
-        // ignore
-      }
+      await draftCleanupRef.current.clearDraft();
     }
   };
 
@@ -1408,13 +806,7 @@ const editPreviewImages = useMemo(() => {
     setShowEditPreview(false);
     setEditPreviewIndex(0);
     if (alsoClearDraft) {
-      const draftId = getDraftId();
-      if (!draftId) return;
-      try {
-        await idbDel(draftId);
-      } catch {
-        // ignore
-      }
+      await draftCleanupRef.current.clearDraft();
     }
   };
 
@@ -1427,351 +819,52 @@ const editPreviewImages = useMemo(() => {
     setNewItem("");
     setInsertAfter("last");
     if (alsoClearDraft) {
-      const draftId = getDraftId();
-      if (!draftId) return;
-      try {
-        await idbDel(draftId);
-      } catch {
-        // ignore
-      }
+      await draftCleanupRef.current.clearDraft();
     }
   };
 
-  const buildDraftFromState = (): AppDraft | null => {
-    const now = Date.now();
-
-    if (page === "home") {
-      const hasAnything =
-        serial.trim() ||
-        selectedModel ||
-        selectedProcess ||
-        Object.values(newImageFiles).some((files) => files.length > 0) ||
-        Object.keys(homeNA).length > 0;
-      if (!hasAnything) return null;
-
-      const imageFiles: HomeDraftData["imageFiles"] = {};
-      Object.entries(newImageFiles).forEach(([k, f]) => {
-        if (f && f.length > 0) {
-          imageFiles[k] = f.map((file) => fileToDraftBlob(file));
-        }
-      });
-
-      return {
-        page: "home",
-        updatedAt: now,
-        data: {
-          serial,
-          selectedModel,
-          selectedProcess,
-          imageFiles,
-          na: { ...homeNA },
-        },
-      };
-    }
-
-    if (page === "reports") {
-      const hasAnything =
-        selectedProcessFilter ||
-        selectedModelFilter ||
-        selectedStatusFilter ||
-        queryFilters.process ||
-        queryFilters.model ||
-        queryFilters.status ||
-        editingReportId ||
-        Object.values(editImageFiles).some((files) => files.length > 0) ||
-        Object.keys(editNA).length > 0;
-
-      if (!hasAnything) return null;
-
-      const editImageFilesDraft: ReportsDraftData["editImageFiles"] = {};
-      Object.entries(editImageFiles).forEach(([k, f]) => {
-        if (f && f.length > 0) {
-          editImageFilesDraft[k] = f.map((file) => fileToDraftBlob(file));
-        }
-      });
-
-      return {
-        page: "reports",
-        updatedAt: now,
-        data: {
-          selectedProcessFilter,
-          selectedModelFilter,
-          selectedStatusFilter,
-          queryFilters: { ...queryFilters },
-          editingReportId,
-          editImageFiles: editImageFilesDraft,
-          na: { ...editNA },
-        },
-      };
-    }
-
-    // manage
-    const hasAnything =
-      newProcName.trim() ||
-      newProcCode.trim() ||
-      newProcModel ||
-      newItem.trim() ||
-      editingIndex !== null ||
-      items.length > 0;
-
-    if (!hasAnything) return null;
-
-    return {
-      page: "manage",
-      updatedAt: now,
-      data: {
-        newProcName,
-        newProcCode,
-        newProcModel,
-        newItem,
-        insertAfter,
-        editingIndex,
-        items,
-      },
-    };
-  };
-
-  const applyDraftToState = async (draft: AppDraft) => {
-    if (draft.page === "home") {
-      await resetNewReportState(false);
+  const {
+    sessionChecked,
+    isLoggedIn,
+    authUsername,
+    isAdmin,
+    idleLogoutMessage,
+    login,
+    handleLogout,
+  } = useSessionAuth({
+    onLogoutCleanup: async ({ clearDraft }) => {
+      await resetNewReportState();
+      await resetEditState();
+      await resetManageState();
+      draftCleanupRef.current.clearPrompt();
       setPage("home");
-      setSerial(draft.data.serial || "");
-      setSelectedModel(draft.data.selectedModel || "");
-      setSelectedProcess(draft.data.selectedProcess || "");
-      setHomeNA(draft.data.na || {});
-
-      // 還原照片檔（File）+ 預覽 blob URL
-      const nextFiles: Record<string, File[]> = {};
-      const nextPreviews: Record<string, string[]> = {};
-
-      Object.entries(draft.data.imageFiles || {}).forEach(([item, fds]) => {
-        const list = Array.isArray(fds) ? fds : [fds];
-        const files = list.map((fd) => draftBlobToFile(fd));
-        nextFiles[item] = files;
-        const previews: string[] = [];
-        files.forEach((file) => {
-          try {
-            previews.push(URL.createObjectURL(file));
-          } catch {
-            // ignore
-          }
-        });
-        if (previews.length > 0) nextPreviews[item] = previews;
-      });
-
-      setNewImageFiles(nextFiles);
-      setImages(nextPreviews);
-      return;
-    }
-
-    if (draft.page === "reports") {
-      await resetEditState(false);
-      setPage("reports");
-
-      setSelectedProcessFilter(draft.data.selectedProcessFilter || "");
-      setSelectedModelFilter(draft.data.selectedModelFilter || "");
-      setSelectedStatusFilter(draft.data.selectedStatusFilter || "");
-      setQueryFilters({
-        process: draft.data.queryFilters?.process || "",
-        model: draft.data.queryFilters?.model || "",
-        status: draft.data.queryFilters?.status || "",
-      });
-
-      const nextFiles: Record<string, File[]> = {};
-      const nextPreviews: Record<string, string[]> = {};
-      Object.entries(draft.data.editImageFiles || {}).forEach(([item, fds]) => {
-        const list = Array.isArray(fds) ? fds : [fds];
-        const files = list.map((fd) => draftBlobToFile(fd));
-        nextFiles[item] = files;
-        const previews: string[] = [];
-        files.forEach((file) => {
-          try {
-            previews.push(URL.createObjectURL(file));
-          } catch {
-            // ignore
-          }
-        });
-        if (previews.length > 0) nextPreviews[item] = previews;
-      });
-
-      setEditImageFiles(nextFiles);
-      setEditImages(nextPreviews);
-      setEditNA(draft.data.na || {});
-      setEditingReportId(draft.data.editingReportId || null);
-      if (draft.data.editingReportId) setExpandedReportId(draft.data.editingReportId);
-      return;
-    }
-
-    // manage
-    await resetManageState(false);
-    setPage("manage");
-
-    setNewProcName(draft.data.newProcName || "");
-    setNewProcCode(draft.data.newProcCode || "");
-    setNewProcModel(draft.data.newProcModel || "");
-    setNewItem(draft.data.newItem || "");
-    setInsertAfter(draft.data.insertAfter || "last");
-    setEditingIndex(draft.data.editingIndex ?? null);
-    setItems(draft.data.items || []);
-  };
-
-  const scheduleSaveDraft = (immediate = false) => {
-    if (!isLoggedIn || !authUsername) return;
-
-    const run = async () => {
-      try {
-        const d = buildDraftFromState();
-        const draftId = getDraftId();
-        if (!draftId) return;
-        if (!d) {
-          await idbDel(draftId);
-          return;
-        }
-        await idbSet(draftId, d);
-      } catch {
-        // ignore
+      if (clearDraft) {
+        await draftCleanupRef.current.clearDraft();
       }
-    };
+      draftCleanupRef.current.resetTracking();
+    },
+    onKickedCleanup: async () => {
+      await resetNewReportState();
+      await resetEditState();
+      await resetManageState();
+      draftCleanupRef.current.clearPrompt();
+      await draftCleanupRef.current.clearDraft();
+      setPage("home");
+      draftCleanupRef.current.resetTracking();
+    },
+  });
 
-    if (immediate) {
-      void run();
-      return;
-    }
-
-    if (draftSaveTimerRef.current) {
-      window.clearTimeout(draftSaveTimerRef.current);
-      draftSaveTimerRef.current = null;
-    }
-
-    draftSaveTimerRef.current = window.setTimeout(() => {
-      void run();
-      draftSaveTimerRef.current = null;
-    }, 700);
-  };
-
-  // 啟動時：讀取草稿（只做一次）
-  useEffect(() => {
-    if (!isLoggedIn || !authUsername) return;
-    if (draftLoadedRef.current === authUsername) return;
-    draftLoadedRef.current = authUsername;
-
-    (async () => {
-      try {
-        const draftId = getDraftId();
-        if (!draftId) return;
-        const d = await idbGet(draftId);
-        if (d) {
-          setPendingDraft(d);
-          setShowDraftPrompt(true);
-        }
-      } catch {
-        // ignore
-      }
-    })();
-  }, [isLoggedIn, authUsername]);
-
-  const handleLogout = async (options?: { clearDraft?: boolean }) => {
-    const clearDraft = options?.clearDraft ?? true;
-    await supabase.auth.signOut();
-    await resetNewReportState(clearDraft);
-    await resetEditState(clearDraft);
-    await resetManageState(clearDraft);
-    setPendingDraft(null);
-    setShowDraftPrompt(false);
-    setPage("home");
-    setIsLoggedIn(false);
-    setAuthUsername("");
-    setIsAdmin(false);
-    draftLoadedRef.current = null;
-  };
-
-  // ===== 閒置自動登出（5 分鐘無操作）=====
-  useEffect(() => {
-    if (!isLoggedIn) {
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      return;
-    }
-
-    const idleTimeoutMs = 5 * 60 * 1000;
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "touchstart",
-      "touchmove",
-      "wheel",
-      "scroll",
-      "pointerdown",
-      "pointermove",
-      "click",
-    ];
-
-    const triggerIdleLogout = () => {
-      setIdleLogoutMessage("因閒置超過 5 分鐘，已自動登出");
-      void handleLogout({ clearDraft: false });
-    };
-
-    const resetIdleTimer = () => {
-      lastActivityRef.current = Date.now();
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      idleTimerRef.current = window.setTimeout(() => {
-        triggerIdleLogout();
-      }, idleTimeoutMs);
-    };
-
-    const handleActivity = () => resetIdleTimer();
-
-    events.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { passive: true });
-    });
-
-    const handleVisibility = () => {
-      if (document.visibilityState !== "visible") return;
-      const elapsed = Date.now() - lastActivityRef.current;
-      if (elapsed >= idleTimeoutMs) {
-        triggerIdleLogout();
-      } else {
-        resetIdleTimer();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
-
-    const idleCheckInterval = window.setInterval(() => {
-      const elapsed = Date.now() - lastActivityRef.current;
-      if (elapsed >= idleTimeoutMs) {
-        triggerIdleLogout();
-      }
-    }, 30000);
-
-    resetIdleTimer();
-
-    return () => {
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      window.clearInterval(idleCheckInterval);
-      events.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity);
-      });
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
-    };
-  }, [isLoggedIn]);
-
-  // 狀態變動：自動存草稿
-  useEffect(() => {
-    scheduleSaveDraft(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  const {
+    pendingDraft,
+    showDraftPrompt,
+    clearDraft,
+    clearDraftPrompt,
+    discardPendingDraft,
+    applyPendingDraft,
+    resetDraftTracking,
+  } = useDrafts({
+    isLoggedIn,
+    authUsername,
     page,
     serial,
     selectedModel,
@@ -1792,7 +885,80 @@ const editPreviewImages = useMemo(() => {
     insertAfter,
     editingIndex,
     items,
-  ]);
+    setPage,
+    setSerial,
+    setSelectedModel,
+    setSelectedProcess,
+    setImages,
+    setNewImageFiles,
+    setHomeNA,
+    setSelectedProcessFilter,
+    setSelectedModelFilter,
+    setSelectedStatusFilter,
+    setQueryFilters,
+    setEditImageFiles,
+    setEditImages,
+    setEditNA,
+    setEditingReportId,
+    setExpandedReportId,
+    setNewProcName,
+    setNewProcCode,
+    setNewProcModel,
+    setNewItem,
+    setInsertAfter,
+    setEditingIndex,
+    setItems,
+    resetNewReportState,
+    resetEditState,
+    resetManageState,
+  });
+
+  draftCleanupRef.current = {
+    clearDraft,
+    clearPrompt: clearDraftPrompt,
+    resetTracking: resetDraftTracking,
+  };
+
+  // ===== 一進 APP：載入 processes + reports（登入後才執行） =====
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const init = async () => {
+      // 1) 先載製程
+      setProcessStatus("loading");
+      setProcessError("");
+      const { data: procData, error: procErr } = await supabase
+        .from("processes")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (procErr) {
+        console.error("讀取 processes 失敗：", procErr.message);
+        setProcesses([]);
+        setProcessStatus("error");
+        setProcessError(procErr.message);
+      } else if (procData && procData.length > 0) {
+        setProcesses(
+          procData.map((p: any) => ({
+            name: p.name,
+            code: p.code,
+            model: p.model,
+            items: p.items ? JSON.parse(p.items) : [],
+          }))
+        );
+        setProcessStatus("ready");
+      } else {
+        setProcesses([]);
+        setProcessStatus("empty");
+      }
+
+      // 2) 再載報告
+      const data = await fetchReportsFromDB();
+      setReports(data);
+    };
+
+    init();
+  }, [isLoggedIn]);
 
   // 管理製程：新增 / 移除項目
   const addItem = () => {
@@ -1884,12 +1050,17 @@ const editPreviewImages = useMemo(() => {
       newItem.trim() ||
       items.length > 0;
     if (hasDirty && !confirmDiscard("確定要取消新增製程嗎？\n（已輸入的資料將會清除）")) return;
-    await resetManageState(true);
+    await resetManageState();
+    await clearDraft();
   };
 
   const saveProcess = async () => {
     if (!newProcName.trim() || !newProcCode.trim() || !newProcModel.trim()) {
       alert("請輸入製程名稱、代號與產品型號");
+      return;
+    }
+    if (items.filter((item) => item.trim()).length === 0) {
+      alert("製程必須至少包含一個檢驗項目");
       return;
     }
 
@@ -1959,10 +1130,7 @@ const editPreviewImages = useMemo(() => {
     return (
       <LoginPage
         idleLogoutMessage={idleLogoutMessage}
-        onLogin={() => {
-          setIdleLogoutMessage("");
-          setIsLoggedIn(true);
-        }}
+        onLogin={login}
       />
     );
   }
@@ -1990,7 +1158,8 @@ const editPreviewImages = useMemo(() => {
                   "目前有未完成的新增檢驗資料。\n要清除並重新開始嗎？"
                 );
                 if (!ok) return;
-                await resetNewReportState(true);
+                await resetNewReportState();
+                await clearDraft();
               }
               setPage("home");
             }}
@@ -2176,31 +1345,13 @@ const editPreviewImages = useMemo(() => {
             <div className="flex gap-2 mt-4">
                 <Button
                   className="flex-1"
-                  onClick={async () => {
-                    try {
-                      const draftId = getDraftId();
-                      if (draftId) {
-                        await idbDel(draftId);
-                      }
-                    } catch {
-                      // ignore
-                    }
-                  setPendingDraft(null);
-                  setShowDraftPrompt(false);
-                }}
+                  onClick={discardPendingDraft}
               >
                 丟棄
               </Button>
               <Button
                 className="flex-1"
-                onClick={async () => {
-                  const d = pendingDraft;
-                  setShowDraftPrompt(false);
-                  setPendingDraft(null);
-                  if (d) {
-                    await applyDraftToState(d);
-                  }
-                }}
+                onClick={applyPendingDraft}
               >
                 繼續
               </Button>
@@ -2558,16 +1709,7 @@ const editPreviewImages = useMemo(() => {
                     edited_by: authUsername || "",
                   };
 
-                  const { error: updateErr } = await supabase
-                    .from("reports")
-                    .update({
-                      images: updated.images,
-                      expected_items: JSON.stringify(
-                        updated.expected_items ?? []
-                      ),
-                      edited_by: updated.edited_by,
-                    })
-                    .eq("id", updated.id);
+                  const { error: updateErr } = await updateReportInDB(updated);
 
                   if (updateErr) {
                     console.error("更新 reports 失敗：", updateErr.message);
