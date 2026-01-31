@@ -292,21 +292,27 @@ const ReportPage: React.FC<Props> = ({
         <div className="hidden md:block space-y-3">
           {!pcSelectedKey ? (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="min-w-full text-sm text-slate-700">
-                <thead className="bg-slate-100 text-slate-700">
+              <table className="min-w-max w-full text-sm text-slate-700">
+                <thead className="bg-slate-100 text-slate-700 whitespace-nowrap">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold">型號</th>
-                    <th className="px-4 py-3 text-left font-semibold">序號</th>
-                    <th className="px-4 py-3 text-left font-semibold">
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                      型號
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                      序號
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                       水壓檢驗
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold">
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                       性能測試
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold">
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                       成品檢驗
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold">操作</th>
+                    <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                      操作
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -315,8 +321,12 @@ const ReportPage: React.FC<Props> = ({
                       key={group.key}
                       className="border-t border-slate-200"
                     >
-                      <td className="px-4 py-3">{group.model}</td>
-                      <td className="px-4 py-3">{group.serial}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {group.model}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {group.serial}
+                      </td>
                       {PROCESS_ORDER.map((processName) => {
                         const reportsForProcess =
                           group.processMap.get(processName) ?? [];
@@ -332,12 +342,15 @@ const ReportPage: React.FC<Props> = ({
                           ? formatReportDate(latestReport.id)
                           : null;
                         return (
-                          <td key={processName} className="px-4 py-3">
+                          <td
+                            key={processName}
+                            className="px-4 py-3 whitespace-nowrap"
+                          >
                             {formattedDate || "—"}
                           </td>
                         );
                       })}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <button
                           type="button"
                           className="text-blue-600 hover:text-blue-700 hover:underline"
