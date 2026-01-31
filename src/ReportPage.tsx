@@ -67,6 +67,19 @@ const formatReportDate = (reportId?: string) => {
   return `${year}-${month}-${day}`;
 };
 
+const isReportDone = (report: Report, naSentinel: string) => {
+  const expected = report.expected_items || [];
+  if (expected.length === 0) return false;
+  const hasItemImage = (item: string) => {
+    const value = report.images?.[item];
+    if (!value || value === naSentinel) return false;
+    return Array.isArray(value) ? value.length > 0 : true;
+  };
+  return expected.every(
+    (item: string) => report.images?.[item] === naSentinel || hasItemImage(item)
+  );
+};
+
 const ReportPage: React.FC<Props> = ({
   Card,
   Button,
@@ -341,12 +354,24 @@ const ReportPage: React.FC<Props> = ({
                         const formattedDate = latestReport
                           ? formatReportDate(latestReport.id)
                           : null;
+                        const reportDone = latestReport
+                          ? isReportDone(latestReport, NA_SENTINEL)
+                          : false;
                         return (
                           <td
                             key={processName}
                             className="px-4 py-3 whitespace-nowrap"
                           >
-                            {formattedDate || "—"}
+                            {formattedDate ? (
+                              <>
+                                <span className="text-xs align-middle mr-2">
+                                  {reportDone ? "●" : "○"}
+                                </span>
+                                {formattedDate}
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                         );
                       })}
