@@ -24,9 +24,20 @@ export async function logAuditEvent({
   }
 
   try {
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser();
+    if (userError) {
+      console.warn("audit log skipped: failed to fetch user", userError.message);
+      return;
+    }
+    if (!userData.user?.id) {
+      console.warn("audit log skipped: missing user id");
+      return;
+    }
     const payload = {
       report_id: reportId,
       action,
+      user_id: userData.user.id,
       ...(meta ? { meta } : {}),
     };
     const { error } = await supabase.from("audit_logs").insert(payload);
