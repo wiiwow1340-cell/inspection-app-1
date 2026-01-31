@@ -54,7 +54,7 @@ type Props = {
 };
 
 const PROCESS_ORDER = ["水壓檢驗", "性能測試", "成品檢驗"];
-const PC_TABLE_PROCESS_ORDER = ["水壓檢驗", "性能測試", "安規測試", "成品檢驗"];
+const PC_TABLE_PROCESS_ORDER = ["水壓檢驗", "安規測試", "性能測試", "成品檢驗"];
 
 const formatReportDate = (reportId?: string) => {
   if (!reportId) return null;
@@ -332,10 +332,10 @@ const ReportPage: React.FC<Props> = ({
                       水壓檢驗
                     </th>
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                      性能測試
+                      安規測試
                     </th>
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                      安規測試
+                      性能測試
                     </th>
                     <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                       成品檢驗
