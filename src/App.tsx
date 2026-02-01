@@ -5,12 +5,7 @@ import ManagePage from "./ManagePage";
 import type { Process, Report } from "./types";
 import { useSessionAuth } from "./hooks/useSessionAuth";
 import { useDrafts } from "./hooks/useDrafts";
-import { logAuditEvent } from "./services/auditLogService";
-import {
-  fetchReportsFromDB,
-  saveReportToDB,
-  updateReportInDB,
-} from "./services/reportService";
+import { fetchReportsFromDB, saveReportToDB, updateReportInDB } from "./services/reportService";
 import { getSignedImageUrl, runInBatches, uploadImage } from "./services/storageService";
 import { supabase } from "./services/supabaseClient";
 import {
@@ -584,10 +579,6 @@ const editPreviewImages = useMemo(() => {
     const photoEntries = Object.entries(newImageFiles).filter(
       ([, files]) => files.length > 0
     );
-    const uploadedPhotoCount = photoEntries.reduce(
-      (total, [, files]) => total + files.length,
-      0
-    );
     const photoItemSet = new Set(photoEntries.map(([item]) => item));
     const uploadItems = expectedItems.filter(
       (item) => homeNA[item] || photoItemSet.has(item)
@@ -683,15 +674,6 @@ const editPreviewImages = useMemo(() => {
 
 (${res.message})`);
       return false;
-    }
-
-    await logAuditEvent({ reportId: id, action: "create_report" });
-    if (uploadedPhotoCount > 0) {
-      await logAuditEvent({
-        reportId: id,
-        action: "upload_photo_batch",
-        meta: { addedCount: uploadedPhotoCount },
-      });
     }
 
     // 寫入成功後：不做 optimistic append，改為重新從 DB 讀取（DB-only）
@@ -1616,47 +1598,41 @@ const editPreviewImages = useMemo(() => {
                   setIsSavingEdit(true);
 
                   try {
-                    const report = reports.find(
-                      (rr) => rr.id === editingReportId
-                    );
-                    if (!report) {
-                      setShowEditPreview(false);
-                      setEditingReportId(null);
+                  const report = reports.find((rr) => rr.id === editingReportId);
+                  if (!report) {
+                    setShowEditPreview(false);
+                    setEditingReportId(null);
+                    return;
+                  }
+
+                  const expectedItems = report.expected_items || [];
+                  const normalizedReportImages = normalizeImagesMap(
+                    report.images
+                  );
+                  const uploadItems = expectedItems.filter((item) => {
+                    const wasNA = isNAValue(normalizedReportImages[item]);
+                    const isNA = !!editNA[item];
+                    const hasNewFile =
+                      (editImageFiles[item] || []).length > 0;
+                    // 只計算「有變動」的項目：
+                    // 1) 新拍照
+                    // 2) NA 狀態有變（原本不是 NA，現在是 NA）
+                    return hasNewFile || (!wasNA && isNA);
+                  });
+                  const uploadedImages: Record<string, ImageValue> = {};
+                  const failedUploads: { item: string; name: string }[] = [];
+                  expectedItems.forEach((item) => {
+                    if (editNA[item]) {
+                      uploadedImages[item] = NA_SENTINEL;
                       return;
                     }
-
-                    const uploadedPhotoCount = Object.values(
-                      editImageFiles
-                    ).reduce((total, files) => total + files.length, 0);
-
-                    const expectedItems = report.expected_items || [];
-                    const normalizedReportImages = normalizeImagesMap(
-                      report.images
+                    const existing = normalizeImageValue(
+                      normalizedReportImages[item]
                     );
-                    const uploadItems = expectedItems.filter((item) => {
-                      const wasNA = isNAValue(normalizedReportImages[item]);
-                      const isNA = !!editNA[item];
-                      const hasNewFile =
-                        (editImageFiles[item] || []).length > 0;
-                      // 只計算「有變動」的項目：
-                      // 1) 新拍照
-                      // 2) NA 狀態有變（原本不是 NA，現在是 NA）
-                      return hasNewFile || (!wasNA && isNA);
-                    });
-                    const uploadedImages: Record<string, ImageValue> = {};
-                    const failedUploads: { item: string; name: string }[] = [];
-                    expectedItems.forEach((item) => {
-                      if (editNA[item]) {
-                        uploadedImages[item] = NA_SENTINEL;
-                        return;
-                      }
-                      const existing = normalizeImageValue(
-                        normalizedReportImages[item]
-                      );
-                      if (existing.length > 0) {
-                        uploadedImages[item] = [...existing];
-                      }
-                    });
+                    if (existing.length > 0) {
+                      uploadedImages[item] = [...existing];
+                    }
+                  });
 
                   setUploadProgress(0);
                   let completedCount = 0;
@@ -1765,18 +1741,6 @@ const editPreviewImages = useMemo(() => {
                   setReports((prev) =>
                     prev.map((rr) => (rr.id === updated.id ? updated : rr))
                   );
-
-                  await logAuditEvent({
-                    reportId: updated.id,
-                    action: "edit_report",
-                  });
-                  if (uploadedPhotoCount > 0) {
-                    await logAuditEvent({
-                      reportId: updated.id,
-                      action: "upload_photo_batch",
-                      meta: { addedCount: uploadedPhotoCount },
-                    });
-                  }
 
                   setShowEditPreview(false);
                   setEditingReportId(null);
