@@ -15,36 +15,68 @@ function getOrCreateLocalLoginSessionId() {
   return sid;
 }
 
-async function upsertLoginLockForCurrentUser() {
+async function upsertLoginLockForCurrentUser(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) return;
+  if (!session) return false;
+
   const sid = getOrCreateLocalLoginSessionId();
-  await supabase.from("user_login_lock").upsert({
+
+  const { error } = await supabase.from("user_login_lock").upsert({
     user_id: session.user.id,
     session_id: sid,
     updated_at: new Date().toISOString(),
   });
+
+  if (error) {
+    console.error("寫入 user_login_lock 失敗：", error.message || error);
+    return false;
+  }
+  return true;
 }
 
-async function isCurrentSessionStillValid(): Promise<boolean> {
+async function isCurrentSessionStillValid(opts: { enabled: boolean; loginAtMs: number }): Promise<boolean> {
+  // 若登入時寫入 lock 失敗，就不要強制單一登入（避免誤登出）
+  if (!opts.enabled) return true;
+
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) return false;
+
   const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
   if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
 
   const { data: lock, error } = await supabase
     .from("user_login_lock")
-    .select("session_id")
+    .select("session_id, updated_at")
     .eq("user_id", session.user.id)
     .maybeSingle();
+
   if (error) {
-    console.error("讀取 user_login_lock 失敗：", error.message);
+    console.error("讀取 user_login_lock 失敗：", error.message || error);
     return true; // 讀不到就先不擋，避免全站不能用
   }
+
   if (!lock?.session_id) return true;
-  return lock.session_id === sid;
+
+  // 正常相同：有效
+  if (lock.session_id === sid) return true;
+
+  // 不同：判斷這筆 lock 是否比「本次登入時間」更新
+  const lockUpdatedAt = lock.updated_at ? Date.parse(lock.updated_at) : 0;
+  const loginAt = opts.loginAtMs || 0;
+
+  // 若 lock 比本次登入舊很多，通常代表：登入時 lock 寫入失敗 / DB 還停留在舊 session
+  // 這種情境下不應該誤踢人；先嘗試補寫一次 lock
+  if (loginAt && lockUpdatedAt && lockUpdatedAt < loginAt - 5000) {
+    const repaired = await upsertLoginLockForCurrentUser();
+    if (repaired) return true;
+    // 補寫失敗也不要直接踢人，避免「儲存成功後誤登出」
+    return true;
+  }
+
+  // lock 比本次登入更新（或沒有可靠時間可比）：視為其他裝置登入，踢人
+  return false;
 }
 
 type UseSessionAuthOptions = {
@@ -61,9 +93,12 @@ export function useSessionAuth({
   const [authUsername, setAuthUsername] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
-
   const kickedRef = useRef(false);
   const skipSingleLoginCheckRef = useRef(false);
+  // 單一登入鎖是否已成功寫入（寫入失敗時，不強制踢人，避免誤登出）
+  const singleLoginReadyRef = useRef(false);
+  // 記錄本次登入時間（用來判斷 DB lock 是否比本機登入更新）
+  const loginAtRef = useRef<number>(0);
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
@@ -126,7 +161,11 @@ export function useSessionAuth({
       return { ok: false, message: error.message || "登入失敗" };
     }
 
-    await upsertLoginLockForCurrentUser();
+        loginAtRef.current = Date.now();
+    singleLoginReadyRef.current = await upsertLoginLockForCurrentUser();
+    if (!singleLoginReadyRef.current) {
+      console.warn("user_login_lock 未寫入成功：將暫停單一登入強制踢人（避免誤登出）。");
+    }
     setIdleLogoutMessage("");
     setIsLoggedIn(true);
     await logAudit("login");
@@ -227,7 +266,7 @@ export function useSessionAuth({
     kickedRef.current = false;
     const timer = window.setInterval(async () => {
       if (skipSingleLoginCheckRef.current) return;
-      const ok = await isCurrentSessionStillValid();
+      const ok = await isCurrentSessionStillValid({ enabled: singleLoginReadyRef.current, loginAtMs: loginAtRef.current });
       if (!ok) {
         await handleKickedOut();
       }
