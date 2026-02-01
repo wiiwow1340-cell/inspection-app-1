@@ -2,27 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { logAuditEvent } from "../services/auditLogService";
 import { supabase } from "../services/supabaseClient";
 
-const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
-
-function getOrCreateLocalLoginSessionId() {
-  const existing = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY);
-  if (existing) return existing;
-  const sid =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem(SINGLE_LOGIN_LOCAL_KEY, sid);
-  return sid;
-}
-
 async function upsertLoginLockForCurrentUser() {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) return;
-  const sid = getOrCreateLocalLoginSessionId();
   await supabase.from("user_login_lock").upsert({
     user_id: session.user.id,
-    session_id: sid,
+    session_id: session.id,
     updated_at: new Date().toISOString(),
   });
 }
@@ -31,9 +17,6 @@ async function isCurrentSessionStillValid(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) return false;
-  const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
-  if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
-
   const { data: lock, error } = await supabase
     .from("user_login_lock")
     .select("session_id")
@@ -41,10 +24,10 @@ async function isCurrentSessionStillValid(): Promise<boolean> {
     .maybeSingle();
   if (error) {
     console.error("讀取 user_login_lock 失敗：", error.message);
-    return true; // 讀不到就先不擋，避免全站不能用
+    return false;
   }
-  if (!lock?.session_id) return true;
-  return lock.session_id === sid;
+  if (!lock?.session_id) return false;
+  return lock.session_id === session.id;
 }
 
 type UseSessionAuthOptions = {
@@ -67,6 +50,9 @@ export function useSessionAuth({
   const lastActivityRef = useRef<number>(Date.now());
 
   // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
+  // NOTE: 此處僅用於前端 UX（顯示/隱藏管理頁），不構成安全邊界。
+  // 真正的寫入權限由 Supabase RLS 保護（processes 表的 INSERT/UPDATE/DELETE 為 admin-only）。
+  // 前端判斷不可視為安全機制。
   const computeIsAdmin = (u: string) => {
     return u === "admin";
   };
@@ -118,6 +104,11 @@ export function useSessionAuth({
     }
 
     await upsertLoginLockForCurrentUser();
+    const lockOk = await isCurrentSessionStillValid();
+    if (!lockOk) {
+      await handleLogout({ clearDraft: false });
+      return { ok: false, message: "登入驗證失敗，請重新登入" };
+    }
     setIdleLogoutMessage("");
     setIsLoggedIn(true);
     void logAuditEvent({ reportId: null, action: "login" });
