@@ -1,217 +1,154 @@
-import { useEffect, useRef, useState } from "react";
-import { logAudit } from "../services/auditService";
-import { supabase } from "../services/supabaseClient";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "../supabaseClient";
 
-const SINGLE_LOGIN_LOCAL_KEY = "single_login_session_id";
-
-function getOrCreateLocalLoginSessionId() {
-  const existing = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY);
-  if (existing) return existing;
-  const sid =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem(SINGLE_LOGIN_LOCAL_KEY, sid);
-  return sid;
+interface UseSessionAuthOptions {
+  onKickedOut?: () => void;
 }
 
-async function upsertLoginLockForCurrentUser(): Promise<boolean> {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session) return false;
-
-  const sid = getOrCreateLocalLoginSessionId();
-
-  const { error } = await supabase.from("user_login_lock").upsert({
-    user_id: session.user.id,
-    session_id: sid,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    console.error("寫入 user_login_lock 失敗：", error.message || error);
-    return false;
-  }
-  return true;
-}
-
-async function isCurrentSessionStillValid(opts: { enabled: boolean; loginAtMs: number }): Promise<boolean> {
-  // 若登入時寫入 lock 失敗，就不要強制單一登入（避免誤登出）
-  if (!opts.enabled) return true;
-
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session) return false;
-
-  const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
-  if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
-
-  const { data: lock, error } = await supabase
-    .from("user_login_lock")
-    .select("session_id, updated_at")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("讀取 user_login_lock 失敗：", error.message || error);
-    return true; // 讀不到就先不擋，避免全站不能用
-  }
-
-  if (!lock?.session_id) return true;
-
-  // 正常相同：有效
-  if (lock.session_id === sid) return true;
-
-  // 不同：判斷這筆 lock 是否比「本次登入時間」更新
-  const lockUpdatedAt = lock.updated_at ? Date.parse(lock.updated_at) : 0;
-  const loginAt = opts.loginAtMs || 0;
-
-  // 若 lock 比本次登入舊很多，通常代表：登入時 lock 寫入失敗 / DB 還停留在舊 session
-  // 這種情境下不應該誤踢人；先嘗試補寫一次 lock
-  if (loginAt && lockUpdatedAt && lockUpdatedAt < loginAt - 5000) {
-    const repaired = await upsertLoginLockForCurrentUser();
-    if (repaired) return true;
-    // 補寫失敗也不要直接踢人，避免「儲存成功後誤登出」
-    return true;
-  }
-
-  // lock 比本次登入更新（或沒有可靠時間可比）：視為其他裝置登入，踢人
-  return false;
-}
-
-type UseSessionAuthOptions = {
-  onLogoutCleanup: (options: { clearDraft: boolean }) => Promise<void>;
-  onKickedCleanup: () => Promise<void>;
-};
-
-export function useSessionAuth({
-  onLogoutCleanup,
-  onKickedCleanup,
-}: UseSessionAuthOptions) {
-  const [sessionChecked, setSessionChecked] = useState(false);
+export function useSessionAuth({ onKickedOut }: UseSessionAuthOptions = {}) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authUsername, setAuthUsername] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
-  const kickedRef = useRef(false);
-  const skipSingleLoginCheckRef = useRef(false);
-  // 單一登入鎖是否已成功寫入（寫入失敗時，不強制踢人，避免誤登出）
-  const singleLoginReadyRef = useRef(false);
-  // 記錄本次登入時間（用來判斷 DB lock 是否比本機登入更新）
-  const loginAtRef = useRef<number>(0);
-  const idleTimerRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const [authUsername, setAuthUsername] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
-  // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
-  const computeIsAdmin = (u: string) => {
-    return u === "admin";
-  };
+  const sessionIdRef = useRef<string | null>(null);
+  const pollingTimerRef = useRef<number | null>(null);
+  const lastLoginAtRef = useRef<number>(0);
 
-  const refreshUserRole = async () => {
-    const { data } = await supabase.auth.getUser();
-    const email = data.user?.email || "";
-    const u = email.includes("@") ? email.split("@")[0] : "";
-    setAuthUsername(u);
-    setIsAdmin(computeIsAdmin(u));
+  // ===== helpers =====
+
+  const stopPolling = () => {
+    if (pollingTimerRef.current) {
+      window.clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
   };
 
   const handleKickedOut = async () => {
-    if (kickedRef.current) return;
-    kickedRef.current = true;
-    alert("此帳號已在其他裝置登入，系統將登出。");
-    // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
-    supabase.auth.signOut();
-    await onKickedCleanup();
-    setIsLoggedIn(false);
-    setAuthUsername("");
-    setIsAdmin(false);
-  };
-
-  const handleLogout = async (options?: { clearDraft?: boolean }) => {
-    const clearDraft = options?.clearDraft ?? true;
+    stopPolling();
     await supabase.auth.signOut();
-    await onLogoutCleanup({ clearDraft });
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    onKickedOut?.();
   };
 
-  const pauseSingleLoginValidation = () => {
-    skipSingleLoginCheckRef.current = true;
-  };
+  const upsertLoginLockForCurrentUser = async (): Promise<boolean> => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session?.user?.id) return false;
 
-  const resumeSingleLoginValidation = () => {
-    skipSingleLoginCheckRef.current = false;
-  };
+    const sid = session.access_token;
+    sessionIdRef.current = sid;
 
-  const login = async (username: string, password: string) => {
-    const trimmed = username.trim();
-    if (!trimmed || !password) {
-      return { ok: false, message: "請輸入帳號與密碼" };
-    }
-
-    const email = `${trimmed}@local.com`;
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase
+      .from("user_login_lock")
+      .upsert(
+        {
+          user_id: session.user.id,
+          session_id: sid,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
 
     if (error) {
-      return { ok: false, message: error.message || "登入失敗" };
+      console.error("寫入 user_login_lock 失敗：", error);
+      return false;
     }
 
-        loginAtRef.current = Date.now();
-    singleLoginReadyRef.current = await upsertLoginLockForCurrentUser();
-    if (!singleLoginReadyRef.current) {
-      console.warn("user_login_lock 未寫入成功：將暫停單一登入強制踢人（避免誤登出）。");
-    }
-    setIdleLogoutMessage("");
-    setIsLoggedIn(true);
-    await logAudit("login");
-    return { ok: true };
+    return true;
   };
 
-  // ===== 登入狀態初始化（Supabase Session） =====
+  const refreshUserRole = async () => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session?.user?.id) return;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role, username")
+      .eq("id", session.user.id)
+      .single();
+
+    if (error) throw error;
+
+    setAuthUsername(data?.username || "");
+    setIsAdmin(data?.role === "admin");
+  };
+
+  // ===== single login validation =====
+
+  const resumeSingleLoginValidation = () => {
+    stopPolling();
+
+    pollingTimerRef.current = window.setInterval(async () => {
+      try {
+        // 登入後 8 秒內不檢查（避免 replica lag 造成 B 自殺）
+        if (Date.now() - lastLoginAtRef.current < 8000) return;
+
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session?.user?.id || !sessionIdRef.current) return;
+
+        const { data, error } = await supabase
+          .from("user_login_lock")
+          .select("session_id, updated_at")
+          .eq("user_id", session.user.id)
+          .single();
+
+        if (error) {
+          console.error("讀取 user_login_lock 失敗：", error);
+          return;
+        }
+
+        if (!data?.session_id) return;
+
+        // 如果 DB 還是舊 session，而且 updated_at 比登入時間早 → 補寫一次，不踢人
+        if (
+          data.session_id !== sessionIdRef.current &&
+          data.updated_at &&
+          new Date(data.updated_at).getTime() < lastLoginAtRef.current
+        ) {
+          console.warn("偵測到 stale login_lock，嘗試補寫");
+          await upsertLoginLockForCurrentUser();
+          return;
+        }
+
+        // 真正被別台登入
+        if (data.session_id !== sessionIdRef.current) {
+          console.warn("此帳號已在其他裝置登入，執行踢出");
+          await handleKickedOut();
+        }
+      } catch (e) {
+        console.error("single login validation 例外：", e);
+      }
+    }, 3000);
+  };
+
+  // ===== init =====
+
   useEffect(() => {
     let cancelled = false;
 
-    // ✅ 保險：任何情況都不要讓畫面永久卡在 Loading
-    const failSafe = window.setTimeout(() => {
-      if (!cancelled) setSessionChecked(true);
-    }, 4000);
-
     const initAuth = async () => {
+      const failSafe = window.setTimeout(() => {
+        if (!cancelled) setSessionChecked(true);
+      }, 8000);
+
       try {
-        // ✅ 再加一層 timeout：避免極端情況 getSession Promise 卡住
-        const sessionRes: any = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("getSession timeout")), 3000)
-          ),
-        ]);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        const data = sessionRes?.data;
-        const error = sessionRes?.error;
+        if (session) {
+          lastLoginAtRef.current = Date.now();
+          setIsLoggedIn(true);
 
-        if (error) {
-          console.error("getSession 失敗：", error.message || error);
-        }
+          const ok = await upsertLoginLockForCurrentUser();
+          if (ok) resumeSingleLoginValidation();
 
-        const hasSession = !!data?.session;
-
-        if (!cancelled) {
-          setIsLoggedIn(hasSession);
-        }
-
-        if (hasSession) {
-          setIdleLogoutMessage("");
-          // ⚠️ 不要讓 refreshUserRole 阻塞 sessionChecked
-          refreshUserRole().catch((e) => {
-            console.error("refreshUserRole 失敗：", e);
-          });
+          await refreshUserRole();
         } else {
           if (!cancelled) {
+            setIsLoggedIn(false);
             setAuthUsername("");
             setIsAdmin(false);
           }
@@ -231,18 +168,21 @@ export function useSessionAuth({
 
     initAuth();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // ✅ 狀態先更新，不要被 refreshUserRole 卡住
-        setIsLoggedIn(!!session);
-        setSessionChecked(true);
-
         if (session) {
-          setIdleLogoutMessage("");
-          refreshUserRole().catch((e) => {
-            console.error("refreshUserRole 失敗：", e);
-          });
+          lastLoginAtRef.current = Date.now();
+          setIsLoggedIn(true);
+
+          const ok = await upsertLoginLockForCurrentUser();
+          if (ok) resumeSingleLoginValidation();
+
+          refreshUserRole().catch((e) =>
+            console.error("refreshUserRole 失敗：", e)
+          );
         } else {
+          stopPolling();
+          setIsLoggedIn(false);
           setAuthUsername("");
           setIsAdmin(false);
         }
@@ -251,122 +191,15 @@ export function useSessionAuth({
 
     return () => {
       cancelled = true;
-      window.clearTimeout(failSafe);
-      listener?.subscription.unsubscribe();
+      stopPolling();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
-  // ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
-  useEffect(() => {
-    if (!isLoggedIn) {
-      kickedRef.current = false;
-      return;
-    }
-
-    kickedRef.current = false;
-    const timer = window.setInterval(async () => {
-      if (skipSingleLoginCheckRef.current) return;
-      const ok = await isCurrentSessionStillValid({ enabled: singleLoginReadyRef.current, loginAtMs: loginAtRef.current });
-      if (!ok) {
-        await handleKickedOut();
-      }
-    }, 3000);
-
-    return () => window.clearInterval(timer);
-  }, [isLoggedIn]);
-
-  // ===== 閒置自動登出（5 分鐘無操作） =====
-  useEffect(() => {
-    if (!isLoggedIn) {
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      return;
-    }
-
-    const idleTimeoutMs = 5 * 60 * 1000;
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "touchstart",
-      "touchmove",
-      "wheel",
-      "scroll",
-      "pointerdown",
-      "pointermove",
-      "click",
-    ];
-
-    const triggerIdleLogout = () => {
-      setIdleLogoutMessage("因閒置超過 5 分鐘，已自動登出");
-      void handleLogout({ clearDraft: false });
-    };
-
-    const resetIdleTimer = () => {
-      lastActivityRef.current = Date.now();
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      idleTimerRef.current = window.setTimeout(() => {
-        triggerIdleLogout();
-      }, idleTimeoutMs);
-    };
-
-    const handleActivity = () => resetIdleTimer();
-
-    events.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { passive: true });
-    });
-
-    const handleVisibility = () => {
-      if (document.visibilityState !== "visible") return;
-      const elapsed = Date.now() - lastActivityRef.current;
-      if (elapsed >= idleTimeoutMs) {
-        triggerIdleLogout();
-      } else {
-        resetIdleTimer();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
-
-    const idleCheckInterval = window.setInterval(() => {
-      const elapsed = Date.now() - lastActivityRef.current;
-      if (elapsed >= idleTimeoutMs) {
-        triggerIdleLogout();
-      }
-    }, 30000);
-
-    resetIdleTimer();
-
-    return () => {
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      window.clearInterval(idleCheckInterval);
-      events.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity);
-      });
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
-    };
-  }, [isLoggedIn]);
-
   return {
-    sessionChecked,
     isLoggedIn,
     authUsername,
     isAdmin,
-    idleLogoutMessage,
-    setIdleLogoutMessage,
-    login,
-    handleLogout,
-    pauseSingleLoginValidation,
-    resumeSingleLoginValidation,
+    sessionChecked,
   };
 }
