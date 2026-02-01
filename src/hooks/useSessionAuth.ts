@@ -108,7 +108,9 @@ export function useSessionAuth({
       return { ok: false, message: "請輸入帳號與密碼" };
     }
 
-    const email = `${trimmed}@local.com`;
+    const email = trimmed.includes("@")
+      ? trimmed.toLowerCase()
+      : `${trimmed.toLowerCase()}@local.com`;
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
