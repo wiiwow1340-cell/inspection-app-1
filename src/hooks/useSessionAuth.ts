@@ -170,11 +170,11 @@ export function useSessionAuth({
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
-          upsertLoginLockForCurrentUser().catch((e) => {
-            console.error("更新 user_login_lock 失敗：", e);
-          });
-          enforceSingleSession().catch((e) => {
-            console.error("enforceSingleSession 失敗：", e);
+          (async () => {
+            await upsertLoginLockForCurrentUser();
+            await enforceSingleSession();
+          })().catch((e) => {
+            console.error("更新/驗證 user_login_lock 失敗：", e);
           });
         } else {
           if (!cancelled) {
@@ -208,11 +208,11 @@ export function useSessionAuth({
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
-          upsertLoginLockForCurrentUser().catch((e) => {
-            console.error("更新 user_login_lock 失敗：", e);
-          });
-          enforceSingleSession().catch((e) => {
-            console.error("enforceSingleSession 失敗：", e);
+          (async () => {
+            await upsertLoginLockForCurrentUser();
+            await enforceSingleSession();
+          })().catch((e) => {
+            console.error("更新/驗證 user_login_lock 失敗：", e);
           });
         } else {
           setAuthUsername("");
