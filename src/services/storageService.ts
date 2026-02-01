@@ -133,3 +133,12 @@ export async function uploadImage(
     return "";
   }
 }
+
+export async function deleteImages(paths: string[]): Promise<{ error: any }> {
+  if (paths.length === 0) return { error: null };
+  const { error } = await supabase.storage.from("photos").remove(paths);
+  if (error) {
+    console.error("刪除圖片失敗（Storage）:", error.message);
+  }
+  return { error };
+}

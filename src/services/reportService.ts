@@ -48,6 +48,34 @@ export async function fetchReportsFromDB(): Promise<Report[]> {
   }));
 }
 
+export async function fetchReportByIdFromDB(
+  reportId: string
+): Promise<Report | null> {
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .limit(1);
+
+  if (error) {
+    console.error("讀取 reports 失敗：", error.message);
+    return null;
+  }
+
+  const row = data?.[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    serial: row.serial,
+    model: row.model,
+    process: row.process,
+    edited_by: row.edited_by || "",
+    images: normalizeImagesMap(row.images || {}),
+    expected_items: row.expected_items ? JSON.parse(row.expected_items) : [],
+  };
+}
+
 export async function updateReportInDB(report: Report) {
   const { error } = await supabase
     .from("reports")

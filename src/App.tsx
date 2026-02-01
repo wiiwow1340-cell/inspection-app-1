@@ -8,10 +8,16 @@ import { useDrafts } from "./hooks/useDrafts";
 import { logAuditEvent } from "./services/auditLogService";
 import {
   fetchReportsFromDB,
+  fetchReportByIdFromDB,
   saveReportToDB,
   updateReportInDB,
 } from "./services/reportService";
-import { getSignedImageUrl, runInBatches, uploadImage } from "./services/storageService";
+import {
+  deleteImages,
+  getSignedImageUrl,
+  runInBatches,
+  uploadImage,
+} from "./services/storageService";
 import { supabase } from "./services/supabaseClient";
 import {
   NA_SENTINEL,
@@ -20,6 +26,32 @@ import {
   normalizeImageValue,
   normalizeImagesMap,
 } from "./utils/imageUtils";
+
+const mergeReportImages = (
+  baseImages: Record<string, ImageValue> | undefined,
+  incomingImages: Record<string, ImageValue>
+) => {
+  const merged: Record<string, ImageValue> = normalizeImagesMap(baseImages);
+  Object.entries(incomingImages).forEach(([item, value]) => {
+    if (value === NA_SENTINEL) {
+      merged[item] = NA_SENTINEL;
+      return;
+    }
+    const incomingList = normalizeImageValue(value);
+    if (incomingList.length === 0) return;
+    const existingList = normalizeImageValue(merged[item]);
+    merged[item] = [...existingList, ...incomingList];
+  });
+  return normalizeImagesMap(merged);
+};
+
+const cleanupUploadedPaths = async (paths: string[]) => {
+  if (paths.length === 0) return;
+  const { error } = await deleteImages(paths);
+  if (error) {
+    console.error("刪除已上傳圖片失敗：", error.message);
+  }
+};
 
 // =============================
 //  簡易 UI 元件：Button / Input / Card
@@ -602,6 +634,44 @@ const editPreviewImages = useMemo(() => {
       reports.filter((r) => r.id?.startsWith(`${procCode}-${ymd}`)).length + 1;
     const seq = String(todayCount).padStart(3, "0");
     const id = `${procCode}-${ymd}${seq}`;
+    let baseReport = await fetchReportByIdFromDB(id);
+
+    const report: Report = {
+      id,
+      serial: sn,
+      model: selectedModel,
+      process: selectedProcess,
+      edited_by: authUsername || "",
+      images: normalizeImagesMap(uploadedImages),
+      expected_items: expectedItems,
+    };
+
+    let reportAction: "create_report" | "edit_report" = "edit_report";
+    if (!baseReport) {
+      const res = await saveReportToDB(report);
+      if (!res.ok) {
+        if (res.code === "23505") {
+          baseReport = await fetchReportByIdFromDB(id);
+          if (!baseReport) {
+            console.error("duplicate key but report not found:", res);
+            alert(`寫入雲端失敗，請稍後再試。
+
+(${res.message})`);
+            return false;
+          }
+        } else {
+          console.error("saveReportToDB failed:", res);
+          alert(`寫入雲端失敗，請稍後再試。
+
+(${res.message})`);
+          return false;
+        }
+      }
+      if (!baseReport) {
+        baseReport = { ...report, images: {} };
+        reportAction = "create_report";
+      }
+    }
 
     // --- 新增：初始化進度 ---
     setUploadProgress(0);
@@ -613,6 +683,7 @@ const editPreviewImages = useMemo(() => {
     setUploadTotalCount(totalTasks);
 
     const failedUploads: { item: string; name: string }[] = [];
+    const uploadedPaths: string[] = [];
     const uploadTasks = uploadItems.flatMap((item) => {
       if (homeNA[item]) {
         return [
@@ -643,6 +714,7 @@ const editPreviewImages = useMemo(() => {
           );
           if (path) {
             (uploadedImages[item] as string[]).push(path);
+            uploadedPaths.push(path);
           } else {
             failedUploads.push({ item, name: file.name });
           }
@@ -659,6 +731,7 @@ const editPreviewImages = useMemo(() => {
     // 同時最多 6 張，其餘排隊
     await runInBatches(uploadTasks, 6);
     if (failedUploads.length > 0) {
+      await cleanupUploadedPaths(uploadedPaths);
       const detail = failedUploads
         .map(({ item, name }) => `${item} (${name || "未命名"})`)
         .join("\n");
@@ -666,26 +739,23 @@ const editPreviewImages = useMemo(() => {
       return false;
     }
 
-    const report: Report = {
-      id,
-      serial: sn,
-      model: selectedModel,
-      process: selectedProcess,
-      edited_by: authUsername || "",
-      images: normalizeImagesMap(uploadedImages),
+    const mergedImages = mergeReportImages(baseReport?.images, uploadedImages);
+    const updated: Report = {
+      ...(baseReport || report),
+      images: mergedImages,
       expected_items: expectedItems,
+      edited_by: authUsername || "",
     };
-
-    const res = await saveReportToDB(report);
-    if (!res.ok) {
-      console.error("saveReportToDB failed:", res);
-      alert(`寫入雲端失敗，請稍後再試。
-
-(${res.message})`);
+    const { error: updateErr } = await updateReportInDB(updated);
+    if (updateErr) {
+      console.error("更新 reports 失敗：", updateErr.message);
+      await cleanupUploadedPaths(uploadedPaths);
+      alert(
+        "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
+      );
       return false;
     }
-
-    await logAuditEvent({ reportId: id, action: "create_report" });
+    await logAuditEvent({ reportId: id, action: reportAction });
     if (uploadedPhotoCount > 0) {
       await logAuditEvent({
         reportId: id,
@@ -1645,6 +1715,7 @@ const editPreviewImages = useMemo(() => {
                     });
                     const uploadedImages: Record<string, ImageValue> = {};
                     const failedUploads: { item: string; name: string }[] = [];
+                    const uploadedPaths: string[] = [];
                     expectedItems.forEach((item) => {
                       if (editNA[item]) {
                         uploadedImages[item] = NA_SENTINEL;
@@ -1708,6 +1779,7 @@ const editPreviewImages = useMemo(() => {
 
                         if (url) {
                           (uploadedImages[item] as string[]).push(url);
+                          uploadedPaths.push(url);
                         } else {
                           failedUploads.push({ item, name: file.name });
                         }
@@ -1725,6 +1797,7 @@ const editPreviewImages = useMemo(() => {
                   
                   await runInBatches(uploadTasks, 6);
                   if (failedUploads.length > 0) {
+                    await cleanupUploadedPaths(uploadedPaths);
                     const detail = failedUploads
                       .map(({ item, name }) => `${item} (${name || "未命名"})`)
                       .join("\n");
@@ -1755,6 +1828,7 @@ const editPreviewImages = useMemo(() => {
 
                   if (updateErr) {
                     console.error("更新 reports 失敗：", updateErr.message);
+                    await cleanupUploadedPaths(uploadedPaths);
                     alert(
                       "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
                     );
