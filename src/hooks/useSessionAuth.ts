@@ -44,6 +44,7 @@ export function useSessionAuth({
   const [authUsername, setAuthUsername] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
+  const [loginLockReady, setLoginLockReady] = useState(false);
 
   const kickedRef = useRef(false);
   const idleTimerRef = useRef<number | null>(null);
@@ -75,6 +76,7 @@ export function useSessionAuth({
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    setLoginLockReady(false);
   };
 
   const handleLogout = async (options?: { clearDraft?: boolean }) => {
@@ -84,6 +86,7 @@ export function useSessionAuth({
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    setLoginLockReady(false);
   };
 
   const login = async (username: string, password: string) => {
@@ -110,6 +113,7 @@ export function useSessionAuth({
       return { ok: false, message: "登入驗證失敗，請重新登入" };
     }
     setIdleLogoutMessage("");
+    setLoginLockReady(true);
     setIsLoggedIn(true);
     void logAuditEvent({ reportId: null, action: "login" });
     return { ok: true };
@@ -148,6 +152,14 @@ export function useSessionAuth({
         }
 
         if (hasSession) {
+          const lockOk = await isCurrentSessionStillValid();
+          if (!lockOk) {
+            await handleLogout({ clearDraft: false });
+            return;
+          }
+          if (!cancelled) {
+            setLoginLockReady(true);
+          }
           setIdleLogoutMessage("");
           // ⚠️ 不要讓 refreshUserRole 阻塞 sessionChecked
           refreshUserRole().catch((e) => {
@@ -157,6 +169,7 @@ export function useSessionAuth({
           if (!cancelled) {
             setAuthUsername("");
             setIsAdmin(false);
+            setLoginLockReady(false);
           }
         }
       } catch (e) {
@@ -165,6 +178,7 @@ export function useSessionAuth({
           setIsLoggedIn(false);
           setAuthUsername("");
           setIsAdmin(false);
+          setLoginLockReady(false);
         }
       } finally {
         window.clearTimeout(failSafe);
@@ -176,18 +190,25 @@ export function useSessionAuth({
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // ✅ 狀態先更新，不要被 refreshUserRole 卡住
-        setIsLoggedIn(!!session);
         setSessionChecked(true);
 
         if (session) {
+          const lockOk = await isCurrentSessionStillValid();
+          if (!lockOk) {
+            await handleLogout({ clearDraft: false });
+            return;
+          }
+          setLoginLockReady(true);
+          setIsLoggedIn(true);
           setIdleLogoutMessage("");
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
         } else {
+          setIsLoggedIn(false);
           setAuthUsername("");
           setIsAdmin(false);
+          setLoginLockReady(false);
         }
       }
     );
@@ -201,7 +222,7 @@ export function useSessionAuth({
 
   // ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
   useEffect(() => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !loginLockReady) {
       kickedRef.current = false;
       return;
     }
