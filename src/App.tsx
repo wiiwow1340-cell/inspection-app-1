@@ -595,98 +595,103 @@ const editPreviewImages = useMemo(() => {
     const seq = String(todayCount).padStart(3, "0");
     const id = `${procCode}-${ymd}${seq}`;
 
-    // --- 新增：初始化進度 ---
-    setUploadProgress(0);
-    let completedCount = 0;
-    const totalTasks =
-      photoEntries.reduce((total, [, files]) => total + files.length, 0) +
-      Object.keys(homeNA).filter((item) => homeNA[item]).length;
-    setUploadDoneCount(0);
-    setUploadTotalCount(totalTasks);
+    pauseSingleLoginValidation();
+    try {
+      // --- 新增：初始化進度 ---
+      setUploadProgress(0);
+      let completedCount = 0;
+      const totalTasks =
+        photoEntries.reduce((total, [, files]) => total + files.length, 0) +
+        Object.keys(homeNA).filter((item) => homeNA[item]).length;
+      setUploadDoneCount(0);
+      setUploadTotalCount(totalTasks);
 
-    const failedUploads: { item: string; name: string }[] = [];
-    let addedCount = 0;
-    const uploadTasks = uploadItems.flatMap((item) => {
-      if (homeNA[item]) {
-        return [
-          async () => {
-            uploadedImages[item] = NA_SENTINEL;
+      const failedUploads: { item: string; name: string }[] = [];
+      let addedCount = 0;
+      const uploadTasks = uploadItems.flatMap((item) => {
+        if (homeNA[item]) {
+          return [
+            async () => {
+              uploadedImages[item] = NA_SENTINEL;
+              completedCount++;
+              setUploadDoneCount(completedCount);
+              setUploadProgress(
+                Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
+              );
+            },
+          ];
+        }
+
+        const files = newImageFiles[item] || [];
+        if (files.length === 0) return [];
+
+        uploadedImages[item] = [];
+        return files.map((file, fileIndex) => async () => {
+          try {
+            const path = await uploadImage(
+              selectedProcObj.code,
+              selectedModel,
+              sn,
+              id,
+              { item, procItems: expectedItems, photoIndex: fileIndex + 1 },
+              file
+            );
+            if (path) {
+              (uploadedImages[item] as string[]).push(path);
+              addedCount++;
+            } else {
+              failedUploads.push({ item, name: file.name });
+            }
+          } finally {
             completedCount++;
             setUploadDoneCount(completedCount);
             setUploadProgress(
               Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
             );
-          },
-        ];
+          }
+        });
+      });
+
+      // 同時最多 6 張，其餘排隊
+      await runInBatches(uploadTasks, 6);
+      if (failedUploads.length > 0) {
+        const detail = failedUploads
+          .map(({ item, name }) => `${item} (${name || "未命名"})`)
+          .join("\n");
+        alert(`以下照片上傳失敗，請重新嘗試：\n${detail}`);
+        return false;
       }
 
-      const files = newImageFiles[item] || [];
-      if (files.length === 0) return [];
+      const report: Report = {
+        id,
+        serial: sn,
+        model: selectedModel,
+        process: selectedProcess,
+        edited_by: authUsername || "",
+        images: normalizeImagesMap(uploadedImages),
+        expected_items: expectedItems,
+      };
 
-      uploadedImages[item] = [];
-      return files.map((file, fileIndex) => async () => {
-        try {
-          const path = await uploadImage(
-            selectedProcObj.code,
-            selectedModel,
-            sn,
-            id,
-            { item, procItems: expectedItems, photoIndex: fileIndex + 1 },
-            file
-          );
-          if (path) {
-            (uploadedImages[item] as string[]).push(path);
-            addedCount++;
-          } else {
-            failedUploads.push({ item, name: file.name });
-          }
-        } finally {
-          completedCount++;
-          setUploadDoneCount(completedCount);
-          setUploadProgress(
-            Math.round((completedCount / Math.max(totalTasks, 1)) * 100)
-          );
-        }
-      });
-    });
-
-    // 同時最多 6 張，其餘排隊
-    await runInBatches(uploadTasks, 6);
-    if (failedUploads.length > 0) {
-      const detail = failedUploads
-        .map(({ item, name }) => `${item} (${name || "未命名"})`)
-        .join("\n");
-      alert(`以下照片上傳失敗，請重新嘗試：\n${detail}`);
-      return false;
-    }
-
-    const report: Report = {
-      id,
-      serial: sn,
-      model: selectedModel,
-      process: selectedProcess,
-      edited_by: authUsername || "",
-      images: normalizeImagesMap(uploadedImages),
-      expected_items: expectedItems,
-    };
-
-    const res = await saveReportToDB(report);
-    if (!res.ok) {
-      console.error("saveReportToDB failed:", res);
-      alert(`寫入雲端失敗，請稍後再試。
+      const res = await saveReportToDB(report);
+      if (!res.ok) {
+        console.error("saveReportToDB failed:", res);
+        alert(`寫入雲端失敗，請稍後再試。
 
 (${res.message})`);
-      return false;
-    }
-    await logAudit("upload_photo_batch", report.id, { addedCount });
+        return false;
+      }
+      await logAudit("upload_photo_batch", report.id, { addedCount });
 
-    // 寫入成功後：不做 optimistic append，改為重新從 DB 讀取（DB-only）
-    alert("儲存成功");
-    const freshReports = await fetchReportsFromDB();
-    setReports(freshReports);
-    await resetNewReportState();
-    await clearDraft();
-    return true;
+      // 寫入成功後：不做 optimistic append，改為重新從 DB 讀取（DB-only）
+      alert("儲存成功");
+      const freshReports = await fetchReportsFromDB();
+      setReports(freshReports);
+      await resetNewReportState();
+      await clearDraft();
+      return true;
+    } finally {
+      resumeSingleLoginValidation();
+    }
   };
 
   const isReportEditDirty = (reportId: string | null) => {
@@ -839,6 +844,8 @@ const editPreviewImages = useMemo(() => {
     idleLogoutMessage,
     login,
     handleLogout,
+    pauseSingleLoginValidation,
+    resumeSingleLoginValidation,
   } = useSessionAuth({
     onLogoutCleanup: async ({ clearDraft }) => {
       await resetNewReportState();
@@ -1609,6 +1616,7 @@ const editPreviewImages = useMemo(() => {
                   if (savingEditRef.current) return;
                   savingEditRef.current = true;
                   setIsSavingEdit(true);
+                  pauseSingleLoginValidation();
 
                   try {
                   const report = reports.find((rr) => rr.id === editingReportId);
@@ -1766,6 +1774,7 @@ const editPreviewImages = useMemo(() => {
                   setShowEditPreview(false);
                   setEditingReportId(null);
                   } finally {
+                    resumeSingleLoginValidation();
                     savingEditRef.current = false;
                     setIsSavingEdit(false);
                     setUploadProgress(0);

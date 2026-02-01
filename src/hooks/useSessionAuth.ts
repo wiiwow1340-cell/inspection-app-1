@@ -30,7 +30,7 @@ async function upsertLoginLockForCurrentUser() {
 async function isCurrentSessionStillValid(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) return true; // token refresh/網路抖動期間視為不確定，避免誤踢
+  if (!session) return false;
   const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
   if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
 
@@ -63,6 +63,7 @@ export function useSessionAuth({
   const [idleLogoutMessage, setIdleLogoutMessage] = useState("");
 
   const kickedRef = useRef(false);
+  const skipSingleLoginCheckRef = useRef(false);
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
@@ -98,6 +99,14 @@ export function useSessionAuth({
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+  };
+
+  const pauseSingleLoginValidation = () => {
+    skipSingleLoginCheckRef.current = true;
+  };
+
+  const resumeSingleLoginValidation = () => {
+    skipSingleLoginCheckRef.current = false;
   };
 
   const login = async (username: string, password: string) => {
@@ -217,6 +226,7 @@ export function useSessionAuth({
 
     kickedRef.current = false;
     const timer = window.setInterval(async () => {
+      if (skipSingleLoginCheckRef.current) return;
       const ok = await isCurrentSessionStillValid();
       if (!ok) {
         await handleKickedOut();
@@ -317,5 +327,7 @@ export function useSessionAuth({
     setIdleLogoutMessage,
     login,
     handleLogout,
+    pauseSingleLoginValidation,
+    resumeSingleLoginValidation,
   };
 }
