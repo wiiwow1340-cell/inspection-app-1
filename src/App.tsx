@@ -5,6 +5,7 @@ import ManagePage from "./ManagePage";
 import type { Process, Report } from "./types";
 import { useSessionAuth } from "./hooks/useSessionAuth";
 import { useDrafts } from "./hooks/useDrafts";
+import { logAudit } from "./services/auditService";
 import { fetchReportsFromDB, saveReportToDB, updateReportInDB } from "./services/reportService";
 import { getSignedImageUrl, runInBatches, uploadImage } from "./services/storageService";
 import { supabase } from "./services/supabaseClient";
@@ -604,6 +605,7 @@ const editPreviewImages = useMemo(() => {
     setUploadTotalCount(totalTasks);
 
     const failedUploads: { item: string; name: string }[] = [];
+    let addedCount = 0;
     const uploadTasks = uploadItems.flatMap((item) => {
       if (homeNA[item]) {
         return [
@@ -634,6 +636,7 @@ const editPreviewImages = useMemo(() => {
           );
           if (path) {
             (uploadedImages[item] as string[]).push(path);
+            addedCount++;
           } else {
             failedUploads.push({ item, name: file.name });
           }
@@ -675,6 +678,7 @@ const editPreviewImages = useMemo(() => {
 (${res.message})`);
       return false;
     }
+    await logAudit("upload_photo_batch", report.id, { addedCount });
 
     // 寫入成功後：不做 optimistic append，改為重新從 DB 讀取（DB-only）
     alert("儲存成功");
@@ -1643,6 +1647,7 @@ const editPreviewImages = useMemo(() => {
                   setUploadDoneCount(0);
                   setUploadTotalCount(totalTasks);
                   
+                  let addedCount = 0;
                   const uploadTasks = uploadItems.flatMap((item) => {
                     if (editNA[item]) {
                       return [
@@ -1684,6 +1689,7 @@ const editPreviewImages = useMemo(() => {
 
                         if (url) {
                           (uploadedImages[item] as string[]).push(url);
+                          addedCount++;
                         } else {
                           failedUploads.push({ item, name: file.name });
                         }
@@ -1735,6 +1741,11 @@ const editPreviewImages = useMemo(() => {
                       "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
                     );
                     return;
+                  }
+                  if (addedCount > 0) {
+                    await logAudit("upload_photo_batch", updated.id, {
+                      addedCount,
+                    });
                   }
 
                   // 更新成功後再更新前端
