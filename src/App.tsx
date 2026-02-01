@@ -746,9 +746,13 @@ const editPreviewImages = useMemo(() => {
       expected_items: expectedItems,
       edited_by: authUsername || "",
     };
-    const { error: updateErr } = await updateReportInDB(updated);
-    if (updateErr) {
-      console.error("更新 reports 失敗：", updateErr.message);
+    const updateResult = await updateReportInDB(updated);
+    if (!updateResult.ok) {
+      if (updateResult.error) {
+        console.error("更新 reports 失敗：", updateResult.error.message);
+      } else {
+        console.error("更新 reports 失敗：無資料被更新");
+      }
       await cleanupUploadedPaths(uploadedPaths);
       alert(
         "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
@@ -1824,10 +1828,17 @@ const editPreviewImages = useMemo(() => {
                     edited_by: authUsername || "",
                   };
 
-                  const { error: updateErr } = await updateReportInDB(updated);
+                  const updateResult = await updateReportInDB(updated);
 
-                  if (updateErr) {
-                    console.error("更新 reports 失敗：", updateErr.message);
+                  if (!updateResult.ok) {
+                    if (updateResult.error) {
+                      console.error(
+                        "更新 reports 失敗：",
+                        updateResult.error.message
+                      );
+                    } else {
+                      console.error("更新 reports 失敗：無資料被更新");
+                    }
                     await cleanupUploadedPaths(uploadedPaths);
                     alert(
                       "更新雲端失敗，請稍後再試。\n\n（為避免資料不一致，本次變更未寫入雲端）"
