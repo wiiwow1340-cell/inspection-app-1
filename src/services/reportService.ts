@@ -6,6 +6,26 @@ type DbWriteResult =
   | { ok: true }
   | { ok: false; message: string; code?: string };
 
+async function logReportAudit(action: "report.create" | "report.update", reportId: string) {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("取得使用者失敗：", error.message);
+    return;
+  }
+  const userId = data.user?.id;
+  if (!userId) return;
+
+  const { error: insertError } = await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action,
+    report_id: reportId,
+  });
+
+  if (insertError) {
+    console.error("寫入 audit_logs 失敗：", insertError.message);
+  }
+}
+
 // 儲存報告 JSON 至資料庫
 export async function saveReportToDB(report: Report): Promise<DbWriteResult> {
   const { error } = await supabase.from("reports").insert({
@@ -22,6 +42,8 @@ export async function saveReportToDB(report: Report): Promise<DbWriteResult> {
       code: anyErr?.code,
     };
   }
+
+  await logReportAudit("report.create", report.id);
   return { ok: true };
 }
 
@@ -57,6 +79,10 @@ export async function updateReportInDB(report: Report) {
       edited_by: report.edited_by,
     })
     .eq("id", report.id);
+
+  if (!error) {
+    await logReportAudit("report.update", report.id);
+  }
 
   return { error };
 }
