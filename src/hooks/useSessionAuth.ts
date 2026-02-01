@@ -66,6 +66,14 @@ export function useSessionAuth({
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
+  const enforceSingleSession = async () => {
+    if (!isLoggedIn) return;
+    const ok = await isCurrentSessionStillValid();
+    if (!ok) {
+      await handleKickedOut();
+    }
+  };
+
   // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
   const computeIsAdmin = (u: string) => {
     return u === "admin";
@@ -162,6 +170,9 @@ export function useSessionAuth({
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
+          enforceSingleSession().catch((e) => {
+            console.error("enforceSingleSession 失敗：", e);
+          });
         } else {
           if (!cancelled) {
             setAuthUsername("");
@@ -194,6 +205,9 @@ export function useSessionAuth({
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
+          enforceSingleSession().catch((e) => {
+            console.error("enforceSingleSession 失敗：", e);
+          });
         } else {
           setAuthUsername("");
           setIsAdmin(false);
@@ -208,7 +222,7 @@ export function useSessionAuth({
     };
   }, []);
 
-  // ===== 單一登入鎖：已登入時定期檢查（後登入踢前登入） =====
+  // ===== 單一登入鎖：僅在登入與回到前景時檢查 =====
   useEffect(() => {
     if (!isLoggedIn) {
       kickedRef.current = false;
@@ -216,14 +230,20 @@ export function useSessionAuth({
     }
 
     kickedRef.current = false;
-    const timer = window.setInterval(async () => {
-      const ok = await isCurrentSessionStillValid();
-      if (!ok) {
-        await handleKickedOut();
-      }
-    }, 3000);
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      enforceSingleSession().catch((e) => {
+        console.error("enforceSingleSession 失敗：", e);
+      });
+    };
 
-    return () => window.clearInterval(timer);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+    };
   }, [isLoggedIn]);
 
   // ===== 閒置自動登出（5 分鐘無操作） =====
