@@ -1,30 +1,11 @@
 import type { Report } from "../types";
 import { normalizeImagesMap } from "../utils/imageUtils";
+import { logAudit } from "./auditService";
 import { supabase } from "./supabaseClient";
 
 type DbWriteResult =
   | { ok: true }
   | { ok: false; message: string; code?: string };
-
-async function logReportAudit(action: "report.create" | "report.update", reportId: string) {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) {
-    console.error("取得使用者失敗：", error.message);
-    return;
-  }
-  const userId = data.user?.id;
-  if (!userId) return;
-
-  const { error: insertError } = await supabase.from("audit_logs").insert({
-    user_id: userId,
-    action,
-    report_id: reportId,
-  });
-
-  if (insertError) {
-    console.error("寫入 audit_logs 失敗：", insertError.message);
-  }
-}
 
 // 儲存報告 JSON 至資料庫
 export async function saveReportToDB(report: Report): Promise<DbWriteResult> {
@@ -43,7 +24,7 @@ export async function saveReportToDB(report: Report): Promise<DbWriteResult> {
     };
   }
 
-  await logReportAudit("report.create", report.id);
+  await logAudit("report_create", report.id);
   return { ok: true };
 }
 
@@ -81,7 +62,7 @@ export async function updateReportInDB(report: Report) {
     .eq("id", report.id);
 
   if (!error) {
-    await logReportAudit("report.update", report.id);
+    await logAudit("report_update", report.id);
   }
 
   return { error };
