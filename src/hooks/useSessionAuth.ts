@@ -193,7 +193,21 @@ export function useSessionAuth({
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.info("[auth] onAuthStateChange", {
+          event,
+          hasSession: !!session,
+          userId: session?.user?.id,
+        });
+
+        if (!session) {
+          const { data, error } = await supabase.auth.getSession();
+          console.info("[auth] session null getSession", {
+            error: error?.message || error,
+            hasSession: !!data?.session,
+          });
+        }
+
         // ✅ 狀態先更新，不要被 refreshUserRole 卡住
         setIsLoggedIn(!!session);
         setSessionChecked(true);
