@@ -1579,8 +1579,17 @@ const editPreviewImages = useMemo(() => {
             })()}
             </div>
             {isSavingEdit && (
-              <div className="text-sm text-slate-600 text-center py-2">
-                📤 上傳中… {uploadDoneCount}/{uploadTotalCount}
+              <div className="mb-3 px-1">
+                <div className="flex justify-between text-[10px] font-bold text-blue-600 mb-1">
+                  <span>圖片上傳中...</span>
+                  <span>{uploadDoneCount}/{uploadTotalCount}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                  <div
+                    className="bg-blue-600 h-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
               </div>
             )}
             <div className="flex gap-2 pt-3 mt-3 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
@@ -1759,10 +1768,13 @@ const editPreviewImages = useMemo(() => {
                   } finally {
                     savingEditRef.current = false;
                     setIsSavingEdit(false);
+                    setUploadProgress(0);
                   }
                 }}
               >
-                {isSavingEdit ? "儲存中…" : "確認儲存"}
+                {isSavingEdit
+                  ? `儲存中 ${uploadDoneCount}/${uploadTotalCount}`
+                  : "確認儲存"}
               </Button>
             </div>
           </div>

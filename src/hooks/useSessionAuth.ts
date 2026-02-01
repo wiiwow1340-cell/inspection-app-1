@@ -30,7 +30,7 @@ async function upsertLoginLockForCurrentUser() {
 async function isCurrentSessionStillValid(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) return false;
+  if (!session) return true; // token refresh/網路抖動期間視為不確定，避免誤踢
   const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
   if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
 
