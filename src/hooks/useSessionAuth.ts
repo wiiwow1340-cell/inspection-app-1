@@ -15,13 +15,16 @@ function getOrCreateLocalLoginSessionId() {
   return sid;
 }
 
-async function upsertLoginLockForCurrentUser() {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session) return;
+async function upsertLoginLockForCurrentUser(userId?: string) {
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    const { data } = await supabase.auth.getSession();
+    resolvedUserId = data.session?.user.id;
+  }
+  if (!resolvedUserId) return;
   const sid = getOrCreateLocalLoginSessionId();
   await supabase.from("user_login_lock").upsert({
-    user_id: session.user.id,
+    user_id: resolvedUserId,
     session_id: sid,
     updated_at: new Date().toISOString(),
   });
@@ -30,7 +33,7 @@ async function upsertLoginLockForCurrentUser() {
 async function isCurrentSessionStillValid(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) return false;
+  if (!session) return true;
   const sid = localStorage.getItem(SINGLE_LOGIN_LOCAL_KEY) || "";
   if (!sid) return true; // 沒有本機 sid 時先不擋（避免誤踢）
 
@@ -64,6 +67,7 @@ export function useSessionAuth({
 
   const kickedRef = useRef(false);
   const skipSingleLoginCheckRef = useRef(false);
+  const pollInFlightRef = useRef(false);
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
@@ -117,7 +121,7 @@ export function useSessionAuth({
 
     const email = `${trimmed}@local.com`;
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -126,7 +130,7 @@ export function useSessionAuth({
       return { ok: false, message: error.message || "登入失敗" };
     }
 
-    await upsertLoginLockForCurrentUser();
+    await upsertLoginLockForCurrentUser(data?.session?.user.id);
     setIdleLogoutMessage("");
     setIsLoggedIn(true);
     await logAudit("login");
@@ -227,9 +231,15 @@ export function useSessionAuth({
     kickedRef.current = false;
     const timer = window.setInterval(async () => {
       if (skipSingleLoginCheckRef.current) return;
-      const ok = await isCurrentSessionStillValid();
-      if (!ok) {
-        await handleKickedOut();
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        const ok = await isCurrentSessionStillValid();
+        if (!ok) {
+          await handleKickedOut();
+        }
+      } finally {
+        pollInFlightRef.current = false;
       }
     }, 3000);
 
