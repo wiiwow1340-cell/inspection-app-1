@@ -1753,6 +1753,7 @@ const editPreviewImages = useMemo(() => {
                     prev.map((rr) => (rr.id === updated.id ? updated : rr))
                   );
 
+                  alert("儲存成功");
                   setShowEditPreview(false);
                   setEditingReportId(null);
                   } finally {
