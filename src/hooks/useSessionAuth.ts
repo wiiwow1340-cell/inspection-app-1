@@ -66,17 +66,29 @@ export function useSessionAuth({
   const idleTimerRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
-  // ===== 權限判斷：Admin 白名單（可用 VITE_ADMIN_USERS 設定） =====
-  const computeIsAdmin = (u: string) => {
-    return u === "admin";
-  };
-
   const refreshUserRole = async () => {
     const { data } = await supabase.auth.getUser();
-    const email = data.user?.email || "";
+    const user = data.user;
+    const email = user?.email || "";
     const u = email.includes("@") ? email.split("@")[0] : "";
     setAuthUsername(u);
-    setIsAdmin(computeIsAdmin(u));
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (error) {
+      console.error("讀取 profiles.role 失敗：", error.message);
+      setIsAdmin(false);
+      return;
+    }
+
+    setIsAdmin(profile?.role === "admin");
   };
 
   const handleKickedOut = async () => {
