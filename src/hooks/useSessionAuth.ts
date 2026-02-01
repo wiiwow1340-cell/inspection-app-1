@@ -194,19 +194,27 @@ export function useSessionAuth({
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // ✅ 狀態先更新，不要被 refreshUserRole 卡住
-        setIsLoggedIn(!!session);
-        setSessionChecked(true);
-
         if (session) {
+          setIsLoggedIn(true);
+          setSessionChecked(true);
           setIdleLogoutMessage("");
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
-        } else {
-          setAuthUsername("");
-          setIsAdmin(false);
+          return;
         }
+
+        // session 為 null 時，不立刻判定登出
+        // 給 Supabase 一點時間完成 refresh
+        setTimeout(async () => {
+          const { data } = await supabase.auth.getSession();
+          if (!data.session) {
+            setIsLoggedIn(false);
+            setSessionChecked(true);
+            setAuthUsername("");
+            setIsAdmin(false);
+          }
+        }, 500);
       }
     );
 
