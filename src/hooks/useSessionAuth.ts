@@ -88,8 +88,7 @@ export function useSessionAuth({
     if (kickedRef.current) return;
     kickedRef.current = true;
     alert("此帳號已在其他裝置登入，系統將登出。");
-    // 不 await，避免卡住 UI（有時 signOut 會卡在網路或 SDK 狀態）
-    supabase.auth.signOut();
+    await supabase.auth.signOut();
     await onKickedCleanup();
     setIsLoggedIn(false);
     setAuthUsername("");
