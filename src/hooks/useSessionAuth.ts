@@ -30,6 +30,19 @@ async function isCurrentSessionStillValid(): Promise<boolean> {
   return lock.session_id === session.id;
 }
 
+async function waitForSession(
+  timeoutMs = 1500,
+  pollIntervalMs = 100
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return true;
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+  return false;
+}
+
 type UseSessionAuthOptions = {
   onLogoutCleanup: (options: { clearDraft: boolean }) => Promise<void>;
   onKickedCleanup: () => Promise<void>;
@@ -106,6 +119,11 @@ export function useSessionAuth({
       return { ok: false, message: error.message || "登入失敗" };
     }
 
+    const sessionReady = await waitForSession();
+    if (!sessionReady) {
+      await handleLogout({ clearDraft: false });
+      return { ok: false, message: "登入驗證失敗，請重新登入" };
+    }
     await upsertLoginLockForCurrentUser();
     const lockOk = await isCurrentSessionStillValid();
     if (!lockOk) {
