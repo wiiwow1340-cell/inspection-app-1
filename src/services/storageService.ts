@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient";
 
-// 將 Storage URL 轉為 signed URL（10 分鐘有效）
-// 將 Storage 路徑或 URL 轉為 signed URL（10 分鐘有效）
+// 將 Storage URL 轉為 signed URL（30 分鐘有效）
+// 將 Storage 路徑或 URL 轉為 signed URL（30 分鐘有效）
 // 支援兩種輸入：
 // 1) filePath: "PT/TC1288/PT-20260102002/item1.jpg"
 // 2) public URL: "https://xxx.supabase.co/storage/v1/object/public/photos/....jpg"
@@ -23,7 +23,7 @@ export async function getSignedImageUrl(input?: string): Promise<string> {
     // 情況 B：input 是 filePath（不含 http），bucket 預設 photos
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(path, 60 * 10); // 10 分鐘
+      .createSignedUrl(path, 60 * 30); // 30 分鐘
 
     if (error || !data?.signedUrl) {
       console.warn("signed url 失敗", error);
