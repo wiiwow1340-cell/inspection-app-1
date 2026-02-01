@@ -1,5 +1,6 @@
 import type { Report } from "../types";
 import { normalizeImagesMap } from "../utils/imageUtils";
+import { logAudit } from "./auditService";
 import { supabase } from "./supabaseClient";
 
 type DbWriteResult =
@@ -22,6 +23,8 @@ export async function saveReportToDB(report: Report): Promise<DbWriteResult> {
       code: anyErr?.code,
     };
   }
+
+  await logAudit("report_create", report.id);
   return { ok: true };
 }
 
@@ -57,6 +60,10 @@ export async function updateReportInDB(report: Report) {
       edited_by: report.edited_by,
     })
     .eq("id", report.id);
+
+  if (!error) {
+    await logAudit("report_update", report.id);
+  }
 
   return { error };
 }
