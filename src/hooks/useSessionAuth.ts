@@ -193,9 +193,13 @@ export function useSessionAuth({
     initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         // ✅ 狀態先更新，不要被 refreshUserRole 卡住
-        setIsLoggedIn(!!session);
+        if (session) {
+          setIsLoggedIn(true);
+        } else if (event === "SIGNED_OUT") {
+          setIsLoggedIn(false);
+        }
         setSessionChecked(true);
 
         if (session) {
@@ -203,7 +207,7 @@ export function useSessionAuth({
           refreshUserRole().catch((e) => {
             console.error("refreshUserRole 失敗：", e);
           });
-        } else {
+        } else if (event === "SIGNED_OUT") {
           setAuthUsername("");
           setIsAdmin(false);
         }
