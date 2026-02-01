@@ -12,25 +12,41 @@ export async function logAudit(
   meta?: Record<string, unknown> | null
 ) {
   try {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error("取得使用者失敗：", error.message);
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession();
+    if (sessionError) {
+      console.error("[audit] getSession failed", sessionError);
       return;
     }
-    const userId = data.user?.id;
-    if (!userId) return;
+
+    if (!sessionData.session) {
+      console.error("[audit] skipped – no auth session");
+      return;
+    }
+
+    const userId = sessionData.session.user?.id;
+    if (!userId) {
+      console.error("[audit] skipped – no auth session");
+      return;
+    }
+
+    const payload = {
+      ...(meta ?? {}),
+      user_id: userId,
+    };
 
     const { error: insertError } = await supabase.from("audit_logs").insert({
       user_id: userId,
       action,
       report_id: reportId ?? null,
-      meta: meta ?? null,
+      payload,
     });
 
     if (insertError) {
-      console.error("寫入 audit_logs 失敗：", insertError.message);
+      console.error("[audit] insert failed", insertError);
+      return;
     }
   } catch (err) {
-    console.error("寫入 audit_logs 例外：", err);
+    console.error("[audit] unexpected error", err);
   }
 }
