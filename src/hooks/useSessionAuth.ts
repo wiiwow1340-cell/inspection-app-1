@@ -81,8 +81,6 @@ export function useSessionAuth({
   };
 
   const handleKickedOut = async () => {
-    console.error("🔥 handleKickedOut CALLED");
-    console.trace();          // <<< 加這行
     if (kickedRef.current) return;
     kickedRef.current = true;
     alert("此帳號已在其他裝置登入，系統將登出。");
