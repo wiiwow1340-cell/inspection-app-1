@@ -89,10 +89,10 @@ export function useSessionAuth({
     kickedRef.current = true;
     await supabase.auth.signOut();
     await onKickedCleanup();
-    alert("此帳號已在其他裝置登入，系統將登出。");
     setIsLoggedIn(false);
     setAuthUsername("");
     setIsAdmin(false);
+    setIdleLogoutMessage("此帳號已在其他裝置登入，系統已登出");
   };
 
   const handleLogout = async (options?: { clearDraft?: boolean }) => {
