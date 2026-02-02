@@ -590,9 +590,14 @@ const editPreviewImages = useMemo(() => {
     const d = new Date();
     const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
     const procCode = selectedProcObj.code;
-    const todayCount =
-      reports.filter((r) => r.id?.startsWith(`${procCode}-${ymd}`)).length + 1;
-    const seq = String(todayCount).padStart(3, "0");
+    const prefix = `${procCode}-${ymd}`;
+    const todaySeqs = reports
+      .map((r) => r.id)
+      .filter((rid): rid is string => !!rid && rid.startsWith(prefix))
+      .map((rid) => Number(rid.slice(-3)))
+      .filter((n) => Number.isFinite(n));
+    const next = todaySeqs.length > 0 ? Math.max(...todaySeqs) + 1 : 1;
+    const seq = String(next).padStart(3, "0");
     const id = `${procCode}-${ymd}${seq}`;
 
     pauseSingleLoginValidation();
