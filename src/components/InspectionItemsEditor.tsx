@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 type ButtonComponent = React.ComponentType<
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -21,6 +21,7 @@ type Props = {
   onSetNA: (item: string) => void;
   onClearNA: (item: string) => void;
   onCapture: (item: string, files: FileList | File[] | undefined) => void;
+  onClearNewPhotos?: (item: string) => void;
   inputIdPrefix: string;
   getExistingCount?: (item: string) => number;
   getNewCount?: (item: string) => number;
@@ -36,6 +37,7 @@ const InspectionItemsEditor: React.FC<Props> = ({
   onSetNA,
   onClearNA,
   onCapture,
+  onClearNewPhotos,
   inputIdPrefix,
   getExistingCount,
   getNewCount,
@@ -43,6 +45,24 @@ const InspectionItemsEditor: React.FC<Props> = ({
   Button,
   StatusIcon,
 }) => {
+  const [menuItem, setMenuItem] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuItem) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuItem(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [menuItem]);
+
   const resolveNewCount = (item: string) =>
     getNewCount ? getNewCount(item) : images[item]?.length || 0;
   const resolveExistingCount = (item: string) =>
@@ -67,6 +87,7 @@ const InspectionItemsEditor: React.FC<Props> = ({
           : "text-slate-400";
         const captureId = `${inputIdPrefix}-capture-${idx}`;
         const uploadId = `${inputIdPrefix}-upload-${idx}`;
+        const isMenuOpen = menuItem === item;
 
         return (
           <div
@@ -80,22 +101,60 @@ const InspectionItemsEditor: React.FC<Props> = ({
                 {total}
               </span>
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={(event) => {
-                  onActionClick?.(event);
-                  (document.getElementById(captureId) as HTMLInputElement)?.click();
-                }}
-              >
-                拍照
-              </Button>
+              <div className="relative" ref={isMenuOpen ? menuRef : null}>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={(event) => {
+                    onActionClick?.(event);
+                    if (newCount > 0 && onClearNewPhotos) {
+                      setMenuItem((prev) => (prev === item ? null : item));
+                      return;
+                    }
+                    setMenuItem(null);
+                    (document.getElementById(captureId) as HTMLInputElement)?.click();
+                  }}
+                >
+                  拍照
+                </Button>
+
+                {isMenuOpen && (
+                  <div
+                    className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuItem(null);
+                        (document.getElementById(captureId) as HTMLInputElement)?.click();
+                      }}
+                    >
+                      拍照
+                    </button>
+                    <button
+                      type="button"
+                      className="block w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuItem(null);
+                        onClearNewPhotos?.(item);
+                      }}
+                    >
+                      刪除本次照片
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <Button
                 type="button"
                 size="sm"
                 onClick={(event) => {
                   onActionClick?.(event);
+                  setMenuItem(null);
                   (document.getElementById(uploadId) as HTMLInputElement)?.click();
                 }}
               >
@@ -107,6 +166,7 @@ const InspectionItemsEditor: React.FC<Props> = ({
                 className={`w-8 h-8 inline-flex items-center justify-center ${statusColor}`}
                 onClick={(event) => {
                   onActionClick?.(event);
+                  setMenuItem(null);
                   if (isNA) {
                     onClearNA(item);
                   } else {
