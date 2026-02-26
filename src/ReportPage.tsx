@@ -50,6 +50,7 @@ type Props = {
   editNA: Record<string, boolean>;
   setEditNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   handleEditCapture: (item: string, files?: FileList | File[]) => void;
+  clearEditItemPhotos: (item: string) => void;
 
   setEditPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowEditPreview: React.Dispatch<React.SetStateAction<boolean>>;
@@ -119,6 +120,7 @@ const ReportPage: React.FC<Props> = ({
   editNA,
   setEditNA,
   handleEditCapture,
+  clearEditItemPhotos,
 
   setEditPreviewIndex,
   setShowEditPreview,
@@ -480,6 +482,7 @@ const ReportPage: React.FC<Props> = ({
                                 })
                               }
                               onCapture={handleEditCapture}
+                              onClearNewPhotos={clearEditItemPhotos}
                               inputIdPrefix={`edit-${r.id}`}
                               getExistingCount={(item) =>
                                 Array.isArray(r.images[item])
@@ -643,6 +646,7 @@ const ReportPage: React.FC<Props> = ({
                             })
                           }
                           onCapture={handleEditCapture}
+                          onClearNewPhotos={clearEditItemPhotos}
                           inputIdPrefix={`edit-${r.id}`}
                           getExistingCount={(item) =>
                             Array.isArray(r.images[item])

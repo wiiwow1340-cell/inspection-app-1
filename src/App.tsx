@@ -513,6 +513,30 @@ const editPreviewImages = useMemo(() => {
     });
   };
 
+  const clearNewItemPhotos = (item: string) => {
+    setImages((prev) => {
+      const current = prev[item] || [];
+      current.forEach((url) => {
+        if (typeof url === "string" && url.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            // ignore
+          }
+        }
+      });
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+
+    setNewImageFiles((prev) => {
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+  };
+
   // ===== 拍照 / 上傳：報告編輯（Reports - Edit mode） =====
   const handleEditCapture = (
     item: string,
@@ -544,6 +568,30 @@ const editPreviewImages = useMemo(() => {
     // 若這個項目之前被標 N/A，使用者重新拍照時，視為取消 N/A
     setEditNA((prev) => {
       if (!prev[item]) return prev;
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+  };
+
+  const clearEditItemPhotos = (item: string) => {
+    setEditImages((prev) => {
+      const current = prev[item] || [];
+      current.forEach((url) => {
+        if (typeof url === "string" && url.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            // ignore
+          }
+        }
+      });
+      const next = { ...prev };
+      delete next[item];
+      return next;
+    });
+
+    setEditImageFiles((prev) => {
       const next = { ...prev };
       delete next[item];
       return next;
@@ -1269,6 +1317,7 @@ const editPreviewImages = useMemo(() => {
           homeNA={homeNA}
           setHomeNA={setHomeNA}
           handleCapture={handleCapture}
+          clearNewItemPhotos={clearNewItemPhotos}
           resetNewReportState={resetNewReportState}
           setPreviewIndex={setPreviewIndex}
           setShowPreview={setShowPreview}
@@ -1310,6 +1359,7 @@ const editPreviewImages = useMemo(() => {
           editNA={editNA}
           setEditNA={setEditNA}
           handleEditCapture={handleEditCapture}
+          clearEditItemPhotos={clearEditItemPhotos}
           setEditPreviewIndex={setEditPreviewIndex}
           setShowEditPreview={setShowEditPreview}
           NA_SENTINEL={NA_SENTINEL}
