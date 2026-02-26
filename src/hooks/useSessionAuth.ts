@@ -236,7 +236,7 @@ export function useSessionAuth({
     return () => window.clearInterval(timer);
   }, [isLoggedIn]);
 
-  // ===== 閒置自動登出（5 分鐘無操作） =====
+  // ===== 閒置自動登出（15 分鐘無操作） =====
   useEffect(() => {
     if (!isLoggedIn) {
       if (idleTimerRef.current) {
@@ -246,7 +246,7 @@ export function useSessionAuth({
       return;
     }
 
-    const idleTimeoutMs = 5 * 60 * 1000;
+    const idleTimeoutMs = 15 * 60 * 1000;
     const events = [
       "mousemove",
       "mousedown",
