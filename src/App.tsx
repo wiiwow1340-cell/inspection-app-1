@@ -1471,21 +1471,23 @@ const editPreviewImages = useMemo(() => {
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{currentItem}</p>
 
-                  {homeNA[currentItem] ? (
-                    <p className="text-slate-600 text-sm">N/A（不適用）</p>
-                  ) : currentImgs.length > 0 ? (
-                    <div className="grid gap-2">
-                      {currentImgs.map((img, imgIndex) => (
-                        <img
-                          key={`${currentItem}-${imgIndex}`}
-                          src={img}
-                          className="w-full max-h-[50vh] object-contain rounded border"
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-red-500 text-sm">尚未拍攝</p>
-                  )}
+                  <div className="min-h-[50vh] flex items-center justify-center">
+                    {homeNA[currentItem] ? (
+                      <p className="text-slate-600 text-sm">N/A（不適用）</p>
+                    ) : currentImgs.length > 0 ? (
+                      <div className="grid gap-2 w-full max-h-[50vh] overflow-y-auto">
+                        {currentImgs.map((img, imgIndex) => (
+                          <img
+                            key={`${currentItem}-${imgIndex}`}
+                            src={img}
+                            className="w-full max-h-[50vh] object-contain rounded border"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-red-500 text-sm">尚未拍攝</p>
+                    )}
+                  </div>
 
                   <div className="flex justify-between pt-2">
                     <Button
@@ -1593,21 +1595,23 @@ const editPreviewImages = useMemo(() => {
               return (
                 <div className="space-y-2 text-center">
                   <p className="font-medium">{item}</p>
-                  {editNA[item] ? (
-                    <p className="text-slate-600 text-sm">N/A（不適用）</p>
-                  ) : editPreviewImages.length > 0 ? (
-                    <div className="grid gap-2">
-                      {editPreviewImages.map((img, imgIndex) => (
-                        <img
-                          key={`${item}-${imgIndex}`}
-                          src={img}
-                          className="w-full max-h-[50vh] object-contain rounded border"
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-red-500">尚未拍攝</p>
-                  )}
+                  <div className="min-h-[50vh] flex items-center justify-center">
+                    {editNA[item] ? (
+                      <p className="text-slate-600 text-sm">N/A（不適用）</p>
+                    ) : editPreviewImages.length > 0 ? (
+                      <div className="grid gap-2 w-full max-h-[50vh] overflow-y-auto">
+                        {editPreviewImages.map((img, imgIndex) => (
+                          <img
+                            key={`${item}-${imgIndex}`}
+                            src={img}
+                            className="w-full max-h-[50vh] object-contain rounded border"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-red-500">尚未拍攝</p>
+                    )}
+                  </div>
 
 
 
