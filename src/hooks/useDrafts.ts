@@ -312,16 +312,9 @@ export function useDrafts({
     }
 
     if (page === "reports") {
+      // 「查詢報告」屬於瀏覽行為，不應觸發「回復工作」提示。
+      // 僅在實際進入編輯或有編輯內容時才保存 reports 草稿。
       const hasAnything =
-        selectedProcessFilter ||
-        selectedModelFilter ||
-        selectedStatusFilter ||
-        reportHasQueried ||
-        expandedReportId ||
-        pcSelectedKey ||
-        queryFilters.process ||
-        queryFilters.model ||
-        queryFilters.status ||
         editingReportId ||
         Object.values(editImageFiles).some((files) => files.length > 0) ||
         Object.keys(editNA).length > 0;
