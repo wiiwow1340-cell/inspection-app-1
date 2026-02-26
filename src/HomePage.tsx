@@ -45,6 +45,7 @@ type HomePageProps = {
   homeNA: Record<string, boolean>;
   setHomeNA: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   handleCapture: (item: string, files: FileList | File[] | undefined) => void;
+  clearNewItemPhotos: (item: string) => void;
   resetNewReportState: (shouldResetSerial?: boolean) => Promise<void>;
   setPreviewIndex: React.Dispatch<React.SetStateAction<number>>;
   setShowPreview: React.Dispatch<React.SetStateAction<boolean>>;
@@ -73,6 +74,7 @@ export default function HomePage({
   homeNA,
   setHomeNA,
   handleCapture,
+  clearNewItemPhotos,
   resetNewReportState,
   setPreviewIndex,
   setShowPreview,
@@ -213,6 +215,7 @@ export default function HomePage({
               })
             }
             onCapture={handleCapture}
+            onClearNewPhotos={clearNewItemPhotos}
             inputIdPrefix="home"
             Button={Button}
             StatusIcon={StatusIcon}
