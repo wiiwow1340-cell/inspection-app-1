@@ -261,7 +261,7 @@ export function useSessionAuth({
     ];
 
     const triggerIdleLogout = () => {
-      setIdleLogoutMessage("因閒置超過 5 分鐘，已自動登出");
+      setIdleLogoutMessage("因閒置超過 15 分鐘，已自動登出");
       void handleLogout({ clearDraft: false });
     };
 
